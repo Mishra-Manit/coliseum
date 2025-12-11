@@ -1,0 +1,141 @@
+"""
+Main FastAPI application entry point for Coliseum.
+
+This is the core application file that:
+- Initializes FastAPI with lifespan management
+- Configures CORS for frontend integration
+- Sets up Logfire observability
+- Provides health check endpoints
+- Includes API routers
+"""
+
+from contextlib import asynccontextmanager
+from typing import Dict
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+import logfire
+
+from config import settings
+from database import check_db_connection, get_db_info
+from observability.logfire_config import LogfireConfig
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Application lifespan manager.
+    Handles startup and shutdown events.
+    """
+    # Initialize Logfire first so we can use structured logging
+    LogfireConfig.initialize(token=settings.logfire_token)
+
+    # Startup logging
+    logfire.info(
+        "Starting Coliseum API Server",
+        environment=settings.environment,
+        debug=settings.debug,
+    )
+
+    # Check database connection on startup
+    db_info = get_db_info()
+    if db_info['status'] == 'connected':
+        logfire.info(
+            "Database connection successful",
+            url=db_info['url'],
+            status=db_info['status'],
+        )
+    else:
+        logfire.error(
+            "Database connection failed",
+            url=db_info['url'],
+            status=db_info['status'],
+        )
+
+    logfire.info("Coliseum API Server startup complete")
+
+    yield
+
+    # Shutdown
+    logfire.info("Shutting down Coliseum API Server")
+
+
+# Initialize FastAPI app
+app = FastAPI(
+    title="Coliseum API",
+    description="Backend API for Coliseum - AI Prediction Market Arena",
+    version="0.1.0",
+    lifespan=lifespan,
+    debug=settings.debug,
+)
+
+# Configure CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.allowed_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+# ============================================================================
+# Health Check Endpoints
+# ============================================================================
+
+@app.get("/health", tags=["Health"])
+async def health_check() -> Dict[str, str]:
+    """
+    Health check endpoint for load balancers and monitoring.
+
+    Returns:
+        dict: Health status of the application and database
+    """
+    db_connected = check_db_connection()
+
+    return {
+        "status": "healthy" if db_connected else "degraded",
+        "service": "coliseum-api",
+        "version": "0.1.0",
+        "database": "connected" if db_connected else "disconnected",
+        "environment": settings.environment,
+    }
+
+
+@app.get("/", tags=["Root"])
+async def root() -> Dict[str, str]:
+    """
+    Root endpoint - API information.
+
+    Returns:
+        dict: Basic API information
+    """
+    return {
+        "name": "Coliseum API",
+        "version": "0.1.0",
+        "description": "Backend API for AI Prediction Market Arena",
+        "docs": "/docs",
+        "health": "/health",
+    }
+
+
+# ============================================================================
+# API Routers
+# ============================================================================
+
+# Future routers will be included here:
+# from api.routes import predictions_router, markets_router
+# app.include_router(predictions_router)
+# app.include_router(markets_router)
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run(
+        "main:app",
+        host=settings.host,
+        port=settings.port,
+        reload=settings.is_development,
+        log_level=settings.log_level.lower(),
+    )
