@@ -123,10 +123,22 @@ async def root() -> Dict[str, str]:
 # API Routers
 # ============================================================================
 
-# Future routers will be included here:
-# from api.routes import predictions_router, markets_router
-# app.include_router(predictions_router)
-# app.include_router(markets_router)
+from api.routes import (
+    admin_router,
+    events_router,
+    leaderboard_router,
+    models_router,
+    sessions_router,
+    websocket_router,
+)
+
+# Include all API routers
+app.include_router(events_router)
+app.include_router(models_router)
+app.include_router(sessions_router)
+app.include_router(leaderboard_router)
+app.include_router(admin_router)
+app.include_router(websocket_router)
 
 
 if __name__ == "__main__":

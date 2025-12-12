@@ -52,6 +52,34 @@ class Settings(BaseSettings):
         ...,
         description="OpenRouter API key for LLM access"
     )
+    perplexity_api_key: str = Field(
+        default="",
+        description="Perplexity API key for web search"
+    )
+
+    # AI Model Configuration
+    ai_initial_balance: float = Field(
+        default=100000.0,
+        description="Initial balance for AI models"
+    )
+    ai_max_bet_percentage: float = Field(
+        default=0.10,
+        description="Maximum bet as percentage of balance"
+    )
+    ai_min_bet_amount: float = Field(
+        default=100.0,
+        description="Minimum bet amount"
+    )
+
+    # WebSocket Configuration
+    ws_heartbeat_interval: int = Field(
+        default=30,
+        description="WebSocket heartbeat interval in seconds"
+    )
+    ws_max_connections: int = Field(
+        default=1000,
+        description="Maximum WebSocket connections"
+    )
 
     # Logging
     log_level: str = Field(default="INFO", description="Logging level")

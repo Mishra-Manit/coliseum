@@ -27,7 +27,12 @@ celery_app = Celery(
     "coliseum",
     broker=redis_settings.broker_url,
     backend=redis_settings.result_backend,
-    include=[],  # Task modules will be added here as they're created
+    include=[
+        "tasks.event_tasks",
+        "tasks.settlement_tasks",
+        "tasks.price_tasks",
+        "tasks.maintenance_tasks",
+    ],
 )
 
 # Celery configuration
@@ -45,9 +50,27 @@ celery_app.conf.update(
     result_expires=3600,
     result_extended=True,
 
-    # Task routing (add specific routes as tasks are created)
+    # Task routing
     task_routes={
-        # Example: "tasks.prediction_tasks.analyze_market": {"queue": "predictions"}
+        # Event tasks
+        "tasks.select_daily_events": {"queue": "events"},
+        "tasks.activate_event": {"queue": "events"},
+        "tasks.check_and_close_events": {"queue": "events"},
+        "tasks.launch_betting_sessions": {"queue": "events"},
+        # AI tasks (summary, betting)
+        "tasks.generate_event_summary": {"queue": "ai"},
+        "tasks.run_betting_session": {"queue": "ai"},
+        # Settlement tasks
+        "tasks.check_settlements": {"queue": "settlements"},
+        "tasks.settle_event": {"queue": "settlements"},
+        # Price tasks
+        "tasks.update_prices": {"queue": "prices"},
+        "tasks.record_price_history": {"queue": "prices"},
+        # Maintenance tasks
+        "tasks.update_leaderboard": {"queue": "maintenance"},
+        "tasks.simulate_viewers": {"queue": "maintenance"},
+        "tasks.cleanup_old_data": {"queue": "maintenance"},
+        "tasks.initialize_models": {"queue": "maintenance"},
     },
 
     # Worker configuration
@@ -68,6 +91,53 @@ celery_app.conf.update(
     worker_send_task_events=True,
     task_send_sent_event=True,
 )
+
+# Celery Beat schedule for periodic tasks
+from celery.schedules import crontab
+
+celery_app.conf.beat_schedule = {
+    # Daily event selection at midnight UTC
+    "select-daily-events": {
+        "task": "tasks.select_daily_events",
+        "schedule": crontab(hour=0, minute=0),
+        "args": (5,),  # Select 5 events
+    },
+    # Check and close expired events every minute
+    "check-close-events": {
+        "task": "tasks.check_and_close_events",
+        "schedule": 60.0,  # Every minute
+    },
+    # Check for settlements every 5 minutes
+    "check-settlements": {
+        "task": "tasks.check_settlements",
+        "schedule": 300.0,  # Every 5 minutes
+    },
+    # Update prices every 30 seconds
+    "update-prices": {
+        "task": "tasks.update_prices",
+        "schedule": 30.0,
+    },
+    # Record price history every 5 minutes
+    "record-price-history": {
+        "task": "tasks.record_price_history",
+        "schedule": 300.0,
+    },
+    # Update leaderboard hourly
+    "update-leaderboard": {
+        "task": "tasks.update_leaderboard",
+        "schedule": crontab(minute=0),  # Every hour
+    },
+    # Simulate viewers every 10 seconds
+    "simulate-viewers": {
+        "task": "tasks.simulate_viewers",
+        "schedule": 10.0,
+    },
+    # Cleanup old data daily at 3 AM UTC
+    "cleanup-old-data": {
+        "task": "tasks.cleanup_old_data",
+        "schedule": crontab(hour=3, minute=0),
+    },
+}
 
 
 @worker_process_init.connect
