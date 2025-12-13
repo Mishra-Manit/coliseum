@@ -1,6 +1,6 @@
 """Event Summary database model."""
 
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text, func
+from sqlalchemy import Column, DateTime, ForeignKey, String, Text, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import relationship
 
@@ -24,8 +24,6 @@ class EventSummary(Base, UUIDMixin):
 
     # Summary content
     summary_text = Column(Text, nullable=False)
-    key_factors = Column(JSONB, nullable=False, default=list)
-    recent_news = Column(JSONB, nullable=False, default=list)
     relevant_data = Column(JSONB, nullable=False, default=dict)
 
     # Search metadata
@@ -34,7 +32,6 @@ class EventSummary(Base, UUIDMixin):
 
     # Agent metadata
     agent_model = Column(String(200), nullable=True)
-    generation_time_ms = Column(Integer, nullable=True)
 
     # Timestamp
     created_at = Column(

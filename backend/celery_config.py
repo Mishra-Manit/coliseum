@@ -65,7 +65,6 @@ celery_app.conf.update(
         "tasks.settle_event": {"queue": "settlements"},
         # Price tasks
         "tasks.update_prices": {"queue": "prices"},
-        "tasks.record_price_history": {"queue": "prices"},
         # Maintenance tasks
         "tasks.update_leaderboard": {"queue": "maintenance"},
         "tasks.simulate_viewers": {"queue": "maintenance"},
@@ -116,11 +115,6 @@ celery_app.conf.beat_schedule = {
     "update-prices": {
         "task": "tasks.update_prices",
         "schedule": 30.0,
-    },
-    # Record price history every 5 minutes
-    "record-price-history": {
-        "task": "tasks.record_price_history",
-        "schedule": 300.0,
     },
     # Update leaderboard hourly
     "update-leaderboard": {

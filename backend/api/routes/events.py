@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from database.dependencies import get_db
-from models import Event, PriceHistory
+from models import Event
 from schemas import (
     EventBriefResponse,
     EventDetailResponse,
@@ -18,7 +18,6 @@ from schemas import (
     EventStatus,
     EventSummaryResponse,
     ModelPositionResponse,
-    PriceHistoryResponse,
 )
 from services import bet_service, event_service
 
@@ -152,31 +151,3 @@ async def get_event_sessions(event_id: UUID, db: AsyncSession = Depends(get_db))
         }
         for session in sessions
     ]
-
-
-@router.get("/{event_id}/price-history", response_model=list[PriceHistoryResponse])
-async def get_price_history(
-    event_id: UUID,
-    period: str = Query("1d", pattern="^(1h|1d|1w)$"),
-    db: AsyncSession = Depends(get_db),
-):
-    """Get historical price data for an event."""
-    from datetime import timedelta
-
-    now = datetime.utcnow()
-    if period == "1h":
-        start = now - timedelta(hours=1)
-    elif period == "1d":
-        start = now - timedelta(days=1)
-    else:  # 1w
-        start = now - timedelta(weeks=1)
-
-    result = await db.execute(
-        select(PriceHistory)
-        .where(PriceHistory.event_id == event_id)
-        .where(PriceHistory.recorded_at >= start)
-        .order_by(PriceHistory.recorded_at)
-    )
-    history = list(result.scalars().all())
-
-    return [PriceHistoryResponse.model_validate(h) for h in history]

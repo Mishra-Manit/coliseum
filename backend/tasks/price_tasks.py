@@ -54,37 +54,3 @@ def update_prices():
             }
 
     return asyncio.run(_update())
-
-
-@celery_app.task(name="tasks.record_price_history", queue="prices")
-def record_price_history():
-    """
-    Scheduled: Every 5 minutes
-
-    Records current prices to price_history table.
-    """
-    import asyncio
-    from models import PriceHistory
-    from services.event_service import event_service
-
-    async def _record():
-        async with get_db_session() as db:
-            events = await event_service.get_active_events(db)
-
-            recorded = 0
-            for event in events:
-                price_record = PriceHistory(
-                    event_id=event.id,
-                    price=event.current_price,
-                    source="kalshi",
-                )
-                db.add(price_record)
-                recorded += 1
-
-            await db.commit()
-
-            return {
-                "prices_recorded": recorded,
-            }
-
-    return asyncio.run(_record())

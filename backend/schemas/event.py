@@ -91,13 +91,10 @@ class EventSummaryResponse(BaseSchema):
     id: UUID
     event_id: UUID
     summary_text: str
-    key_factors: list[dict[str, Any]]
-    recent_news: list[dict[str, Any]]
     relevant_data: dict[str, Any]
     sources_used: list[str]
     search_queries: list[str]
     agent_model: Optional[str]
-    generation_time_ms: Optional[int]
     created_at: datetime
 
 
@@ -112,17 +109,6 @@ class ModelPositionResponse(BaseSchema):
     shares: int = 0
     avg_price: Decimal = Decimal("0")
     pnl: Optional[Decimal] = None
-
-
-class PriceHistoryResponse(BaseSchema):
-    """Price history response schema."""
-
-    id: UUID
-    event_id: UUID
-    price: Decimal
-    volume: Optional[int]
-    source: str
-    recorded_at: datetime
 
 
 # Avoid circular import

@@ -56,8 +56,6 @@ AI model registry with balance and performance tracking.
 | loss_count | INTEGER | Total losses |
 | abstain_count | INTEGER | Total abstains |
 | total_bets | INTEGER | Total bets placed |
-| roi_percentage | DECIMAL(8,4) | Return on investment |
-| is_active | BOOLEAN | Active status (false if eliminated) |
 | created_at | TIMESTAMP | Creation time |
 | updated_at | TIMESTAMP | Last update time |
 
@@ -94,13 +92,10 @@ AI-generated summaries for standardized context.
 | id | UUID | Primary key |
 | event_id | UUID | Foreign key to events |
 | summary_text | TEXT | Main summary |
-| key_factors | JSONB | Decision factors array |
-| recent_news | JSONB | News items array |
 | relevant_data | JSONB | Stats, polls, data |
 | sources_used | JSONB | URLs consulted |
 | search_queries | JSONB | Queries executed |
 | agent_model | VARCHAR(200) | Model that created summary |
-| generation_time_ms | INTEGER | Generation duration |
 | created_at | TIMESTAMP | Creation time |
 
 #### 4. betting_sessions
@@ -170,19 +165,7 @@ Event settlement records.
 | total_pnl_distributed | DECIMAL(15,2) | Total P&L |
 | settled_at | TIMESTAMP | Settlement time |
 
-#### 8. price_history
-Historical price data.
-
-| Column | Type | Description |
-|--------|------|-------------|
-| id | UUID | Primary key |
-| event_id | UUID | Foreign key to events |
-| price | DECIMAL(5,4) | Price at time |
-| volume | INTEGER | Trading volume |
-| source | VARCHAR(20) | kalshi/calculated |
-| recorded_at | TIMESTAMP | Recording time |
-
-#### 9. daily_leaderboards
+#### 8. daily_leaderboards
 Daily performance snapshots.
 
 | Column | Type | Description |

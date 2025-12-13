@@ -79,22 +79,14 @@ def cleanup_old_data():
     """
     Scheduled: Daily at 03:00 UTC
 
-    Archives old sessions, compresses price history.
+    Archives old session messages.
     """
     import asyncio
     from sqlalchemy import delete
-    from models import PriceHistory, SessionMessage
+    from models import SessionMessage
 
     async def _cleanup():
         async with get_db_session() as db:
-            # Delete price history older than 30 days
-            cutoff = datetime.now(timezone.utc) - timedelta(days=30)
-
-            result = await db.execute(
-                delete(PriceHistory).where(PriceHistory.recorded_at < cutoff)
-            )
-            price_records_deleted = result.rowcount
-
             # Delete session messages older than 7 days (keep summaries in sessions)
             message_cutoff = datetime.now(timezone.utc) - timedelta(days=7)
 
@@ -106,9 +98,8 @@ def cleanup_old_data():
             await db.commit()
 
             return {
-                "price_records_deleted": price_records_deleted,
                 "session_messages_deleted": messages_deleted,
-                "cutoff_date": cutoff.isoformat(),
+                "cutoff_date": message_cutoff.isoformat(),
             }
 
     return asyncio.run(_cleanup())

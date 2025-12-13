@@ -84,12 +84,6 @@ class Event(Base, UUIDMixin, TimestampMixin):
         uselist=False,
         cascade="all, delete-orphan",
     )
-    price_history = relationship(
-        "PriceHistory",
-        back_populates="event",
-        lazy="dynamic",
-        cascade="all, delete-orphan",
-    )
 
     # Constraints
     __table_args__ = (

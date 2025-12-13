@@ -31,48 +31,75 @@ class KalshiService:
         )
 
     async def close(self):
-        """Close the HTTP client."""
         await self.client.aclose()
 
-    async def get_events_closing_today(self) -> list[dict[str, Any]]:
-        """
-        Fetch events from Kalshi where betting closes today.
-        Filters for markets with status='open' and close_time within 24 hours.
-        """
-        now = datetime.now(timezone.utc)
-        end_of_day = now.replace(hour=23, minute=59, second=59)
+    # Known series with daily/short-term markets
+    DAILY_SERIES = [
+        "KXHIGHNY",   # NYC High Temperature (daily)
+        "KXBTC",      # Bitcoin Price (multiple per day)
+        "KXINXD",     # S&P 500 Daily
+        "KXCPI",      # CPI Inflation (monthly)
+        "KXFED",      # Fed Rate Decision
+        "KXGDP",      # GDP
+        "KXNFP",      # Non-Farm Payrolls
+    ]
 
+    async def get_markets_by_series(
+        self, series_ticker: str, status: str = "open", limit: int = 100
+    ) -> list[dict[str, Any]]:
+        """Fetch markets for a specific series."""
         try:
             response = await self.client.get(
                 "/markets",
                 params={
-                    "status": "open",
-                    "limit": 200,
+                    "series_ticker": series_ticker,
+                    "status": status,
+                    "limit": limit,
                 },
             )
             response.raise_for_status()
-            data = response.json()
+            return response.json().get("markets", [])
+        except httpx.HTTPError as e:
+            logger.error(f"Error fetching markets for series {series_ticker}: {e}")
+            return []
 
-            markets = data.get("markets", [])
-            closing_today = []
+    async def get_events_closing_today(self) -> list[dict[str, Any]]:
+        """
+        Fetch events from Kalshi where betting closes within 24 hours.
+        Queries known daily series to find short-term markets.
+        """
+        now = datetime.now(timezone.utc)
+        end_window = now + timedelta(hours=24)
 
-            for market in markets:
-                close_time_str = market.get("close_time")
-                if not close_time_str:
+        closing_today = []
+
+        try:
+            # Query each daily series for short-term markets
+            for series_ticker in self.DAILY_SERIES:
+                try:
+                    markets = await self.get_markets_by_series(series_ticker)
+                    for market in markets:
+                        close_time_str = market.get("close_time")
+                        if not close_time_str:
+                            continue
+
+                        close_time = datetime.fromisoformat(
+                            close_time_str.replace("Z", "+00:00")
+                        )
+
+                        # Check if closing within 24 hours
+                        if now <= close_time <= end_window:
+                            closing_today.append(market)
+                except httpx.HTTPError:
+                    # Continue with other series if one fails
                     continue
 
-                close_time = datetime.fromisoformat(
-                    close_time_str.replace("Z", "+00:00")
-                )
-
-                # Check if closing within 24 hours
-                if now <= close_time <= end_of_day + timedelta(hours=24):
-                    closing_today.append(market)
-
+            # Sort by close time
+            closing_today.sort(key=lambda m: m.get("close_time", ""))
             logger.info(f"Found {len(closing_today)} events closing today")
             return closing_today
 
-        except httpx.HTTPError as e:
+        except Exception as e:
             logger.error(f"Error fetching events from Kalshi: {e}")
             return []
 

@@ -50,7 +50,6 @@ from schemas.event import (
     EventStatus,
     EventSummaryResponse,
     ModelPositionResponse,
-    PriceHistoryResponse,
 )
 from schemas.websocket import (
     WSBetMessage,
@@ -88,7 +87,6 @@ __all__ = [
     "EventStatus",
     "EventSummaryResponse",
     "ModelPositionResponse",
-    "PriceHistoryResponse",
     # Betting Session
     "BettingSessionBase",
     "BettingSessionDetailResponse",

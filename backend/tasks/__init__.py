@@ -14,7 +14,6 @@ from tasks.settlement_tasks import (
 )
 from tasks.price_tasks import (
     update_prices,
-    record_price_history,
 )
 from tasks.maintenance_tasks import (
     update_leaderboard,
@@ -36,7 +35,6 @@ __all__ = [
     "settle_event",
     # Price tasks
     "update_prices",
-    "record_price_history",
     # Maintenance tasks
     "update_leaderboard",
     "simulate_viewers",
