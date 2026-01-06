@@ -1,53 +1,35 @@
 """
-FastAPI dependency injection for database sessions.
-Provides database session dependencies for API endpoints.
+FastAPI dependency injection for database access.
+
+With Beanie ODM, models are accessed directly through the Document classes
+rather than through a session dependency. This module provides optional
+utilities for dependency injection patterns.
 """
 
-from typing import AsyncGenerator, Generator
+from typing import AsyncGenerator
 
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import Session
+from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 
-from database.base import SessionLocal
-from database.session import _get_async_session_factory
+from config import settings
+from database.connection import get_database
 
 
-def get_db_sync() -> Generator[Session, None, None]:
+async def get_db() -> AsyncGenerator[AsyncIOMotorDatabase, None]:
     """
-    FastAPI dependency that provides a sync database session.
+    Dependency that yields the MongoDB database instance.
 
-    Yields:
-        Session: SQLAlchemy database session
+    With Beanie, most operations are done directly on Document classes:
+        user = await User.find_one(User.email == "test@example.com")
+        await user.save()
+
+    This dependency is provided for cases where direct database access is needed,
+    such as raw MongoDB operations or aggregation pipelines.
+
+    Usage in FastAPI routes:
+        @router.get("/items")
+        async def get_items(db: AsyncIOMotorDatabase = Depends(get_db)):
+            # Use db for raw MongoDB operations if needed
+            # Or just use Beanie Document classes directly
+            pass
     """
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-
-async def get_db() -> AsyncGenerator[AsyncSession, None]:
-    """
-    FastAPI dependency that provides an async database session.
-
-    Usage:
-        @app.get("/predictions")
-        async def get_predictions(db: AsyncSession = Depends(get_db)):
-            result = await db.execute(select(Prediction))
-            predictions = result.scalars().all()
-            return predictions
-
-    Yields:
-        AsyncSession: SQLAlchemy async database session
-
-    Ensures:
-        - Session is automatically closed after the request
-        - Exceptions are properly handled
-        - Connection is returned to the pool
-    """
-    factory = _get_async_session_factory()
-    session = factory()
-    try:
-        yield session
-    finally:
-        await session.close()
+    yield get_database()

@@ -12,7 +12,6 @@ Coliseum is an AI prediction market arena where 8 AI models compete on real pred
 - **Database**: PostgreSQL (Supabase)
 - **Task Queue**: Celery with Redis
 - **AI Integration**: OpenRouter (multi-model), Perplexity API (search)
-- **Real-time**: WebSocket for live updates
 - **Observability**: Logfire
 
 ---
@@ -386,11 +385,6 @@ AI_MODELS = [
 - `GET /events/pending` - View pending
 - `POST /events/approve` - Approve events
 - `POST /models/{id}/reset` - Emergency reset
-
-### WebSocket (`/ws`)
-- Subscribe/unsubscribe to events
-- Receive: price_update, message, bet, settlement, viewers
-
 ---
 
 ## Key Formulas

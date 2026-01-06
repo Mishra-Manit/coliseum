@@ -1,36 +1,40 @@
 """
-Database configuration and SQLAlchemy setup.
+Base document classes and mixins for Beanie ODM.
 
-This module provides the core database infrastructure:
-- SQLAlchemy engine for connection pooling
-- Session factory for database transactions
-- Declarative base for ORM models
+This module provides:
+- TimestampMixin: Automatic created_at/updated_at fields
+- BaseDocument: Base class combining Document with common functionality
 """
 
-from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import QueuePool
+from datetime import datetime, timezone
+from typing import Optional
 
-from config import settings
+from beanie import Document
+from pydantic import Field
 
-# Create SQLAlchemy engine with connection pooling
-engine = create_engine(
-    settings.database_url,
-    poolclass=QueuePool,
-    pool_size=5,
-    max_overflow=10,
-    pool_pre_ping=True,  # Verify connections before using them
-    pool_recycle=3600,   # Recycle connections after 1 hour
-    echo=settings.is_development,  # Log SQL in development
-)
 
-# Create SessionLocal class for database sessions
-SessionLocal = sessionmaker(
-    autocommit=False,
-    autoflush=False,
-    bind=engine
-)
+class TimestampMixin:
+    """Mixin that adds created_at and updated_at fields."""
 
-# Create declarative base for ORM models
-Base = declarative_base()
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+    async def save(self, *args, **kwargs):
+        """Override save to update updated_at timestamp."""
+        self.updated_at = datetime.now(timezone.utc)
+        return await super().save(*args, **kwargs)
+
+
+class BaseDocument(TimestampMixin, Document):
+    """
+    Base document class for all Coliseum models.
+
+    Provides:
+    - Automatic timestamps (created_at, updated_at)
+    - Common configuration settings
+    """
+
+    class Settings:
+        # Use the class name as collection name by default
+        # Override in subclasses if needed
+        use_state_management = True

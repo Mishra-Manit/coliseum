@@ -6,7 +6,8 @@ This is the core application file that:
 - Configures CORS for frontend integration
 - Sets up Logfire observability
 - Provides health check endpoints
-- Includes API routers
+
+Note: API routers will be added as business logic is implemented.
 """
 
 from contextlib import asynccontextmanager
@@ -17,7 +18,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import logfire
 
 from config import settings
-from database import check_db_connection, get_db_info
+from database import init_db, close_db, check_db_connection, get_db_info
 from observability.logfire_config import LogfireConfig
 
 
@@ -37,19 +38,23 @@ async def lifespan(app: FastAPI):
         debug=settings.debug,
     )
 
+    # Initialize MongoDB connection
+    await init_db()
+    
     # Check database connection on startup
+    db_connected = await check_db_connection()
     db_info = get_db_info()
-    if db_info['status'] == 'connected':
+    if db_connected:
         logfire.info(
-            "Database connection successful",
+            "MongoDB connection successful",
             url=db_info['url'],
-            status=db_info['status'],
+            database=db_info['database'],
         )
     else:
         logfire.error(
-            "Database connection failed",
+            "MongoDB connection failed",
             url=db_info['url'],
-            status=db_info['status'],
+            database=db_info['database'],
         )
 
     logfire.info("Coliseum API Server startup complete")
@@ -58,6 +63,7 @@ async def lifespan(app: FastAPI):
 
     # Shutdown
     logfire.info("Shutting down Coliseum API Server")
+    await close_db()
 
 
 # Initialize FastAPI app
@@ -91,7 +97,7 @@ async def health_check() -> Dict[str, str]:
     Returns:
         dict: Health status of the application and database
     """
-    db_connected = check_db_connection()
+    db_connected = await check_db_connection()
 
     return {
         "status": "healthy" if db_connected else "degraded",
@@ -123,22 +129,10 @@ async def root() -> Dict[str, str]:
 # API Routers
 # ============================================================================
 
-from api.routes import (
-    admin_router,
-    events_router,
-    leaderboard_router,
-    models_router,
-    sessions_router,
-    websocket_router,
-)
-
-# Include all API routers
-app.include_router(events_router)
-app.include_router(models_router)
-app.include_router(sessions_router)
-app.include_router(leaderboard_router)
-app.include_router(admin_router)
-app.include_router(websocket_router)
+# API routers will be included here as business logic is implemented
+# Example:
+# from api.routes import events_router
+# app.include_router(events_router)
 
 
 if __name__ == "__main__":

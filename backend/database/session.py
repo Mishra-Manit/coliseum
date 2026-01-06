@@ -1,104 +1,53 @@
 """
-Database session context managers.
-Provides reusable database session management for non-FastAPI contexts.
+Database session context managers for use in Celery tasks and other async contexts.
+
+With Beanie ODM, we don't need traditional database sessions like SQLAlchemy.
+Beanie operates directly on Document classes after initialization.
+
+However, for Celery tasks that run in separate processes, we need to ensure
+the database connection is initialized before performing operations.
 """
 
-from contextlib import asynccontextmanager, contextmanager
-from typing import AsyncGenerator, Generator
+from contextlib import asynccontextmanager
+from typing import AsyncGenerator
 
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
-from sqlalchemy.orm import Session
+from motor.motor_asyncio import AsyncIOMotorDatabase
 
-from config import settings
-from database.base import SessionLocal
-
-
-@contextmanager
-def get_db_context() -> Generator[Session, None, None]:
-    """
-    Context manager for database sessions in Celery tasks or scripts.
-
-    Usage:
-        with get_db_context() as db:
-            prediction = db.query(Prediction).filter_by(id=1).first()
-            prediction.status = "resolved"
-            db.commit()
-
-    Yields:
-        Session: SQLAlchemy database session
-
-    Ensures:
-        - Session is properly closed even on exceptions
-        - Connection is returned to pool
-        - Rollback on error
-    """
-    db = SessionLocal()
-    try:
-        yield db
-    except Exception:
-        db.rollback()
-        raise
-    finally:
-        db.close()
-
-
-# Async engine and session factory
-_async_engine = None
-_async_session_factory = None
-
-
-def _get_async_engine():
-    """Get or create async engine."""
-    global _async_engine
-    if _async_engine is None:
-        # Convert sync URL to async
-        async_url = settings.database_url.replace(
-            "postgresql+psycopg2://",
-            "postgresql+asyncpg://"
-        )
-        _async_engine = create_async_engine(
-            async_url,
-            pool_size=5,
-            max_overflow=10,
-            pool_pre_ping=True,
-            pool_recycle=3600,
-        )
-    return _async_engine
-
-
-def _get_async_session_factory():
-    """Get or create async session factory."""
-    global _async_session_factory
-    if _async_session_factory is None:
-        _async_session_factory = async_sessionmaker(
-            bind=_get_async_engine(),
-            class_=AsyncSession,
-            autocommit=False,
-            autoflush=False,
-            expire_on_commit=False,
-        )
-    return _async_session_factory
+from database.connection import init_db, close_db, get_database, _client
 
 
 @asynccontextmanager
-async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
+async def get_db_session() -> AsyncGenerator[AsyncIOMotorDatabase, None]:
     """
-    Async context manager for database sessions in Celery tasks.
+    Async context manager for database access in Celery tasks.
 
-    Usage:
-        async with get_db_session() as db:
-            result = await db.execute(select(Model))
-            await db.commit()
+    Ensures database connection is initialized and provides access to the database.
+    For Celery tasks running in separate processes, this handles initialization.
 
-    Yields:
-        AsyncSession: SQLAlchemy async database session
+    Usage in Celery tasks:
+        @celery_app.task
+        def my_task():
+            import asyncio
+
+            async def _run():
+                async with get_db_session() as db:
+                    # Beanie operations work here
+                    user = await User.find_one(User.email == "test@example.com")
+                    await user.save()
+
+            return asyncio.run(_run())
+
+    Note: With Beanie, most operations don't need the db object directly.
+    The context manager ensures Beanie is initialized, then you can use
+    Document classes directly.
     """
-    factory = _get_async_session_factory()
-    session = factory()
+    # Initialize if not already done (handles Celery worker processes)
+    if _client is None:
+        await init_db()
+
     try:
-        yield session
-    except Exception:
-        await session.rollback()
-        raise
+        yield get_database()
     finally:
-        await session.close()
+        # Don't close in context manager - connection is shared
+        # Connection is closed on application shutdown
+        pass

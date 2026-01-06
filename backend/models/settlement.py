@@ -1,75 +1,37 @@
-"""Settlement database model."""
+"""Settlement database model (Beanie/MongoDB)."""
 
+from datetime import datetime, timezone
 from decimal import Decimal
+from typing import Optional, Dict, Any
 
-from sqlalchemy import (
-    Boolean,
-    CheckConstraint,
-    Column,
-    DateTime,
-    ForeignKey,
-    Index,
-    Integer,
-    Numeric,
-    String,
-    Text,
-    func,
-)
-from sqlalchemy.dialects.postgresql import JSONB, UUID
-from sqlalchemy.orm import relationship
-
-from database.base import Base
-from models.base import UUIDMixin
+from beanie import Document, Indexed, PydanticObjectId
+from pydantic import Field
 
 
-class Settlement(Base, UUIDMixin):
+class Settlement(Document):
     """Event settlement record."""
 
-    __tablename__ = "settlements"
-
-    # Foreign key
-    event_id = Column(
-        UUID(as_uuid=True),
-        ForeignKey("events.id", ondelete="CASCADE"),
-        nullable=False,
-        unique=True,
-        index=True,
-    )
+    # Foreign key reference (unique - one settlement per event)
+    event_id: Indexed(PydanticObjectId, unique=True)
 
     # Settlement details
-    outcome = Column(String(3), nullable=False)
-    kalshi_settlement_data = Column(JSONB, nullable=True)
+    outcome: str  # YES or NO
+    kalshi_settlement_data: Optional[Dict[str, Any]] = None
 
     # Validation
-    validated = Column(Boolean, nullable=False, default=False)
-    validation_notes = Column(Text, nullable=True)
+    validated: bool = Field(default=False)
+    validation_notes: Optional[str] = None
 
     # Metrics
-    total_bets_settled = Column(Integer, nullable=False, default=0)
-    total_pnl_distributed = Column(
-        Numeric(15, 2),
-        nullable=False,
-        default=Decimal("0.00"),
-    )
+    total_bets_settled: int = Field(default=0)
+    total_pnl_distributed: Decimal = Field(default=Decimal("0.00"))
 
     # Timestamp
-    settled_at = Column(
-        DateTime(timezone=True),
-        server_default=func.now(),
-        nullable=False,
-    )
+    settled_at: Indexed(datetime) = Field(default_factory=lambda: datetime.now(timezone.utc))
 
-    # Relationships
-    event = relationship("Event", back_populates="settlement")
-
-    # Constraints
-    __table_args__ = (
-        CheckConstraint(
-            "outcome IN ('YES', 'NO')",
-            name="valid_settlement_outcome",
-        ),
-        Index("idx_settlements_settled_at", "settled_at"),
-    )
+    class Settings:
+        name = "settlements"
+        use_state_management = True
 
     def __repr__(self) -> str:
         return f"<Settlement {self.outcome} for event {self.event_id}>"

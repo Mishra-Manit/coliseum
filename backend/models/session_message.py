@@ -1,72 +1,38 @@
-"""Session Message database model."""
+"""Session Message database model (Beanie/MongoDB)."""
 
-from sqlalchemy import (
-    CheckConstraint,
-    Column,
-    DateTime,
-    ForeignKey,
-    Index,
-    Integer,
-    Numeric,
-    String,
-    Text,
-    func,
-)
-from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import relationship
+from datetime import datetime, timezone
+from decimal import Decimal
+from typing import Optional
 
-from database.base import Base
-from models.base import UUIDMixin
+from beanie import Document, Indexed, PydanticObjectId
+from pydantic import Field
 
 
-class SessionMessage(Base, UUIDMixin):
+class SessionMessage(Document):
     """AI reasoning message during a betting session."""
 
-    __tablename__ = "session_messages"
-
-    # Foreign key
-    session_id = Column(
-        UUID(as_uuid=True),
-        ForeignKey("betting_sessions.id", ondelete="CASCADE"),
-        nullable=False,
-        index=True,
-    )
+    # Foreign key reference
+    session_id: Indexed(PydanticObjectId)
 
     # Message content
-    message_type = Column(String(20), nullable=False, default="reasoning")
-    content = Column(Text, nullable=False)
+    message_type: str = Field(default="reasoning")  # reasoning, action, system
+    content: str
 
     # Associated action (if any)
-    action_type = Column(String(10), nullable=True)
-    action_amount = Column(Numeric(15, 2), nullable=True)
-    action_shares = Column(Integer, nullable=True)
-    action_price = Column(Numeric(5, 4), nullable=True)
+    action_type: Optional[str] = None  # BUY, SELL
+    action_amount: Optional[Decimal] = None
+    action_shares: Optional[int] = None
+    action_price: Optional[Decimal] = None
 
     # Sequencing
-    sequence_number = Column(Integer, nullable=False)
+    sequence_number: int
 
     # Timestamp
-    created_at = Column(
-        DateTime(timezone=True),
-        server_default=func.now(),
-        nullable=False,
-    )
+    created_at: Indexed(datetime) = Field(default_factory=lambda: datetime.now(timezone.utc))
 
-    # Relationships
-    session = relationship("BettingSession", back_populates="messages")
-
-    # Constraints
-    __table_args__ = (
-        CheckConstraint(
-            "message_type IN ('reasoning', 'action', 'system')",
-            name="valid_message_type",
-        ),
-        CheckConstraint(
-            "action_type IS NULL OR action_type IN ('BUY', 'SELL')",
-            name="valid_action_type",
-        ),
-        Index("idx_session_messages_created_at", "created_at"),
-    )
+    class Settings:
+        name = "session_messages"
+        use_state_management = True
 
     def __repr__(self) -> str:
         return f"<SessionMessage #{self.sequence_number} ({self.message_type})>"

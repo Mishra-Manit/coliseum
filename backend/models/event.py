@@ -1,108 +1,58 @@
-"""Event database model."""
+"""Event database model (Beanie/MongoDB)."""
 
+from datetime import date, datetime, timezone
 from decimal import Decimal
+from typing import Optional, List, Any, TYPE_CHECKING
 
-from sqlalchemy import (
-    CheckConstraint,
-    Column,
-    Date,
-    DateTime,
-    Index,
-    Integer,
-    Numeric,
-    String,
-    Text,
-)
-from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import relationship
+from beanie import Document, Indexed, Link, BackLink
+from pydantic import Field
 
-from database.base import Base
-from models.base import TimestampMixin, UUIDMixin
+from models.base import TimestampMixin
+
+if TYPE_CHECKING:
+    from models.event_summary import EventSummary
+    from models.betting_session import BettingSession
+    from models.bet import Bet
+    from models.settlement import Settlement
 
 
-class Event(Base, UUIDMixin, TimestampMixin):
+class Event(TimestampMixin, Document):
     """Prediction market event from Kalshi."""
 
-    __tablename__ = "events"
-
     # Kalshi identifiers
-    kalshi_event_id = Column(String(100), unique=True, nullable=True, index=True)
-    kalshi_market_id = Column(String(100), unique=True, nullable=True, index=True)
+    kalshi_event_id: Optional[Indexed(str, unique=True)] = None
+    kalshi_market_id: Optional[Indexed(str, unique=True)] = None
 
     # Event details
-    title = Column(String(500), nullable=False)
-    question = Column(String(1000), nullable=False)
-    current_price = Column(
-        Numeric(5, 4),
-        nullable=False,
-        default=Decimal("0.5000"),
-    )
+    title: str
+    question: str
+    current_price: Decimal = Field(default=Decimal("0.5000"))
 
     # Categorization
-    category = Column(String(100), nullable=False)
-    subcategory = Column(String(100), nullable=True)
-    tags = Column(JSONB, nullable=False, default=list)
-    market_context = Column(Text, nullable=True)
+    category: str
+    subcategory: Optional[str] = None
+    tags: List[str] = Field(default_factory=list)
+    market_context: Optional[str] = None
 
     # Lifecycle
-    status = Column(String(20), nullable=False, default="pending")
-    selection_date = Column(Date, nullable=False)
-    close_time = Column(DateTime(timezone=True), nullable=False)
-    settlement_time = Column(DateTime(timezone=True), nullable=True)
+    status: Indexed(str) = Field(default="pending")  # pending, active, closed, settled
+    selection_date: Indexed(date)
+    close_time: Indexed(datetime)
+    settlement_time: Optional[datetime] = None
 
     # Outcome (after settlement)
-    outcome = Column(String(10), nullable=True)
+    outcome: Optional[str] = None  # YES, NO, or None
 
     # Engagement metrics
-    viewers = Column(Integer, nullable=False, default=0)
+    viewers: int = Field(default=0)
 
-    # Kalshi metadata
-    kalshi_data = Column(JSONB, nullable=True)
+    # Kalshi metadata (stored as dict in MongoDB)
+    kalshi_data: Optional[dict] = None
 
-    # Relationships
-    summary = relationship(
-        "EventSummary",
-        back_populates="event",
-        uselist=False,
-        cascade="all, delete-orphan",
-    )
-    betting_sessions = relationship(
-        "BettingSession",
-        back_populates="event",
-        lazy="dynamic",
-        cascade="all, delete-orphan",
-    )
-    bets = relationship(
-        "Bet",
-        back_populates="event",
-        lazy="dynamic",
-        cascade="all, delete-orphan",
-    )
-    settlement = relationship(
-        "Settlement",
-        back_populates="event",
-        uselist=False,
-        cascade="all, delete-orphan",
-    )
-
-    # Constraints
-    __table_args__ = (
-        CheckConstraint(
-            "status IN ('pending', 'active', 'closed', 'settled')",
-            name="valid_status",
-        ),
-        CheckConstraint(
-            "outcome IS NULL OR outcome IN ('YES', 'NO')",
-            name="valid_outcome",
-        ),
-        CheckConstraint(
-            "current_price >= 0 AND current_price <= 1",
-            name="valid_price",
-        ),
-        Index("idx_events_status", "status"),
-        Index("idx_events_selection_date", "selection_date"),
-        Index("idx_events_close_time", "close_time"),
-    )
+    class Settings:
+        name = "events"
+        use_state_management = True
 
     def __repr__(self) -> str:
-        return f"<Event {self.title[:50]} ({self.status})>"
+        title_preview = self.title[:50] if self.title else "Unknown"
+        return f"<Event {title_preview} ({self.status})>"

@@ -33,18 +33,11 @@ class Settings(BaseSettings):
         description="Comma-separated list of allowed CORS origins"
     )
 
-    # Database Configuration (Supabase Direct Connection)
-    db_user: str = Field(..., description="Database user")
-    db_password: str = Field(..., description="Database password")
-    db_host: str = Field(..., description="Database host")
-    db_port: int = Field(default=5432, description="Database port")
-    db_name: str = Field(..., description="Database name")
-
-    # Supabase Configuration
-    supabase_url: str = Field(..., description="Supabase project URL")
-    supabase_service_role_key: str = Field(
-        ...,
-        description="Supabase service role key for backend operations"
+    # MongoDB Configuration
+    mongodb_url: str = Field(..., description="MongoDB Atlas connection URL")
+    mongodb_database: str = Field(
+        default="coliseum",
+        description="MongoDB database name"
     )
 
     # External APIs
@@ -108,14 +101,6 @@ class Settings(BaseSettings):
             return [origin.strip() for origin in v.split(",") if origin.strip()]
         return v
 
-    @field_validator("db_host")
-    @classmethod
-    def validate_db_host(cls, v: str) -> str:
-        """Validate that the database host is provided."""
-        if not v.strip():
-            raise ValueError("Database host cannot be empty")
-        return v
-
     @property
     def is_development(self) -> bool:
         """Check if running in development mode."""
@@ -125,17 +110,6 @@ class Settings(BaseSettings):
     def is_production(self) -> bool:
         """Check if running in production mode."""
         return self.environment.lower() == "production"
-
-    @property
-    def database_url(self) -> str:
-        """
-        Construct the SQLAlchemy database URL for Supabase direct connection.
-        Uses psycopg2 driver and requires SSL mode for Supabase connections.
-        """
-        return (
-            f"postgresql+psycopg2://{self.db_user}:{self.db_password}@"
-            f"{self.db_host}:{self.db_port}/{self.db_name}?sslmode=require"
-        )
 
 
 # Create a singleton instance

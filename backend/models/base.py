@@ -1,35 +1,20 @@
-"""Base model class with common fields."""
+"""Base model utilities for Beanie documents."""
 
-import uuid
-from datetime import datetime
-from typing import Any
+from datetime import datetime, timezone
+from typing import Optional
 
-from sqlalchemy import Column, DateTime, func
-from sqlalchemy.dialects.postgresql import UUID
+from beanie import Document, PydanticObjectId
+from pydantic import Field
 
 
 class TimestampMixin:
-    """Mixin that adds created_at and updated_at columns."""
+    """Mixin that adds created_at and updated_at fields to Beanie documents."""
 
-    created_at = Column(
-        DateTime(timezone=True),
-        server_default=func.now(),
-        nullable=False,
-    )
-    updated_at = Column(
-        DateTime(timezone=True),
-        server_default=func.now(),
-        onupdate=func.now(),
-        nullable=False,
-    )
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
-class UUIDMixin:
-    """Mixin that adds a UUID primary key."""
-
-    id = Column(
-        UUID(as_uuid=True),
-        primary_key=True,
-        default=uuid.uuid4,
-        nullable=False,
-    )
+def update_timestamp(doc: Document) -> None:
+    """Update the updated_at timestamp on a document before saving."""
+    if hasattr(doc, "updated_at"):
+        doc.updated_at = datetime.now(timezone.utc)

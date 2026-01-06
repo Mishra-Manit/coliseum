@@ -1,47 +1,39 @@
-"""Event Summary database model."""
+"""Event Summary database model (Beanie/MongoDB)."""
 
-from sqlalchemy import Column, DateTime, ForeignKey, String, Text, func
-from sqlalchemy.dialects.postgresql import JSONB, UUID
-from sqlalchemy.orm import relationship
+from datetime import datetime, timezone
+from typing import Optional, List, Dict, Any
 
-from database.base import Base
-from models.base import UUIDMixin
+from beanie import Document, Indexed, PydanticObjectId
+from pydantic import Field
 
 
-class EventSummary(Base, UUIDMixin):
+class EventSummary(Document):
     """AI-generated summary for standardized event context."""
 
-    __tablename__ = "event_summaries"
-
-    # Foreign key
-    event_id = Column(
-        UUID(as_uuid=True),
-        ForeignKey("events.id", ondelete="CASCADE"),
-        nullable=False,
-        unique=True,
-        index=True,
-    )
+    # Foreign key reference (unique - one summary per event)
+    event_id: Indexed(PydanticObjectId, unique=True)
 
     # Summary content
-    summary_text = Column(Text, nullable=False)
-    relevant_data = Column(JSONB, nullable=False, default=dict)
+    summary_text: str
+    relevant_data: Dict[str, Any] = Field(default_factory=dict)
+
+    # Key factors for AI reasoning
+    key_factors: List[Dict[str, Any]] = Field(default_factory=list)
 
     # Search metadata
-    sources_used = Column(JSONB, nullable=False, default=list)
-    search_queries = Column(JSONB, nullable=False, default=list)
+    sources_used: List[str] = Field(default_factory=list)
+    search_queries: List[str] = Field(default_factory=list)
 
     # Agent metadata
-    agent_model = Column(String(200), nullable=True)
+    agent_model: Optional[str] = None
+    generation_time_ms: Optional[int] = None
 
     # Timestamp
-    created_at = Column(
-        DateTime(timezone=True),
-        server_default=func.now(),
-        nullable=False,
-    )
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
-    # Relationships
-    event = relationship("Event", back_populates="summary")
+    class Settings:
+        name = "event_summaries"
+        use_state_management = True
 
     def __repr__(self) -> str:
         return f"<EventSummary for event {self.event_id}>"
