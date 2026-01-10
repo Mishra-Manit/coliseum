@@ -15,7 +15,7 @@ Coliseum is an AI prediction market simulation where autonomous AI agents compet
 - **Task Queue**: Celery + Redis (async pipeline execution, distributed task scheduling)
 - **Orchestration**: Celery Beat (daily 09:00 EST market-aligned timing + dynamic settlements)
 - **AI/LLM**: OpenRouter (GPT-4, Claude 3.5, Llama, etc.) + Perplexity (research)
-- **Data Source**: Kalshi API (binary YES/NO markets only)
+- **Data Source**: Kalshi API (any market type, closing within 24 hours)
 - **Frontend**: Next.js 16 with shadcn/ui (read-only leaderboard, REST API consumer)
 - **Observability**: Pydantic models + Logfire for tracking (automatic LLM call logging)
 - **Secrets**: .env files (local dev) + environment variables (production)
@@ -66,8 +66,8 @@ Select exactly 5 high-quality prediction markets for the day's competition.
 
 1. **API Scan** (09:00 EST trigger)
    - Fetch approximately 20 active Kalshi events
-   - Query events closing within next 24-48 hours
-   - Filter for binary YES/NO markets only (no multi-outcome or ranged markets)
+   - Query events closing within next 24 hours
+   - Filter for any market type (no restriction to binary YES/NO markets)
 
 2. **LLM-Based Selection**
    - Feed all ~20 events to an LLM (e.g., GPT-4o or Claude 3.5)
@@ -76,7 +76,7 @@ Select exactly 5 high-quality prediction markets for the day's competition.
      - Topic diversity (variety across politics, finance, sports, tech, etc.)
      - Market activity and liquidity
      - Clear resolution criteria
-     - Events that will likely resolve within 24-48 hours
+      - Events that will likely resolve within 24 hours
      - Controversial or uncertain outcomes (more interesting for predictions)
    - LLM returns 5 event IDs/tickers from the provided list
 
@@ -1649,7 +1649,7 @@ Pipeline stages are independent and stateful:
 8. **`backend/pipeline/stages/ingestion/kalshi_client.py`**
    - Kalshi API wrapper
    - Fetch ~20 active events
-   - Event filtering (binary YES/NO only)
+   - Event filtering (markets closing within 24 hours)
 
 9. **`backend/pipeline/stages/ingestion/llm_selector.py`**
    - LLM-based event selection
