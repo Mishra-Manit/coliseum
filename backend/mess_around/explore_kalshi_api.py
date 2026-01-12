@@ -1,24 +1,245 @@
 #!/usr/bin/env python3
 """
-Simplified Kalshi API script to fetch and display events.
-Run with: python backend/mess_around/explore_kalshi_api.py
+Production-ready Kalshi API client for fetching and displaying prediction markets.
+
+This script fetches markets closing within 24 hours from the Kalshi API,
+filters them by volume, and displays them grouped by event.
 """
 
 import asyncio
-import httpx
-from typing import List, Dict, Any
-import json
+import logging
 import time
+import httpx
+from dataclasses import dataclass
+from datetime import datetime
+from typing import List, Dict, Any, Optional
+from collections import defaultdict
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+
+# Production constants
+class Config:
+    """Configuration constants for the Kalshi API client."""
+    BASE_URL = "https://api.elections.kalshi.com/trade-api/v2"
+    TIMEOUT_SECONDS = 30.0
+    MAX_API_LIMIT = 1000
+    DEFAULT_PAGE_SIZE = 200
+    SECONDS_IN_24H = 86400
+    ARENA_MIN_VOLUME = 25_000  
+    DEFAULT_FETCH_LIMIT = 10000
+
+    # Connection pooling settings
+    MAX_CONNECTIONS = 100
+    MAX_KEEPALIVE_CONNECTIONS = 20
+
+
+@dataclass
+class Market:
+    """
+    Represents a Kalshi prediction market with formatted display properties.
+
+    Attributes:
+        ticker: Unique market identifier
+        event_ticker: Parent event identifier
+        title: Event title
+        yes_sub_title: Outcome description
+        yes_bid: Current YES price in cents (0-100)
+        no_bid: Current NO price in cents (0-100)
+        volume: Total trading volume in contracts (YES and NO count separately)
+        close_time: ISO 8601 timestamp when market closes
+        status: Market status (open, closed, etc.)
+        category: Market category
+    """
+    ticker: str
+    event_ticker: str
+    title: str
+    yes_sub_title: str
+    yes_bid: int
+    no_bid: int
+    volume: int
+    close_time: str
+    status: str
+    category: str = "N/A"
+
+    @property
+    def formatted_close_time(self) -> str:
+        """
+        Format close time for display.=
+        """
+        if not self.close_time:
+            return "N/A"
+        try:
+            dt = datetime.fromisoformat(self.close_time.replace('Z', '+00:00'))
+            return dt.strftime("%b %d, %I:%M%p")
+        except (ValueError, AttributeError) as e:
+            logger.warning(f"Failed to parse close_time '{self.close_time}': {e}")
+            return self.close_time[:16] if len(self.close_time) >= 16 else self.close_time
+
+    @property
+    def formatted_volume(self) -> str:
+        """
+        Format volume for display (in contracts).
+        """
+        if self.volume >= 1_000_000:
+            return f"{self.volume / 1_000_000:.1f}M"
+        elif self.volume >= 1_000:
+            return f"{self.volume / 1_000:.1f}K"
+        return f"{self.volume}"
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'Market':
+        """
+        Create a Market instance from API response dictionary.
+        """
+        return cls(
+            ticker=data.get('ticker', ''),
+            event_ticker=data.get('event_ticker', 'UNKNOWN'),
+            title=data.get('title', 'N/A'),
+            yes_sub_title=data.get('yes_sub_title', data.get('ticker', 'N/A')),
+            yes_bid=data.get('yes_bid', 0),
+            no_bid=data.get('no_bid', 0),
+            volume=data.get('volume', 0),
+            close_time=data.get('close_time', ''),
+            status=data.get('status', 'unknown'),
+            category=data.get('category', 'N/A')
+        )
 
 
 class KalshiAPI:
-    BASE_URL = "https://api.elections.kalshi.com/trade-api/v2"
+    """
+    Async client for the Kalshi prediction market API.
+    """
 
-    def __init__(self, api_key: str = None):
+    def __init__(self, api_key: Optional[str] = None):
         self.api_key = api_key
-        self.headers = {}
+        headers = {}
         if api_key:
-            self.headers["Authorization"] = f"Bearer {api_key}"
+            headers["Authorization"] = f"Bearer {api_key}"
+
+        # Configure connection pooling
+        limits = httpx.Limits(
+            max_connections=Config.MAX_CONNECTIONS,
+            max_keepalive_connections=Config.MAX_KEEPALIVE_CONNECTIONS
+        )
+
+        # Create reusable async client
+        self.client = httpx.AsyncClient(
+            base_url=Config.BASE_URL,
+            headers=headers,
+            timeout=Config.TIMEOUT_SECONDS,
+            limits=limits
+        )
+        logger.info("Initialized KalshiAPI client")
+
+    async def __aenter__(self):
+        """Context manager entry."""
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        """Context manager exit - ensures client cleanup."""
+        await self.client.aclose()
+        logger.info("Closed KalshiAPI client")
+
+    async def _paginate(
+        self,
+        endpoint: str,
+        params: Dict[str, Any],
+        limit: int,
+        result_key: str = "events"
+    ) -> List[Dict[str, Any]]:
+        """
+        Generic pagination handler for Kalshi API endpoints.
+
+        Handles cursor-based pagination, error handling, and automatic retries
+        for transient failures.
+
+        Args:
+            endpoint: API endpoint path (e.g., "events", "markets")
+            params: Query parameters for the request
+            limit: Maximum number of items to fetch
+            result_key: Key in response JSON containing the results array
+
+        Returns:
+            List of items from the API, up to the specified limit
+
+        Raises:
+            httpx.HTTPStatusError: For non-retryable HTTP errors
+            httpx.TimeoutException: If requests consistently timeout
+        """
+        all_items = []
+        cursor = None
+        retry_count = 0
+        max_retries = 3
+
+        while True:
+            # Add cursor to params if present
+            current_params = params.copy()
+            if cursor:
+                current_params["cursor"] = cursor
+
+            try:
+                response = await self.client.get(endpoint, params=current_params)
+                response.raise_for_status()
+
+                # Reset retry count on success
+                retry_count = 0
+
+                # Parse response
+                data = response.json()
+                items = data.get(result_key, [])
+                all_items.extend(items)
+
+                logger.debug(f"Fetched {len(items)} items from {endpoint} (total: {len(all_items)})")
+
+                # Check pagination
+                cursor = data.get("cursor")
+                if not cursor or len(all_items) >= limit:
+                    break
+
+            except httpx.HTTPStatusError as e:
+                if e.response.status_code == 429:
+                    # Rate limit - wait and retry
+                    logger.warning("Rate limit exceeded, waiting 5 seconds...")
+                    await asyncio.sleep(5)
+                    retry_count += 1
+                    if retry_count >= max_retries:
+                        logger.error("Max retries exceeded for rate limiting")
+                        break
+                    continue
+                elif e.response.status_code >= 500:
+                    # Server error - retry
+                    logger.error(f"Server error {e.response.status_code}: {e.response.text}")
+                    retry_count += 1
+                    if retry_count >= max_retries:
+                        logger.error("Max retries exceeded for server errors")
+                        break
+                    await asyncio.sleep(2)
+                    continue
+                else:
+                    # Client error - don't retry
+                    logger.error(f"HTTP error {e.response.status_code}: {e.response.text}")
+                    break
+
+            except httpx.TimeoutException:
+                logger.warning("Request timeout, retrying...")
+                retry_count += 1
+                if retry_count >= max_retries:
+                    logger.error("Max retries exceeded for timeouts")
+                    break
+                await asyncio.sleep(2)
+                continue
+
+            except httpx.RequestError as e:
+                logger.error(f"Network error: {e}")
+                break
+
+        return all_items[:limit]
 
     async def get_events(
         self,
@@ -26,180 +247,132 @@ class KalshiAPI:
         status: str = "open",
         with_nested_markets: bool = False
     ) -> List[Dict[str, Any]]:
-        """Fetch events from Kalshi API"""
-        all_events = []
-        cursor = None
+        """
+        Fetch events from Kalshi API.
 
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            while True:
-                params = {
-                    "limit": min(limit, 200),
-                    "status": status,
-                    "with_nested_markets": str(with_nested_markets).lower(),
-                }
-                if cursor:
-                    params["cursor"] = cursor
+        Args:
+            limit: Maximum number of events to return (default: 100)
+            status: Filter by event status - "open", "closed", or "all" (default: "open")
+            with_nested_markets: Include nested market data (default: False)
 
-                response = await client.get(
-                    f"{self.BASE_URL}/events",
-                    headers=self.headers,
-                    params=params
-                )
-
-                if response.status_code != 200:
-                    print(f"❌ API Error: {response.status_code}")
-                    print(f"Response: {response.text}")
-                    break
-
-                data = response.json()
-                events = data.get("events", [])
-                all_events.extend(events)
-
-                cursor = data.get("cursor")
-                if not cursor or len(all_events) >= limit:
-                    break
-
-        return all_events[:limit]
+        Returns:
+            List of event dictionaries from the API
+        """
+        params = {
+            "limit": min(limit, Config.DEFAULT_PAGE_SIZE),
+            "status": status,
+            "with_nested_markets": str(with_nested_markets).lower(),
+        }
+        logger.info(f"Fetching events with status={status}, limit={limit}")
+        return await self._paginate("events", params, limit, "events")
 
     async def get_markets_for_event(self, event_ticker: str) -> List[Dict[str, Any]]:
-        """Fetch markets (with prices) for a specific event"""
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.get(
-                f"{self.BASE_URL}/events/{event_ticker}/markets",
-                headers=self.headers
-            )
+        """
+        Fetch markets (with prices) for a specific event.
 
-            if response.status_code != 200:
-                print(f"❌ Error fetching markets: {response.status_code}")
-                return []
+        Args:
+            event_ticker: Unique event identifier
 
+        Returns:
+            List of market dictionaries for the specified event
+        """
+        logger.info(f"Fetching markets for event: {event_ticker}")
+        try:
+            response = await self.client.get(f"events/{event_ticker}/markets")
+            response.raise_for_status()
             data = response.json()
-            return data.get("markets", [])
+            markets = data.get("markets", [])
+            logger.info(f"Retrieved {len(markets)} markets for event {event_ticker}")
+            return markets
+        except httpx.HTTPStatusError as e:
+            logger.error(f"Error fetching markets for event {event_ticker}: {e.response.status_code}")
+            return []
 
-    async def get_markets(self, limit: int = 10, status: str = "open") -> List[Dict[str, Any]]:
-        """Fetch all markets with prices"""
-        all_markets = []
-        cursor = None
+    async def get_markets(
+        self,
+        limit: int = 10,
+        status: str = "open"
+    ) -> List[Dict[str, Any]]:
+        """
+        Fetch all markets with prices.
 
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            while True:
-                params = {
-                    "limit": min(limit, 200),
-                    "status": status,
-                }
-                if cursor:
-                    params["cursor"] = cursor
+        Args:
+            limit: Maximum number of markets to return (default: 10)
+            status: Filter by market status - "open", "closed", or "all" (default: "open")
 
-                response = await client.get(
-                    f"{self.BASE_URL}/markets",
-                    headers=self.headers,
-                    params=params
-                )
-
-                if response.status_code != 200:
-                    print(f"❌ API Error: {response.status_code}")
-                    print(f"Response: {response.text}")
-                    break
-
-                data = response.json()
-                markets = data.get("markets", [])
-                all_markets.extend(markets)
-
-                cursor = data.get("cursor")
-                if not cursor or len(all_markets) >= limit:
-                    break
-
-        return all_markets[:limit]
+        Returns:
+            List of market dictionaries from the API
+        """
+        params = {
+            "limit": min(limit, Config.DEFAULT_PAGE_SIZE),
+            "status": status,
+        }
+        logger.info(f"Fetching markets with status={status}, limit={limit}")
+        return await self._paginate("markets", params, limit, "markets")
 
     async def get_markets_closing_within_24h(
         self,
         limit: int = 1000,
         status: str = "open"
     ) -> List[Dict[str, Any]]:
-        """Fetch markets closing within 24 hours"""
-        all_markets = []
-        cursor = None
+        """
+        Fetch markets closing within the next 24 hours.
 
+        Uses the API's time filtering to get markets with close times
+        between now and 24 hours from now.
+
+        Args:
+            limit: Maximum number of markets to return (default: 1000)
+            status: Filter by market status (default: "open")
+
+        Returns:
+            List of market dictionaries closing within 24 hours
+        """
         # Calculate time range
         current_time = int(time.time())
-        time_24h = current_time + 86400  # 24 hours = 86400 seconds
+        time_24h = current_time + Config.SECONDS_IN_24H
 
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            while True:
-                params = {
-                    "limit": min(limit, 1000),  # API max is 1000
-                    "status": status,
-                    "min_close_ts": current_time,
-                    "max_close_ts": time_24h,
-                }
-                if cursor:
-                    params["cursor"] = cursor
+        params = {
+            "limit": min(limit, Config.MAX_API_LIMIT),
+            "status": status,
+            "min_close_ts": current_time,
+            "max_close_ts": time_24h,
+        }
 
-                response = await client.get(
-                    f"{self.BASE_URL}/markets",
-                    headers=self.headers,
-                    params=params
-                )
-
-                if response.status_code != 200:
-                    print(f"❌ API Error: {response.status_code}")
-                    print(f"Response: {response.text}")
-                    break
-
-                data = response.json()
-                markets = data.get("markets", [])
-                all_markets.extend(markets)
-
-                cursor = data.get("cursor")
-                if not cursor or len(all_markets) >= limit:
-                    break
-
-        return all_markets[:limit]
+        logger.info(f"Fetching markets closing within 24h (limit={limit})")
+        return await self._paginate("markets", params, limit, "markets")
 
 
-def format_close_time(close_time: str) -> str:
-    """Format ISO timestamp to readable datetime with hours"""
-    if not close_time:
-        return "N/A"
-    try:
-        from datetime import datetime
-        dt = datetime.fromisoformat(close_time.replace('Z', '+00:00'))
-        # Include time for 24h markets
-        return dt.strftime("%b %d, %I:%M%p")
-    except:
-        return close_time[:16]
+def group_markets_by_event(markets: List[Market]) -> Dict[str, Dict[str, Any]]:
+    """
+    Group markets by their parent event.
+
+    Args:
+        markets: List of Market instances
+
+    Returns:
+        Dictionary mapping event_ticker to event data including markets list
+    """
+    events = defaultdict(lambda: {'title': '', 'category': '', 'markets': []})
+
+    for market in markets:
+        event = events[market.event_ticker]
+        # Set title and category on first occurrence
+        if not event['title']:
+            event['title'] = market.title
+            event['category'] = market.category
+        event['markets'].append(market)
+
+    return dict(events)
 
 
-async def main():
-    print("🎯 Kalshi Markets Closing Within 24 Hours\n")
+def display_markets(events_dict: Dict[str, Dict[str, Any]]) -> None:
+    """
+    Display formatted market data grouped by event.
 
-    api = KalshiAPI()
-
-    # Fetch markets closing within 24 hours
-    all_markets = await api.get_markets_closing_within_24h(limit=10000, status="open")
-
-    # Filter out markets with low volume
-    # Volume is measured in number of contracts traded (YES and NO count separately)
-    ARENA_MIN_VOLUME = 25_000  # ~$25K-50K in dollar volume - good for AI arena display
-    filtered_markets = [m for m in all_markets if m.get('volume', 0) >= ARENA_MIN_VOLUME]
-
-    print(f"📊 Found {len(all_markets)} markets total")
-    print(f"✅ {len(filtered_markets)} markets with {ARENA_MIN_VOLUME:,}+ contracts traded")
-    print(f"🚫 Filtered out {len(all_markets) - len(filtered_markets)} markets with low volume\n")
-
-    # Group markets by event for better organization
-    events_dict = {}
-    for market in filtered_markets:
-        event_ticker = market.get('event_ticker', 'UNKNOWN')
-        if event_ticker not in events_dict:
-            events_dict[event_ticker] = {
-                'title': market.get('title', 'N/A'),
-                'category': market.get('category', 'N/A'),
-                'markets': []
-            }
-        events_dict[event_ticker]['markets'].append(market)
-
-    # Display grouped by event
+    Args:
+        events_dict: Dictionary of events with their markets
+    """
     for i, (event_ticker, event_data) in enumerate(events_dict.items(), 1):
         title = event_data['title']
         category = event_data['category']
@@ -208,36 +381,67 @@ async def main():
         print(f"\n{'='*100}")
         print(f"📌 [{i}] {title}")
         print(f"   Category: {category} | Markets: {len(markets)}")
-        print(f"-"*100)
+        print(f"{'-'*100}")
 
+        # Table header
         print(f"   {'OUTCOME':<40} {'YES¢':<8} {'NO¢':<8} {'CONTRACTS':<12} {'CLOSES':<15}")
         print(f"   {'-'*90}")
 
-        for market in markets[:10]:  # Show up to 10 outcomes per event
-            # Use yes_sub_title for both single and multi-outcome markets
-            outcome = market.get('yes_sub_title', market.get('ticker', 'N/A'))[:38]
-            yes_bid = market.get('yes_bid', 0)
-            no_bid = market.get('no_bid', 0)
-            volume = market.get('volume', 0)
-            close_time = format_close_time(market.get('close_time', ''))
+        # Show up to 10 markets per event
+        for market in markets[:10]:
+            outcome = market.yes_sub_title[:38]
+            print(f"   {outcome:<40} {market.yes_bid:<8} {market.no_bid:<8} "
+                  f"{market.formatted_volume:<12} {market.formatted_close_time:<15}")
 
-            # Format volume (in contracts, not dollars)
-            if volume >= 1_000_000:
-                vol_str = f"{volume/1_000_000:.1f}M"
-            elif volume >= 1_000:
-                vol_str = f"{volume/1_000:.1f}K"
-            else:
-                vol_str = f"{volume}"
-
-            print(f"   {outcome:<40} {yes_bid:<8} {no_bid:<8} {vol_str:<12} {close_time:<15}")
-
+        # Show count of remaining markets
         if len(markets) > 10:
             print(f"   ... and {len(markets) - 10} more outcomes")
 
+
+async def main():
+    """
+    Main entry point: Fetch and display Kalshi markets closing within 24 hours.
+
+    This function:
+    1. Fetches all markets closing within 24 hours
+    2. Filters markets by minimum volume threshold
+    3. Groups markets by parent event
+    4. Displays formatted results
+    """
+    print("🎯 Kalshi Markets Closing Within 24 Hours\n")
+
+    async with KalshiAPI() as api:
+        # Fetch markets closing within 24 hours
+        logger.info("Starting market fetch...")
+        all_markets_data = await api.get_markets_closing_within_24h(
+            limit=Config.DEFAULT_FETCH_LIMIT,
+            status="open"
+        )
+
+        # Convert to Market objects and filter by volume
+        all_markets = [Market.from_dict(m) for m in all_markets_data]
+        filtered_markets = [m for m in all_markets if m.volume >= Config.ARENA_MIN_VOLUME]
+
+        # Display summary
+        print(f"📊 Found {len(all_markets)} markets total")
+        print(f"✅ {len(filtered_markets)} markets with {Config.ARENA_MIN_VOLUME:,}+ contracts traded")
+        print(f"🚫 Filtered out {len(all_markets) - len(filtered_markets)} markets with low volume\n")
+
+        logger.info(f"Filtered to {len(filtered_markets)} markets with sufficient volume")
+
+        # Group markets by event
+        events_dict = group_markets_by_event(filtered_markets)
+
+        # Display results
+        display_markets(events_dict)
+
+    # Footer information
     print(f"\n{'='*100}")
     print(f"\n💡 Prices in cents (0-100). YES 45¢ = 45% probability = $0.45 cost per share")
     print(f"📊 Volume shown in contracts traded (YES and NO count separately)")
     print(f"⏰ All markets shown close within the next 24 hours")
+
+    logger.info("Script completed successfully")
 
 
 if __name__ == "__main__":
