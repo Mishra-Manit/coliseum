@@ -38,21 +38,21 @@ async def lifespan(app: FastAPI):
         debug=settings.debug,
     )
 
-    # Initialize MongoDB connection
+    # Initialize PostgreSQL connection
     await init_db()
-    
+
     # Check database connection on startup
     db_connected = await check_db_connection()
     db_info = get_db_info()
     if db_connected:
         logfire.info(
-            "MongoDB connection successful",
+            "PostgreSQL connection successful",
             url=db_info['url'],
             database=db_info['database'],
         )
     else:
         logfire.error(
-            "MongoDB connection failed",
+            "PostgreSQL connection failed",
             url=db_info['url'],
             database=db_info['database'],
         )

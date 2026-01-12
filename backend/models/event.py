@@ -1,13 +1,14 @@
-"""Event database model (Beanie/MongoDB)."""
+"""Event database model (SQLAlchemy/PostgreSQL)."""
 
-from datetime import date, datetime, timezone
+from datetime import date, datetime
 from decimal import Decimal
-from typing import Optional, List, Any, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING
 
-from beanie import Document, Indexed, Link, BackLink
-from pydantic import Field
+from sqlalchemy import Column, String, Integer, Date, DateTime, Index, NUMERIC
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.orm import relationship
 
-from models.base import TimestampMixin
+from models.base import BaseModel
 
 if TYPE_CHECKING:
     from models.event_summary import EventSummary
@@ -16,42 +17,69 @@ if TYPE_CHECKING:
     from models.settlement import Settlement
 
 
-class Event(TimestampMixin, Document):
+class Event(BaseModel):
     """Prediction market event from Kalshi."""
 
+    __tablename__ = "events"
+
     # Kalshi identifiers
-    kalshi_event_id: Optional[Indexed(str, unique=True)] = None
-    kalshi_market_id: Optional[Indexed(str, unique=True)] = None
+    kalshi_event_id = Column(String, unique=True, index=True, nullable=True)
+    kalshi_market_id = Column(String, unique=True, index=True, nullable=True)
 
     # Event details
-    title: str
-    question: str
-    current_price: Decimal = Field(default=Decimal("0.5000"))
+    title = Column(String, nullable=False)
+    question = Column(String, nullable=False)
+    current_price = Column(NUMERIC(10, 4), nullable=False, default=Decimal("0.5000"))
 
     # Categorization
-    category: str
-    subcategory: Optional[str] = None
-    tags: List[str] = Field(default_factory=list)
-    market_context: Optional[str] = None
+    category = Column(String, nullable=False)
+    subcategory = Column(String, nullable=True)
+    tags = Column(JSONB, nullable=False, default=list)
+    market_context = Column(String, nullable=True)
 
     # Lifecycle
-    status: Indexed(str) = Field(default="pending")  # pending, active, closed, settled
-    selection_date: Indexed(date)
-    close_time: Indexed(datetime)
-    settlement_time: Optional[datetime] = None
+    status = Column(String, nullable=False, default="pending", index=True)
+    selection_date = Column(Date, nullable=False, index=True)
+    close_time = Column(DateTime(timezone=True), nullable=False, index=True)
+    settlement_time = Column(DateTime(timezone=True), nullable=True)
 
     # Outcome (after settlement)
-    outcome: Optional[str] = None  # YES, NO, or None
+    outcome = Column(String, nullable=True)  # YES, NO, or None
 
     # Engagement metrics
-    viewers: int = Field(default=0)
+    viewers = Column(Integer, nullable=False, default=0)
 
-    # Kalshi metadata (stored as dict in MongoDB)
-    kalshi_data: Optional[dict] = None
+    # Kalshi metadata (stored as JSONB in PostgreSQL)
+    kalshi_data = Column(JSONB, nullable=True)
 
-    class Settings:
-        name = "events"
-        use_state_management = True
+    # Relationships
+    summary: "EventSummary" = relationship(
+        "EventSummary",
+        back_populates="event",
+        uselist=False,
+        cascade="all, delete-orphan"
+    )
+    betting_sessions: list["BettingSession"] = relationship(
+        "BettingSession",
+        back_populates="event",
+        cascade="all, delete-orphan"
+    )
+    bets: list["Bet"] = relationship(
+        "Bet",
+        back_populates="event",
+        cascade="all, delete-orphan"
+    )
+    settlement: "Settlement" = relationship(
+        "Settlement",
+        back_populates="event",
+        uselist=False,
+        cascade="all, delete-orphan"
+    )
+
+    # Indexes
+    __table_args__ = (
+        Index("ix_events_status_close_time", "status", "close_time"),
+    )
 
     def __repr__(self) -> str:
         title_preview = self.title[:50] if self.title else "Unknown"

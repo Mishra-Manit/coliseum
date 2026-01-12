@@ -1,13 +1,12 @@
-"""AI Model database model (Beanie/MongoDB)."""
+"""AI Model database model (SQLAlchemy/PostgreSQL)."""
 
-from datetime import datetime, timezone
 from decimal import Decimal
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
-from beanie import Document, Indexed
-from pydantic import Field
+from sqlalchemy import Column, String, Integer, Boolean, Index, NUMERIC
+from sqlalchemy.orm import relationship
 
-from models.base import TimestampMixin
+from models.base import BaseModel
 
 if TYPE_CHECKING:
     from models.betting_session import BettingSession
@@ -15,37 +14,52 @@ if TYPE_CHECKING:
     from models.daily_leaderboard import DailyLeaderboard
 
 
-class AIModel(TimestampMixin, Document):
+class AIModel(BaseModel):
     """AI model registry with balance and performance tracking."""
 
+    __tablename__ = "ai_models"
+
     # Identifiers
-    external_id: Indexed(str, unique=True)
-    name: str
-    openrouter_model: str
+    external_id = Column(String, unique=True, index=True, nullable=False)
+    name = Column(String, nullable=False)
+    openrouter_model = Column(String, nullable=False)
 
     # Display properties
-    color: str
-    text_color: str
-    avatar: str
+    color = Column(String, nullable=False)
+    text_color = Column(String, nullable=False)
+    avatar = Column(String, nullable=False)
 
     # Financial tracking
-    balance: Decimal = Field(default=Decimal("100000.00"))
-    initial_balance: Decimal = Field(default=Decimal("100000.00"))
-    total_pnl: Decimal = Field(default=Decimal("0.00"))
+    balance = Column(NUMERIC(15, 2), nullable=False, default=Decimal("100000.00"))
+    initial_balance = Column(NUMERIC(15, 2), nullable=False, default=Decimal("100000.00"))
+    total_pnl = Column(NUMERIC(15, 2), nullable=False, default=Decimal("0.00"))
 
     # Performance metrics
-    win_count: int = Field(default=0)
-    loss_count: int = Field(default=0)
-    abstain_count: int = Field(default=0)
-    total_bets: int = Field(default=0)
-    roi_percentage: Decimal = Field(default=Decimal("0.00"))
+    win_count = Column(Integer, nullable=False, default=0)
+    loss_count = Column(Integer, nullable=False, default=0)
+    abstain_count = Column(Integer, nullable=False, default=0)
+    total_bets = Column(Integer, nullable=False, default=0)
+    roi_percentage = Column(NUMERIC(8, 4), nullable=False, default=Decimal("0.00"))
 
     # Status
-    is_active: bool = Field(default=True)
+    is_active = Column(Boolean, nullable=False, default=True, index=True)
 
-    class Settings:
-        name = "ai_models"
-        use_state_management = True
+    # Relationships
+    betting_sessions: list["BettingSession"] = relationship(
+        "BettingSession",
+        back_populates="ai_model",
+        cascade="all, delete-orphan"
+    )
+    bets: list["Bet"] = relationship(
+        "Bet",
+        back_populates="ai_model",
+        cascade="all, delete-orphan"
+    )
+    leaderboard_entries: list["DailyLeaderboard"] = relationship(
+        "DailyLeaderboard",
+        back_populates="ai_model",
+        cascade="all, delete-orphan"
+    )
 
     def __repr__(self) -> str:
         return f"<AIModel {self.name} (${self.balance})>"

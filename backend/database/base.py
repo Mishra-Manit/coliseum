@@ -1,40 +1,37 @@
-"""
-Base document classes and mixins for Beanie ODM.
+"""Database configuration and SQLAlchemy setup for PostgreSQL (Neon)."""
 
-This module provides:
-- TimestampMixin: Automatic created_at/updated_at fields
-- BaseDocument: Base class combining Document with common functionality
-"""
+from sqlalchemy import create_engine
+from sqlalchemy.orm import declarative_base, sessionmaker
+from sqlalchemy.pool import NullPool
 
-from datetime import datetime, timezone
-from typing import Optional
-
-from beanie import Document
-from pydantic import Field
+from config import settings
 
 
-class TimestampMixin:
-    """Mixin that adds created_at and updated_at fields."""
-
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-
-    async def save(self, *args, **kwargs):
-        """Override save to update updated_at timestamp."""
-        self.updated_at = datetime.now(timezone.utc)
-        return await super().save(*args, **kwargs)
-
-
-class BaseDocument(TimestampMixin, Document):
+def _create_engine():
     """
-    Base document class for all Coliseum models.
+    Create SQLAlchemy engine for Neon PostgreSQL.
 
-    Provides:
-    - Automatic timestamps (created_at, updated_at)
-    - Common configuration settings
+    Configuration:
+    - NullPool: Prevents connection pooling conflicts with Neon's pooling
+    - echo: Show SQL statements in development mode
+    - sslmode=require: Required for Neon connections
     """
+    return create_engine(
+        settings.database_url,
+        poolclass=NullPool,  # Neon best practice: disable app-side pooling
+        echo=settings.is_development,
+    )
 
-    class Settings:
-        # Use the class name as collection name by default
-        # Override in subclasses if needed
-        use_state_management = True
+
+# Create engine
+engine = _create_engine()
+
+# Create SessionLocal factory
+SessionLocal = sessionmaker(
+    autocommit=False,
+    autoflush=False,
+    bind=engine,
+)
+
+# Create declarative base for ORM models
+Base = declarative_base()

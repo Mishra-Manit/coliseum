@@ -1,35 +1,25 @@
-"""
-FastAPI dependency injection for database access.
+"""FastAPI dependency injection for database access."""
 
-With Beanie ODM, models are accessed directly through the Document classes
-rather than through a session dependency. This module provides optional
-utilities for dependency injection patterns.
-"""
+from typing import Generator
+from sqlalchemy.orm import Session
 
-from typing import AsyncGenerator
-
-from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
-
-from config import settings
-from database.connection import get_database
+from database.base import SessionLocal
 
 
-async def get_db() -> AsyncGenerator[AsyncIOMotorDatabase, None]:
+def get_db() -> Generator[Session, None, None]:
     """
-    Dependency that yields the MongoDB database instance.
+    FastAPI dependency that provides a database session.
 
-    With Beanie, most operations are done directly on Document classes:
-        user = await User.find_one(User.email == "test@example.com")
-        await user.save()
-
-    This dependency is provided for cases where direct database access is needed,
-    such as raw MongoDB operations or aggregation pipelines.
-
-    Usage in FastAPI routes:
+    Usage:
         @router.get("/items")
-        async def get_items(db: AsyncIOMotorDatabase = Depends(get_db)):
-            # Use db for raw MongoDB operations if needed
-            # Or just use Beanie Document classes directly
-            pass
+        async def get_items(db: Session = Depends(get_db)):
+            items = db.query(Item).all()
+            return items
+
+    The session is automatically closed after the request.
     """
-    yield get_database()
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()

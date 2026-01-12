@@ -1,38 +1,52 @@
-"""Session Message database model (Beanie/MongoDB)."""
+"""Session Message database model (SQLAlchemy/PostgreSQL)."""
 
-from datetime import datetime, timezone
 from decimal import Decimal
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
-from beanie import Document, Indexed, PydanticObjectId
-from pydantic import Field
+from sqlalchemy import Column, String, Integer, ForeignKey, Index, NUMERIC
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
+from sqlalchemy.orm import relationship
+
+from models.base import BaseModel
+
+if TYPE_CHECKING:
+    from models.betting_session import BettingSession
 
 
-class SessionMessage(Document):
+class SessionMessage(BaseModel):
     """AI reasoning message during a betting session."""
 
+    __tablename__ = "session_messages"
+
     # Foreign key reference
-    session_id: Indexed(PydanticObjectId)
+    session_id = Column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("betting_sessions.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True
+    )
 
     # Message content
-    message_type: str = Field(default="reasoning")  # reasoning, action, system
-    content: str
+    message_type = Column(String, nullable=False, default="reasoning")  # reasoning, action, system
+    content = Column(String, nullable=False)
 
     # Associated action (if any)
-    action_type: Optional[str] = None  # BUY, SELL
-    action_amount: Optional[Decimal] = None
-    action_shares: Optional[int] = None
-    action_price: Optional[Decimal] = None
+    action_type = Column(String, nullable=True)  # BUY, SELL
+    action_amount = Column(NUMERIC(15, 2), nullable=True)
+    action_shares = Column(Integer, nullable=True)
+    action_price = Column(NUMERIC(10, 4), nullable=True)
 
     # Sequencing
-    sequence_number: int
+    sequence_number = Column(Integer, nullable=False)
 
-    # Timestamp
-    created_at: Indexed(datetime) = Field(default_factory=lambda: datetime.now(timezone.utc))
+    # Relationship
+    session: "BettingSession" = relationship("BettingSession", back_populates="messages")
 
-    class Settings:
-        name = "session_messages"
-        use_state_management = True
+    # Indexes
+    __table_args__ = (
+        Index("ix_session_messages_session_created", "session_id", "created_at"),
+        Index("ix_session_messages_session_seq", "session_id", "sequence_number"),
+    )
 
     def __repr__(self) -> str:
         return f"<SessionMessage #{self.sequence_number} ({self.message_type})>"

@@ -33,11 +33,21 @@ class Settings(BaseSettings):
         description="Comma-separated list of allowed CORS origins"
     )
 
-    # MongoDB Configuration
-    mongodb_url: str = Field(..., description="MongoDB Atlas connection URL")
-    mongodb_database: str = Field(
-        default="coliseum",
-        description="MongoDB database name"
+    # PostgreSQL Configuration (Neon)
+    db_user: str = Field(..., description="Database user")
+    db_password: str = Field(..., description="Database password")
+    db_host: str = Field(..., description="Database host (Neon endpoint)")
+    db_port: int = Field(default=5432, description="Database port")
+    db_name: str = Field(default="coliseum", description="Database name")
+
+    # Neon Connection URLs (optional - can be constructed from above)
+    neon_database_url: str = Field(
+        default="",
+        description="Direct Neon connection URL for Alembic migrations"
+    )
+    neon_pooled_url: str = Field(
+        default="",
+        description="Neon pooled connection URL for runtime application"
     )
 
     # External APIs
@@ -110,6 +120,32 @@ class Settings(BaseSettings):
     def is_production(self) -> bool:
         """Check if running in production mode."""
         return self.environment.lower() == "production"
+
+    @property
+    def database_url(self) -> str:
+        """
+        Get database URL for runtime application.
+        Returns pooled URL if provided, otherwise constructs from individual fields.
+        """
+        if self.neon_pooled_url:
+            return self.neon_pooled_url
+        return (
+            f"postgresql+psycopg2://{self.db_user}:{self.db_password}@"
+            f"{self.db_host}:{self.db_port}/{self.db_name}?sslmode=require"
+        )
+
+    @property
+    def alembic_database_url(self) -> str:
+        """
+        Get database URL for Alembic migrations.
+        Returns direct (non-pooled) URL if provided, otherwise constructs from individual fields.
+        """
+        if self.neon_database_url:
+            return self.neon_database_url
+        return (
+            f"postgresql+psycopg2://{self.db_user}:{self.db_password}@"
+            f"{self.db_host}:{self.db_port}/{self.db_name}?sslmode=require"
+        )
 
 
 # Create a singleton instance
