@@ -1,5 +1,15 @@
 # AGENTS.md
 
+> **CRITICAL**: You must ALWAYS activate the virtual environment before running any code in the `backend/` directory. 
+> To do this, run `source venv/bin/activate` from inside the `backend/` directory.
+>
+> Example: 
+> ```bash
+> cd backend
+> source venv/bin/activate
+> python test_storage_integration.py
+> ```
+
 This file provides project-specific context for AI coding assistants working with the Coliseum codebase.
 
 ## Project Overview

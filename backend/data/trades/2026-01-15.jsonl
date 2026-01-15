@@ -1,0 +1,1 @@
+{"id":"trade_63da85d2","position_id":null,"recommendation_id":"rec_a783740d","market_ticker":"TEST-MARKET-001","side":"YES","action":"BUY","contracts":50,"price":0.75,"total":37.5,"portfolio_pct":0.05,"edge":0.15,"ev":0.2,"paper":true,"executed_at":"2026-01-15T23:32:19.883866","category":"testing","strategy":"research_driven"}

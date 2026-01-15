@@ -195,21 +195,18 @@ class AnalystConfig(BaseModel):
     required_sources: int = 3  # Minimum sources for recommendation
     
 class ResearchBrief(BaseModel):
-    """Structured research output"""
+    """Freeform research output with structured hooks for downstream agents"""
     event_ticker: str
     market_ticker: str
     
-    # Research findings
-    key_facts: list[str]
-    recent_developments: list[str]
-    expert_opinions: list[str]
-    historical_precedents: list[str]
-    sources: list[str]  # URLs with citations
+    # Freeform synthesis - agent organizes findings however it sees fit
+    synthesis: str  # Markdown-formatted research output
     
-    # Analysis
-    base_rate: float | None  # Historical probability if available
-    current_sentiment: Literal["bullish", "bearish", "neutral"]
-    information_quality: Literal["high", "medium", "low"]
+    # Structured fields for downstream agent consumption
+    sources: list[str]  # URLs with citations
+    confidence_level: Literal["high", "medium", "low"]
+    sentiment: Literal["bullish", "bearish", "neutral"]
+    key_uncertainties: list[str]  # What could invalidate this analysis?
     
 class TradeRecommendation(BaseModel):
     """Output from Analyst agent"""
@@ -1980,7 +1977,7 @@ backend/
 #### 2.2 Analyst Agent (`coliseum/agents/analyst.py`)
 - [ ] Create Pydantic models:
   - `AnalystConfig` (research depth, min confidence, timeout)
-  - `ResearchBrief` (key facts, sources, base rate, sentiment)
+  - `ResearchBrief` (freeform synthesis, sources, confidence, sentiment, key uncertainties)
   - `TradeRecommendation` (action, confidence, edge, EV, sizing)
 - [ ] Implement `analyst_agent` with PydanticAI
 - [ ] Add tools:
