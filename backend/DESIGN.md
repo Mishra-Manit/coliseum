@@ -14,7 +14,7 @@ Coliseum is an AI prediction market simulation where autonomous AI agents compet
 - **Database**: MongoDB with Motor/Pymongo (fully normalized schema, repository pattern)
 - **Task Queue**: Celery + Redis (async pipeline execution, distributed task scheduling)
 - **Orchestration**: Celery Beat (daily 09:00 EST market-aligned timing + dynamic settlements)
-- **AI/LLM**: OpenRouter (GPT-4, Claude 3.5, Llama, etc.) + Perplexity (research)
+- **AI/LLM**: OpenRouter (GPT-4, Claude 3.5, Llama, etc.) + Exa AI (research)
 - **Data Source**: Kalshi API (any market type, closing within 24 hours)
 - **Frontend**: Next.js 16 with shadcn/ui (read-only leaderboard, REST API consumer)
 - **Observability**: Pydantic models + Logfire for tracking (automatic LLM call logging)
@@ -107,10 +107,10 @@ Generate comprehensive intelligence briefs for each selected event to inform age
 
 1. **Research Agent Activation**
    - For each of the 5 events, instantiate a Research Agent
-   - Agent uses Perplexity API (search-enabled LLM)
+   - Agent uses Exa AI Answer API (search-grounded LLM)
 
 2. **Intelligence Gathering**
-   - **Scope**: Standard analysis (3-5 Perplexity calls, ~15 minutes, ~2000 tokens output)
+   - **Scope**: Standard analysis (3-5 Exa AI calls, ~15 minutes, ~2000 tokens output)
    - **Sources**: News articles, polls, expert analysis, historical data
    - **Prompt Strategy**: "You are an objective market researcher. Given this prediction market question: [QUESTION] with resolution criteria: [CRITERIA], search for the most recent and credible data points. Do not make a prediction. Output a bulleted list of facts, context, and relevant developments. Focus on information that would help assess the probability of YES vs NO outcomes."
 
@@ -144,7 +144,7 @@ Generate comprehensive intelligence briefs for each selected event to inform age
    - Each event now has locked price + comprehensive research
 
 ### Cost Estimation
-- 5 events × 4 Perplexity calls × $0.01/call = $0.20 per day
+- 5 events × 4 Exa AI calls × $0.005/call = $0.10 per day
 - ~$6/month for research phase
 
 ---
@@ -652,7 +652,7 @@ class ExternalAPIError(PipelineExecutionError):
 # In Celery task
 @celery_app.task(bind=True, max_retries=3, autoretry_for=(ExternalAPIError,))
 def run_daily_pipeline_task(self, execution_date: str):
-    # If Kalshi/OpenRouter/Perplexity fails, Celery retries
+    # If Kalshi/OpenRouter/Exa AI fails, Celery retries
     # Exponential backoff: 1min, 2min, 4min
 ```
 
@@ -826,7 +826,7 @@ backend/
         llm_selector.py            # LLM-based event selection
       research/
         main.py                    # ResearchStage class
-        perplexity_client.py       # Perplexity API wrapper
+        exa_client.py              # Exa AI API wrapper
         brief_generator.py         # Intelligence brief creation
         prompts.py                 # Research prompts
       betting/
@@ -955,7 +955,7 @@ class StageExecutionError(PipelineExecutionError):
     retryable = False
 
 class ExternalAPIError(PipelineExecutionError):
-    """Kalshi/OpenRouter/Perplexity API error"""
+    """Kalshi/OpenRouter/Exa AI API error"""
     retryable = True  # Can retry with backoff
 
 class ValidationError(PipelineExecutionError):
@@ -1302,7 +1302,7 @@ logfire.info("Ingestion completed", **log.dict())
 
 3. **Cost Tracking**:
    - API call costs per stage
-   - Daily/monthly spend by service (Kalshi, OpenRouter, Perplexity)
+   - Daily/monthly spend by service (Kalshi, OpenRouter, Exa AI)
    - Cost per agent per event
 
 4. **Alert Conditions**:
@@ -1321,7 +1321,7 @@ logfire.info("Ingestion completed", **log.dict())
 |-----------|-------|-----------|------------|
 | **Kalshi API** | 20-30 calls/day | Free tier | $0.00 |
 | **Event Selection (LLM)** | 1 call/day | $0.02/call | $0.02 |
-| **Perplexity Research** | 5 events × 4 calls | $0.01/call | $0.20 |
+| **Exa AI Research** | 5 events × 4 calls | $0.005/call | $0.10 |
 | **Agent Decisions (GPT-4)** | 40 calls × $0.03 | $0.03/call | $1.20 |
 | **Agent Decisions (Claude)** | Mix of models | ~$0.04/call | $0.60 |
 | **MongoDB Atlas** | 1GB storage | Shared tier | $0.00 |
@@ -1349,7 +1349,7 @@ logfire.info("Ingestion completed", **log.dict())
 | **Kalshi API down** | HTTP timeout/500 | Fail-fast, skip day, alert admin | Manual retry next day |
 | **Agent timeout** | 5min timeout | Auto-ABSTAIN for that agent | Continue with other agents |
 | **MongoDB connection** | Connection error | Retry 3x, then fail-fast | Alert admin, manual restart |
-| **Perplexity rate limit** | 429 response | Exponential backoff | Retry up to 3x |
+| **Exa AI rate limit** | 429 response | Exponential backoff | Retry up to 3x |
 | **Settlement fetch fails** | API error | Retry every hour (max 24hr) | Mark event as "delayed" |
 | **LLM returns invalid JSON** | Pydantic validation | Log error, auto-ABSTAIN | Continue pipeline |
 
@@ -1385,7 +1385,7 @@ Pipeline stages are independent and stateful:
 
 2. **Stage 2: Research** (Week 1-2)
    - Run research on 1 event manually
-   - Verify Perplexity integration
+   - Verify Exa AI integration
    - Check intelligence brief quality/format
    - **Cost**: ~$0.05 per test event
 
@@ -1522,7 +1522,7 @@ Pipeline stages are independent and stateful:
 - [ ] Create .env configuration (API keys)
 - [ ] Implement Kalshi API client
 - [ ] Implement OpenRouter API client
-- [ ] Implement Perplexity API client
+- [ ] Implement Exa AI API client
 
 ### Phase 2: Pipeline - Stage 1 (Week 2)
 
@@ -1534,7 +1534,7 @@ Pipeline stages are independent and stateful:
 
 ### Phase 3: Pipeline - Stage 2 (Week 2-3)
 
-- [ ] Implement research agent with Perplexity
+- [ ] Implement research agent with Exa AI
 - [ ] Design intelligence brief template
 - [ ] Test brief generation on sample events
 - [ ] Store briefs in MongoDB
@@ -1609,7 +1609,7 @@ Pipeline stages are independent and stateful:
 
 1. **`backend/config.py`** - Pydantic Settings
    - MongoDB connection string
-   - API keys (Kalshi, OpenRouter, Perplexity, Logfire)
+   - API keys (Kalshi, OpenRouter, Exa AI, Logfire)
    - Environment detection (dev/prod)
    - Validation at startup
 
@@ -1659,7 +1659,7 @@ Pipeline stages are independent and stateful:
 ### Phase 3: Remaining Stages (Week 2-3)
 
 10. **`backend/pipeline/stages/research/main.py`** - ResearchStage
-11. **`backend/pipeline/stages/research/perplexity_client.py`**
+11. **`backend/pipeline/stages/research/exa_client.py`**
 12. **`backend/pipeline/stages/research/brief_generator.py`**
 13. **`backend/pipeline/stages/betting/main.py`** - BettingStage
 14. **`backend/pipeline/stages/betting/agent_runner.py`**

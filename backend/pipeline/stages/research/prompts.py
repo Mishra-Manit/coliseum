@@ -1,7 +1,7 @@
 """
 Research Prompts
 
-Prompt templates for Perplexity research agent.
+Prompt templates for Exa AI research agent.
 
 Includes:
 - Base research prompt (objective market researcher)

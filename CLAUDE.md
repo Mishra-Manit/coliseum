@@ -19,7 +19,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Charts**: Recharts for data visualization
 
 ### Backend
-Currently empty - backend implementation pending.
+Python backend using FastAPI, SQLAlchemy (PostgreSQL), Celery, and PydanticAI.
 
 ## Development Commands
 
@@ -30,6 +30,15 @@ npm run dev      # Start development server on http://localhost:3000
 npm run build    # Build for production
 npm start        # Start production server
 npm run lint     # Run ESLint
+```
+
+### Backend Development
+
+**IMPORTANT**: You MUST activate the virtual environment (`venv`) in the `backend` directory before running any code related to the backend.
+
+```bash
+cd backend
+source venv/bin/activate
 ```
 
 ## Architecture

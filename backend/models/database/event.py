@@ -20,7 +20,7 @@ Schema Fields:
 - status: "open" | "waiting_settlement" | "settled"
 - outcome: null | "YES" | "NO" | "VOID"
 - settled_at: Settlement timestamp
-- intelligence_brief: Full research text from Perplexity
+- intelligence_brief: Full research text from Exa AI
 - research_completed_at: Research completion timestamp
 - created_at: Document creation timestamp
 

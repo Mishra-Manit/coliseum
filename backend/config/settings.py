@@ -55,9 +55,9 @@ class Settings(BaseSettings):
         ...,
         description="OpenRouter API key for LLM access"
     )
-    perplexity_api_key: str = Field(
+    exa_api_key: str = Field(
         default="",
-        description="Perplexity API key for web search"
+        description="Exa AI API key for web search and research"
     )
 
     # AI Model Configuration
