@@ -1,0 +1,41 @@
+# Coliseum Configuration
+# This file contains operational parameters for the autonomous trading system.
+# API keys and secrets should be stored in .env file, not here.
+
+trading:
+  paper_mode: false  # LIVE TRADING with real money
+  initial_bankroll: 100.00  # Starting with $100 real capital
+
+risk:
+  max_position_pct: 0.10          # Max 10% of portfolio per position
+  max_daily_loss_pct: 0.05        # Stop trading if down 5% in a day
+  max_open_positions: 10          # Maximum concurrent positions
+  max_single_trade_usd: 1000.00   # Hard cap per trade
+  min_edge_threshold: 0.05        # Only trade if edge > 5%
+  min_ev_threshold: 0.10          # Only trade if EV > 10%
+  kelly_fraction: 0.25            # Use 1/4 Kelly for position sizing
+
+scheduler:
+  scout_full_scan_minutes: 60     # Full market scan every hour
+  scout_quick_scan_minutes: 15    # Quick scan every 15 minutes
+  guardian_position_check_minutes: 15  # Check positions every 15 min
+  guardian_news_scan_minutes: 30  # Scan news every 30 minutes
+
+analyst:
+  research_depth: standard        # Options: quick, standard, deep
+  min_confidence_threshold: 0.6   # Don't recommend below 60% confidence
+  max_research_time_seconds: 300  # 5 minute timeout per research
+  required_sources: 3             # Minimum sources for recommendation
+
+guardian:
+  profit_target_pct: 0.50         # Take profit at 50% gain
+  stop_loss_pct: 0.30             # Cut loss at 30% down
+
+execution:
+  use_limit_orders_only: true     # NEVER change to false
+  max_slippage_pct: 0.05          # Reject trade if slippage > 5%
+  order_check_interval_seconds: 300  # Check order status every 5 min
+  max_reprice_attempts: 3         # Give up after 3 reprice attempts
+  reprice_aggression: 0.02        # Increase limit by 2 cents each reprice
+  min_fill_pct_to_keep: 0.25      # Keep partial fill if > 25% filled
+  max_order_age_minutes: 60       # Cancel order if open > 1 hour

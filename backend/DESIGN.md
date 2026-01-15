@@ -912,8 +912,8 @@ data/
 ```yaml
 # config.yaml
 trading:
-  paper_mode: true
-  initial_bankroll: 10000.00
+  paper_mode: false  # LIVE TRADING with real money
+  initial_bankroll: 100.00  # Starting with $100 real capital
   
 risk:
   max_position_pct: 0.10          # Max 10% per position
@@ -961,14 +961,14 @@ This is the **single source of truth** for the current system state.
 last_updated: "2025-01-14T15:30:00Z"
 
 portfolio:
-  total_value: 10250.00
-  cash_balance: 8500.00
-  positions_value: 1750.00
+  total_value: 102.50
+  cash_balance: 85.00
+  positions_value: 17.50
   
 daily_stats:
   date: "2025-01-14"
-  starting_value: 10000.00
-  current_pnl: 250.00
+  starting_value: 100.00  # $100 real money initial capital
+  current_pnl: 2.50
   current_pnl_pct: 0.025
   trades_today: 2
   
@@ -1204,9 +1204,9 @@ daily_metrics:
   daily_pnl_pct: 0.025
   
 cumulative_metrics:
-  total_pnl: 250.00
+  total_pnl: 2.50
   total_pnl_pct: 0.025
-  starting_bankroll: 10000.00
+  starting_bankroll: 100.00  # $100 real capital
 
 positions:
   open_count: 2
