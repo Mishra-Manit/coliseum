@@ -77,6 +77,7 @@ class Settings(BaseSettings):
     # API Keys
     kalshi_api_key: str = ""
     rsa_private_key: str = ""
+    rsa_private_key_path: str = ""  # Alternative: path to PEM file
     exa_api_key: str = ""
     openrouter_api_key: str = ""
     logfire_token: str = ""
@@ -102,6 +103,21 @@ class Settings(BaseSettings):
     def resolve_data_dir(cls, v: Path) -> Path:
         """Resolve data directory to absolute path."""
         return v.resolve()
+
+    def get_rsa_private_key(self) -> str:
+        """Get RSA private key from either direct value or file path."""
+        # If direct key is provided, use it
+        if self.rsa_private_key:
+            return self.rsa_private_key
+
+        # If path is provided, read from file
+        if self.rsa_private_key_path:
+            key_path = Path(self.rsa_private_key_path)
+            if key_path.exists():
+                return key_path.read_text()
+            logger.warning(f"RSA key file not found: {key_path}")
+
+        return ""
 
     def load_yaml_config(self) -> None:
         """Load and merge YAML configuration."""

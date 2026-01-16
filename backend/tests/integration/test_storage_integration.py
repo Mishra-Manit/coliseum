@@ -10,11 +10,11 @@ Run from backend/ directory: python test_storage_integration.py
 """
 
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 # Add backend to path
-sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from coliseum.storage import (
     # State
@@ -87,10 +87,10 @@ def test_file_operations():
         yes_price=0.75,
         no_price=0.25,
         volume_24h=50000,
-        close_time=datetime.utcnow() + timedelta(days=2),
+        close_time=datetime.now(timezone.utc) + timedelta(days=2),
         priority="high",
         rationale="This is a test opportunity for Phase 1.2 integration testing.",
-        discovered_at=datetime.utcnow(),
+        discovered_at=datetime.now(timezone.utc),
     )
 
     opp_path = save_opportunity(opportunity)
@@ -103,15 +103,24 @@ def test_file_operations():
         opportunity_id=opp_id,
         event_ticker="TEST-EVENT",
         market_ticker="TEST-MARKET-001",
-        key_facts=["Fact 1: Tests are passing", "Fact 2: Code is clean"],
-        recent_developments=["Implementation completed", "Integration verified"],
-        expert_opinions=["'This looks good!' - Senior Engineer"],
-        historical_precedents=["Similar tests passed in 100% of cases"],
-        sources=["https://github.com/coliseum", "https://example.com"],
-        base_rate=0.95,
-        current_sentiment="bullish",
-        information_quality="high",
-        created_at=datetime.utcnow(),
+        synthesis="""## Key Findings
+
+The integration test demonstrates that all storage layer components are working correctly.
+This includes state management, file operations, and queue processing.
+
+### Technical Assessment
+- All Pydantic models are validating correctly
+- Atomic file writes prevent corruption
+- Queue operations support agent communication
+""",
+        sources=["https://github.com/coliseum", "https://example.com/docs"],
+        confidence_level="high",
+        sentiment="bullish",
+        key_uncertainties=[
+            "Test environment may differ from production",
+            "Concurrent access patterns not yet verified",
+        ],
+        created_at=datetime.now(timezone.utc),
     )
 
     brief_path = save_research_brief(brief)
@@ -137,7 +146,7 @@ def test_file_operations():
             "Time decay: Event closes in 48 hours",
             "Market volatility: Price may shift quickly",
         ],
-        created_at=datetime.utcnow(),
+        created_at=datetime.now(timezone.utc),
     )
 
     rec_path = save_recommendation(recommendation)
@@ -159,7 +168,7 @@ def test_file_operations():
         edge=0.15,
         ev=0.20,
         paper=True,
-        executed_at=datetime.utcnow(),
+        executed_at=datetime.now(timezone.utc),
         category="testing",
     )
 

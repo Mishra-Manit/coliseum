@@ -2325,47 +2325,57 @@ LOGFIRE_TOKEN=...
 
 ### C. Kalshi Trading API Authentication
 
+> **Note**: Kalshi uses RSA-PSS padding (not PKCS1v15). The signature message format is `{timestamp_ms}{METHOD}{path}` where path should NOT include query parameters.
+
 ```python
 import base64
-import hashlib
 import time
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey
 
 class KalshiTradingAuth:
     """Authentication for Kalshi Member Trading API"""
     
-    def __init__(self, api_key: str, private_key_path: str):
+    def __init__(self, api_key: str, private_key_pem: str):
         self.api_key = api_key
-        with open(private_key_path, "rb") as f:
-            self.private_key = serialization.load_pem_private_key(
-                f.read(), password=None
-            )
+        # Handle escaped newlines in environment variable
+        pem_content = private_key_pem.replace("\\n", "\n")
+        self.private_key: RSAPrivateKey = serialization.load_pem_private_key(
+            pem_content.encode(), password=None
+        )
     
     def generate_signature(
         self, 
-        timestamp: int, 
+        timestamp_ms: int, 
         method: str, 
         path: str
     ) -> str:
-        """Generate request signature"""
-        message = f"{timestamp}{method}{path}"
+        """Generate request signature using RSA-PSS"""
+        # Strip query parameters from path before signing
+        path_without_query = path.split("?")[0]
+        message = f"{timestamp_ms}{method.upper()}{path_without_query}"
+        
+        # Use PSS padding per Kalshi documentation
         signature = self.private_key.sign(
-            message.encode(),
-            padding.PKCS1v15(),
-            hashes.SHA256()
+            message.encode("utf-8"),
+            padding.PSS(
+                mgf=padding.MGF1(hashes.SHA256()),
+                salt_length=padding.PSS.MAX_LENGTH,
+            ),
+            hashes.SHA256(),
         )
-        return base64.b64encode(signature).decode()
+        return base64.b64encode(signature).decode("utf-8")
     
-    def get_headers(self, method: str, path: str) -> dict:
+    def get_auth_headers(self, method: str, path: str) -> dict:
         """Get authentication headers for request"""
-        timestamp = int(time.time() * 1000)
-        signature = self.generate_signature(timestamp, method, path)
+        timestamp_ms = int(time.time() * 1000)
+        signature = self.generate_signature(timestamp_ms, method.upper(), path)
         
         return {
             "KALSHI-ACCESS-KEY": self.api_key,
             "KALSHI-ACCESS-SIGNATURE": signature,
-            "KALSHI-ACCESS-TIMESTAMP": str(timestamp),
+            "KALSHI-ACCESS-TIMESTAMP": str(timestamp_ms),
         }
 ```
 
