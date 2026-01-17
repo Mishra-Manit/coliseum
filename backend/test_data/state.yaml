@@ -1,0 +1,16 @@
+last_updated: null
+portfolio:
+  total_value: 10000.0
+  cash_balance: 10000.0
+  positions_value: 0.0
+daily_stats:
+  date: null
+  starting_value: 10000.0
+  current_pnl: 0.0
+  current_pnl_pct: 0.0
+  trades_today: 0
+open_positions: []
+risk_status:
+  daily_loss_limit_hit: false
+  trading_halted: false
+  capital_at_risk_pct: 0.0

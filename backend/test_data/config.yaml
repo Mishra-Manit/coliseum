@@ -1,0 +1,4 @@
+# Test configuration
+trading:
+  paper_mode: true
+  initial_bankroll: 10000.0
