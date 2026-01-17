@@ -33,20 +33,44 @@ logger = logging.getLogger(__name__)
 class OpportunitySignal(BaseModel):
     """Scout-discovered opportunity - matches DESIGN.md spec."""
 
-    id: str
-    event_ticker: str
-    market_ticker: str
-    title: str
-    category: str
-    yes_price: float = Field(ge=0, le=1)  # 0-1 probability (e.g., 0.19 = 19¢)
-    no_price: float = Field(ge=0, le=1)   # 0-1 probability (e.g., 0.82 = 82¢)
-    close_time: datetime
-    priority: Literal["high", "medium", "low"]
-    rationale: str
-    discovered_at: datetime
+    id: str = Field(
+        description="Unique opportunity ID with 'opp_' prefix (e.g., 'opp_a1b2c3d4'). Use generate_opportunity_id_tool() to create."
+    )
+    event_ticker: str = Field(
+        description="Kalshi event ticker from market data (e.g., 'KXNFL-2024')"
+    )
+    market_ticker: str = Field(
+        description="Kalshi market ticker from market data 'ticker' field (e.g., 'KXNFL-2024-KC-WIN')"
+    )
+    title: str = Field(
+        description="Human-readable market title describing the event outcome"
+    )
+    yes_price: float = Field(
+        ge=0, le=1,
+        description="YES contract price as decimal 0-1. Calculate as yes_ask / 100 (e.g., 45 cents = 0.45)"
+    )
+    no_price: float = Field(
+        ge=0, le=1,
+        description="NO contract price as decimal 0-1. Calculate as no_ask / 100 (e.g., 56 cents = 0.56)"
+    )
+    close_time: datetime = Field(
+        description="Market close timestamp in ISO 8601 format from market data 'close_time' field"
+    )
+    priority: Literal["high", "medium", "low"] = Field(
+        description="Scout's priority: 'high' for tight spreads + strong edge, 'medium' for moderate, 'low' for marginal"
+    )
+    rationale: str = Field(
+        description="Explanation for selecting this opportunity. MUST reference only market data (spread, volume, implied probability). Do NOT fabricate external facts."
+    )
+    discovered_at: datetime = Field(
+        description="Timestamp when Scout discovered this (ISO 8601 format, current time)"
+    )
     status: Literal[
         "pending", "researching", "recommended", "traded", "expired", "skipped"
-    ] = "pending"
+    ] = Field(
+        default="pending",
+        description="Opportunity lifecycle status. Always 'pending' for newly discovered opportunities."
+    )
 
 
 class ResearchBrief(BaseModel):
@@ -116,7 +140,6 @@ class TradeExecution(BaseModel):
     ev: float
     paper: bool  # True if paper trading
     executed_at: datetime
-    category: str  # For analytics (e.g., "politics", "crypto")
     strategy: str = "research_driven"
 
 
@@ -208,7 +231,6 @@ def save_opportunity(opportunity: OpportunitySignal) -> Path:
 | Yes Price | {opportunity.yes_price * 100:.0f}¢ (${opportunity.yes_price:.2f}) |
 | No Price | {opportunity.no_price * 100:.0f}¢ (${opportunity.no_price:.2f}) |
 | Closes | {opportunity.close_time.strftime('%Y-%m-%d %I:%M %p')} |
-| Category | {opportunity.category.title()} |
 """
 
     # Write markdown file

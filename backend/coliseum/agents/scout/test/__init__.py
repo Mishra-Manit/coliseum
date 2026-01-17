@@ -1,1 +1,0 @@
-"""Scout agent test module."""
