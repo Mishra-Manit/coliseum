@@ -150,7 +150,6 @@ class OpportunitySignal(BaseModel):
     category: str
     yes_price: float = Field(ge=0, le=1)
     no_price: float = Field(ge=0, le=1)
-    volume_24h: int
     close_time: datetime
     priority: Literal["high", "medium", "low"]
     rationale: str  # Why this opportunity is interesting
@@ -158,7 +157,6 @@ class OpportunitySignal(BaseModel):
 
 #### Execution Schedule
 - **Full Scan**: Every 60 minutes
-- **Quick Scan**: Every 15 minutes (high-volume events only)
 - **Trigger**: Celery Beat scheduled task
 
 #### Tools Available
@@ -999,7 +997,6 @@ discovered_at: "2025-01-14T10:00:00Z"
 close_time: "2025-01-16T20:00:00Z"
 yes_price: 0.45
 no_price: 0.55
-volume_24h: 15000
 category: politics
 ---
 
@@ -2219,6 +2216,168 @@ backend/
 | CLI commands work | Manual: run each command, verify output |
 | Paper trading metrics accurate | Compare logged trades to Kalshi market outcomes |
 | Live trade executes | Integration: place small live trade, verify on Kalshi |
+
+---
+
+## Agent Test Framework
+
+### Overview
+
+Each agent has an isolated test runner in its own `test/` subdirectory. These tests run the agent with verbose logging and **do not persist any data** to the `data/` folder. They are designed for:
+
+- **Functional verification**: Ensure the agent runs without errors
+- **Development/debugging**: See verbose tool calls and agent reasoning
+- **CI/CD integration**: Automated smoke tests for each agent
+
+### Directory Structure
+
+```
+backend/coliseum/agents/
+├── scout/
+│   ├── __init__.py
+│   ├── main.py
+│   ├── models.py
+│   ├── prompts.py
+│   └── test/                    # Agent test module
+│       ├── __init__.py
+│       └── run_test.py          # Standalone test runner
+│
+├── analyst/
+│   └── test/
+│       ├── __init__.py
+│       └── run_test.py
+│
+├── guardian/
+│   └── test/
+│       ├── __init__.py
+│       └── run_test.py
+│
+└── trader/
+    └── test/
+        ├── __init__.py
+        └── run_test.py
+```
+
+### Running Agent Tests
+
+All tests must be run from the `backend/` directory with the virtual environment activated:
+
+```bash
+cd backend
+source venv/bin/activate
+
+# Scout agent test
+python -m coliseum.agents.scout.test.run_test
+python -m coliseum.agents.scout.test.run_test --scan-type quick --max-opportunities 3
+python -m coliseum.agents.scout.test.run_test --max-close-hours 24
+
+# Analyst agent test
+python -m coliseum.agents.analyst.test.run_test
+python -m coliseum.agents.analyst.test.run_test --market-ticker "TICKER-ABC-123"
+python -m coliseum.agents.analyst.test.run_test --research-depth deep
+
+# Guardian agent test
+python -m coliseum.agents.guardian.test.run_test
+python -m coliseum.agents.guardian.test.run_test --position-id "pos_abc123"
+
+# Trader agent test (always paper mode)
+python -m coliseum.agents.trader.test.run_test
+python -m coliseum.agents.trader.test.run_test --recommendation-id "rec_abc123"
+```
+
+### Test Output
+
+Each test prints verbose output including:
+
+1. **Configuration**: Test parameters and agent settings
+2. **Tool calls**: Each tool invocation with arguments and results
+3. **Agent reasoning**: LLM responses and decision points
+4. **Results summary**: Final output with key metrics
+
+Example scout test output:
+
+```
+08:45:23 | INFO     | scout.test | ============================================================
+08:45:23 | INFO     | scout.test | SCOUT AGENT TEST
+08:45:23 | INFO     | scout.test | ============================================================
+08:45:23 | INFO     | scout.test | Scan type: full
+08:45:23 | INFO     | scout.test | Max opportunities: 5
+08:45:23 | INFO     | scout.test | Connecting to Kalshi API...
+08:45:24 | INFO     | scout.test | [TOOL] fetch_markets_closing_soon(max_close_hours=72)
+08:45:25 | INFO     | scout.test | [TOOL] Found 45 markets closing within 72 hours
+08:45:26 | INFO     | scout.test | [TOOL] check_market_liquidity(ticker=TICKER-ABC-123)
+...
+08:45:35 | INFO     | scout.test | ============================================================
+08:45:35 | INFO     | scout.test | RESULTS
+08:45:35 | INFO     | scout.test | ============================================================
+08:45:35 | INFO     | scout.test | Execution time: 12.34s
+08:45:35 | INFO     | scout.test | Markets scanned: 45
+08:45:35 | INFO     | scout.test | Opportunities found: 5
+08:45:35 | INFO     | scout.test | TEST COMPLETE - No data was saved to disk
+```
+
+### Test Design Principles
+
+| Principle | Description |
+|-----------|-------------|
+| **No persistence** | Tests never write to `data/` folder |
+| **Verbose logging** | All tool calls and results are logged |
+| **Real API calls** | Tests use real external APIs (Kalshi, Exa, etc.) |
+| **Configurable** | Command-line arguments for different test scenarios |
+| **Safe defaults** | Trader tests always run in paper mode |
+| **Exit codes** | Return 0 on success, non-zero on failure |
+
+### Implementing New Agent Tests
+
+When adding a new agent or updating an existing one, follow this pattern:
+
+```python
+#!/usr/bin/env python3
+"""Agent Test Runner - Template"""
+
+import asyncio
+import logging
+import sys
+from pathlib import Path
+
+# Configure verbose logging
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
+    datefmt="%H:%M:%S",
+)
+logger = logging.getLogger("agent.test")
+
+async def run_agent_test(...) -> None:
+    """Execute agent in test mode (no file persistence)."""
+    logger.info("=" * 60)
+    logger.info("AGENT TEST")
+    logger.info("=" * 60)
+    
+    # 1. Create test configuration (not from data/config.yaml)
+    # 2. Create agent dependencies
+    # 3. Run the agent
+    # 4. Print verbose results
+    # 5. DO NOT save anything to disk
+    
+    logger.info("TEST COMPLETE - No data was saved to disk")
+
+def main() -> None:
+    import argparse
+    parser = argparse.ArgumentParser(description="Test the agent")
+    # Add arguments...
+    args = parser.parse_args()
+    
+    try:
+        asyncio.run(run_agent_test(...))
+        sys.exit(0)
+    except Exception as e:
+        logger.exception(f"Test failed: {e}")
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main()
+```
 
 ---
 

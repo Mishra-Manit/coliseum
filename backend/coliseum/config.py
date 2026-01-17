@@ -40,6 +40,21 @@ class SchedulerConfig(BaseModel):
     guardian_news_scan_minutes: int = 30
 
 
+class ScoutConfig(BaseModel):
+    """Scout agent market filtering parameters."""
+
+    min_volume: int = 10000  # Minimum 24h volume (contracts)
+    min_liquidity_cents: int = 10  # Minimum bid-ask spread tolerance (cents)
+    max_close_hours: int = 72  # Only scan events closing within N hours
+    max_opportunities_per_scan: int = 20  # Limit opportunities per scan
+
+    # Category filtering (empty = all categories)
+    excluded_categories: list[str] = Field(default_factory=list)
+
+    # Quick scan settings (subset of full scan)
+    quick_scan_min_volume: int = 50000  # Higher volume threshold for quick scans
+
+
 class AnalystConfig(BaseModel):
     """Analyst agent research parameters."""
 
@@ -80,12 +95,14 @@ class Settings(BaseSettings):
     rsa_private_key_path: str = ""  # Alternative: path to PEM file
     exa_api_key: str = ""
     openrouter_api_key: str = ""
+    fireworks_api_key: str = ""
     logfire_token: str = ""
 
     # Nested configuration sections
     trading: TradingConfig = Field(default_factory=TradingConfig)
     risk: RiskConfig = Field(default_factory=RiskConfig)
     scheduler: SchedulerConfig = Field(default_factory=SchedulerConfig)
+    scout: ScoutConfig = Field(default_factory=ScoutConfig)
     analyst: AnalystConfig = Field(default_factory=AnalystConfig)
     guardian: GuardianConfig = Field(default_factory=GuardianConfig)
     execution: ExecutionConfig = Field(default_factory=ExecutionConfig)
@@ -142,6 +159,7 @@ class Settings(BaseSettings):
                 "trading",
                 "risk",
                 "scheduler",
+                "scout",
                 "analyst",
                 "guardian",
                 "execution",

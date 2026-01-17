@@ -31,7 +31,7 @@ class Config:
     MAX_API_LIMIT = 1000
     DEFAULT_PAGE_SIZE = 200
     SECONDS_IN_24H = 86400
-    ARENA_MIN_VOLUME = 20_000  
+    ARENA_MIN_VOLUME = 10_000  
     DEFAULT_FETCH_LIMIT = 10000
 
     # Connection pooling settings

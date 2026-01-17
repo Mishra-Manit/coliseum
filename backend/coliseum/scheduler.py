@@ -7,6 +7,7 @@ from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 
+from coliseum.agents.scout import scout_scan_job
 from coliseum.config import Settings
 
 logger = logging.getLogger(__name__)
@@ -22,25 +23,13 @@ def start_scheduler(settings: Settings) -> NoReturn:
     scheduler = BlockingScheduler()
 
     scheduler.add_job(
-        _placeholder_job,
+        scout_scan_job,
         IntervalTrigger(minutes=settings.scheduler.scout_full_scan_minutes),
-        args=["Scout Full Scan"],
-        id="scout-full-scan",
-        name="Scout: Full Market Scan",
+        id="scout-scan",
+        name="Scout: Market Scan",
     )
     logger.info(
-        f"Registered job: Scout Full Scan (every {settings.scheduler.scout_full_scan_minutes} min)"
-    )
-
-    scheduler.add_job(
-        _placeholder_job,
-        IntervalTrigger(minutes=settings.scheduler.scout_quick_scan_minutes),
-        args=["Scout Quick Scan"],
-        id="scout-quick-scan",
-        name="Scout: Quick Scan",
-    )
-    logger.info(
-        f"Registered job: Scout Quick Scan (every {settings.scheduler.scout_quick_scan_minutes} min)"
+        f"Registered job: Scout Market Scan (every {settings.scheduler.scout_full_scan_minutes} min)"
     )
 
     scheduler.add_job(

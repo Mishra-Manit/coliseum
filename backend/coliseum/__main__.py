@@ -73,6 +73,14 @@ scheduler:
   guardian_position_check_minutes: 15
   guardian_news_scan_minutes: 30
 
+scout:
+  min_volume: 10000
+  min_liquidity_cents: 10
+  max_close_hours: 72
+  max_opportunities_per_scan: 20
+  excluded_categories: []
+  quick_scan_min_volume: 50000
+
 analyst:
   research_depth: standard
   min_confidence_threshold: 0.6
@@ -171,6 +179,13 @@ def cmd_config(args: argparse.Namespace) -> int:
         print(f"  Guardian Position Check: {settings.scheduler.guardian_position_check_minutes}")
         print(f"  Guardian News Scan: {settings.scheduler.guardian_news_scan_minutes}\n")
 
+        print("Scout:")
+        print(f"  Min Volume: {settings.scout.min_volume:,} contracts")
+        print(f"  Min Liquidity: {settings.scout.min_liquidity_cents}¢ spread")
+        print(f"  Max Close Hours: {settings.scout.max_close_hours}h")
+        print(f"  Max Opportunities/Scan: {settings.scout.max_opportunities_per_scan}")
+        print(f"  Quick Scan Min Volume: {settings.scout.quick_scan_min_volume:,}\n")
+
         print("Analyst:")
         print(f"  Research Depth: {settings.analyst.research_depth}")
         print(f"  Min Confidence: {settings.analyst.min_confidence_threshold:.0%}")
@@ -268,6 +283,40 @@ def cmd_status(args: argparse.Namespace) -> int:
         return 1
 
 
+def cmd_scout(args: argparse.Namespace) -> int:
+    """Run a manual Scout market scan."""
+    import asyncio
+
+    try:
+        from coliseum.agents.scout import run_scout
+
+        scan_type = args.scan_type
+        print(f"\n=== Scout {scan_type.title()} Scan ===\n")
+
+        result = asyncio.run(run_scout(scan_type=scan_type))
+
+        print(f"✓ Scout {scan_type} scan complete\n")
+        print(f"Markets scanned: {result.markets_scanned}")
+        print(f"Opportunities found: {result.opportunities_found}")
+        print(f"Filtered out: {result.filtered_out}")
+        print(f"\nSummary:\n{result.scan_summary}\n")
+
+        if result.opportunities:
+            print(f"Queued {len(result.opportunities)} opportunities for Analyst:")
+            for opp in result.opportunities[:5]:
+                print(f"  • {opp.market_ticker} ({opp.priority} priority)")
+            if len(result.opportunities) > 5:
+                print(f"  ... and {len(result.opportunities) - 5} more")
+            print()
+
+        return 0
+
+    except Exception as e:
+        logger.error(f"Scout scan failed: {e}", exc_info=True)
+        print(f"\n❌ Scout scan failed: {e}\n")
+        return 1
+
+
 def cmd_run(args: argparse.Namespace) -> int:
     """Start the autonomous trading system."""
     try:
@@ -330,6 +379,18 @@ def main() -> int:
         help="Display current portfolio status",
     )
     parser_status.set_defaults(func=cmd_status)
+
+    parser_scout = subparsers.add_parser(
+        "scout",
+        help="Run Scout market scan manually",
+    )
+    parser_scout.add_argument(
+        "--scan-type",
+        choices=["full", "quick"],
+        default="full",
+        help="Scan type: full (all markets) or quick (high-volume only)",
+    )
+    parser_scout.set_defaults(func=cmd_scout)
 
     parser_run = subparsers.add_parser(
         "run",

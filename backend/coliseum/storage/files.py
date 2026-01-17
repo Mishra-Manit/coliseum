@@ -38,9 +38,8 @@ class OpportunitySignal(BaseModel):
     market_ticker: str
     title: str
     category: str
-    yes_price: float
-    no_price: float
-    volume_24h: int
+    yes_price: float = Field(ge=0, le=1)  # 0-1 probability (e.g., 0.19 = 19¢)
+    no_price: float = Field(ge=0, le=1)   # 0-1 probability (e.g., 0.82 = 82¢)
     close_time: datetime
     priority: Literal["high", "medium", "low"]
     rationale: str
@@ -206,9 +205,8 @@ def save_opportunity(opportunity: OpportunitySignal) -> Path:
 
 | Metric | Value |
 |--------|-------|
-| Yes Price | ${opportunity.yes_price:.2f} |
-| No Price | ${opportunity.no_price:.2f} |
-| 24h Volume | {opportunity.volume_24h:,} |
+| Yes Price | {opportunity.yes_price * 100:.0f}¢ (${opportunity.yes_price:.2f}) |
+| No Price | {opportunity.no_price * 100:.0f}¢ (${opportunity.no_price:.2f}) |
 | Closes | {opportunity.close_time.strftime('%Y-%m-%d %I:%M %p')} |
 | Category | {opportunity.category.title()} |
 """
@@ -317,7 +315,7 @@ def save_recommendation(recommendation: TradeRecommendation) -> Path:
 ## Trade Details
 
 - **Estimated True Probability**: {recommendation.estimated_true_probability:.0%}
-- **Current Market Price**: ${recommendation.current_market_price:.2f}
+- **Current Market Price**: {recommendation.current_market_price * 100:.0f}¢ (${recommendation.current_market_price:.2f})
 - **Model Used**: {recommendation.model_used}
 - **Created**: {recommendation.created_at.strftime('%Y-%m-%d %I:%M %p UTC')}
 """

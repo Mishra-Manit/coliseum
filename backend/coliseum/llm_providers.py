@@ -66,6 +66,9 @@ class FireworksModel(StrEnum):
     DEEPSEEK_V3 = "accounts/fireworks/models/deepseek-v3"
     DEEPSEEK_R1 = "accounts/fireworks/models/deepseek-r1"
 
+    # GPT-OSS
+    GPT_OSS_120B = "accounts/fireworks/models/gpt-oss-120b"
+
 
 # =============================================================================
 # Helper Functions
@@ -74,6 +77,12 @@ class FireworksModel(StrEnum):
 
 def get_model_string(model: OpenAIModel | AnthropicModel | FireworksModel) -> str:
     """Get the API model string for any supported model."""
+    if isinstance(model, OpenAIModel):
+        return f"openai:{model.value}"
+    elif isinstance(model, AnthropicModel):
+        return f"anthropic:{model.value}"
+    elif isinstance(model, FireworksModel):
+        return f"fireworks:{model.value}"
     return model.value
 
 

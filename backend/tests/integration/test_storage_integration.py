@@ -86,7 +86,6 @@ def test_file_operations():
         category="testing",
         yes_price=0.75,
         no_price=0.25,
-        volume_24h=50000,
         close_time=datetime.now(timezone.utc) + timedelta(days=2),
         priority="high",
         rationale="This is a test opportunity for Phase 1.2 integration testing.",
