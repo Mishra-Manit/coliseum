@@ -102,12 +102,23 @@ def get_scout_agent() -> Agent[ScoutDependencies, ScoutOutput]:
 
 async def run_scout(
     settings: Settings | None = None,
+    dry_run: bool = False,
 ) -> ScoutOutput:
-    """Execute a Scout scan and save opportunities."""
+    """Execute a Scout scan and optionally save opportunities.
+
+    Args:
+        settings: Optional Settings override. Defaults to get_settings().
+        dry_run: If True, skip file persistence and queue operations.
+                 Useful for testing agent logic without side effects.
+
+    Returns:
+        ScoutOutput with discovered opportunities and scan summary.
+    """
     if settings is None:
         settings = get_settings()
 
-    logger.info("Starting Scout scan...")
+    mode_label = "[DRY RUN] " if dry_run else ""
+    logger.info(f"{mode_label}Starting Scout scan...")
 
     # Create Kalshi client with proper config (respects paper_mode setting)
     from coliseum.services.kalshi.config import KalshiConfig
@@ -117,8 +128,6 @@ async def run_scout(
             kalshi_client=client,
             config=settings.scout,
         )
-
-
 
         # Run the agent
         agent = get_scout_agent()
@@ -130,6 +139,15 @@ async def run_scout(
         )
 
         output: ScoutOutput = result.output
+
+        # Skip persistence in dry-run mode
+        if dry_run:
+            logger.info(
+                f"{mode_label}Scout scan complete: "
+                f"{output.opportunities_found} opportunities found "
+                f"(not saved - dry run mode)"
+            )
+            return output
 
         # Save opportunities to disk and queue for Analyst
         for opp in output.opportunities:
