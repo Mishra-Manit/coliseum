@@ -61,10 +61,7 @@ class FireworksModel(StrEnum):
     QWEN_2_5_CODER_32B = "accounts/fireworks/models/qwen2p5-coder-32b-instruct"
 
     # DeepSeek
-    DEEPSEEK_V3_0324 = "accounts/fireworks/models/deepseek-v3-0324"
-    DEEPSEEK_R1_0528 = "accounts/fireworks/models/deepseek-r1-0528"
-    DEEPSEEK_V3 = "accounts/fireworks/models/deepseek-v3"
-    DEEPSEEK_R1 = "accounts/fireworks/models/deepseek-r1"
+    DEEPSEEK_V3_2 = "accounts/fireworks/models/deepseek-v3p2"
 
     # GPT-OSS
     GPT_OSS_120B = "accounts/fireworks/models/gpt-oss-120b"

@@ -147,7 +147,6 @@ class OpportunitySignal(BaseModel):
     event_ticker: str
     market_ticker: str
     title: str
-    category: str
     yes_price: float = Field(ge=0, le=1)
     no_price: float = Field(ge=0, le=1)
     close_time: datetime
@@ -997,7 +996,6 @@ discovered_at: "2025-01-14T10:00:00Z"
 close_time: "2025-01-16T20:00:00Z"
 yes_price: 0.45
 no_price: 0.55
-category: politics
 ---
 
 # Will X happen by Y date?
@@ -2547,12 +2545,9 @@ class KalshiTradingAuth:
 
 However, to make your life easier when you *do* run those queries, I recommend **one small change to your Spec** (Schema) and **one addition to your Code**.
 
-#### 1. The Spec Change: "Denormalize" the Trade Log
+#### 1. The Spec Change: Add Strategy Field
 
-In your current spec, `TradeExecution` does not include the `category` (e.g., "Politics", "Crypto").
-
-* **The Problem:** To calculate "Win Rate on Crypto," DuckDB would have to open the `trades.jsonl` file *AND* join it with the YAML/Markdown files in `opportunities/` to find the category. That is messy.
-* **The Fix:** Add `category` (and maybe `tags`) directly to the `TradeExecution` model. Make the `Trader` agent copy this data from the `Recommendation` when it logs the trade.
+To make analytics queries easier, we recommend adding a `strategy` field to the `TradeExecution` model:
 
 **Update `TradeExecution` in your Spec:**
 
@@ -2561,11 +2556,10 @@ class TradeExecution(BaseModel):
     # ... existing fields ...
     market_ticker: str
     side: Literal["YES", "NO"]
-    
-    # NEW FIELDS FOR ANALYTICS
-    category: str  # e.g. "politics", "tech"
+
+    # NEW FIELD FOR ANALYTICS
     strategy: str  # e.g. "deep_research", "quick_scalp"
-    
+
     # ... existing fields ...
 ```
 
@@ -2594,15 +2588,15 @@ class AnalyticsEngine:
         # Create an in-memory database connection
         self.con = duckdb.connect(database=":memory:")
         
-    def query_performance(self, category: str = None) -> dict:
+    def query_performance(self) -> dict:
         """
         Run SQL directly on your JSONL files to get performance stats.
         """
         # We target all jsonl files in the trades directory using a glob pattern
         trades_path = self.data_dir / "trades" / "*.jsonl"
-        
+
         query = f"""
-            SELECT 
+            SELECT
                 count(*) as total_trades,
                 avg(ev_at_entry) as avg_expected_value,
                 sum(CASE WHEN status = 'filled' THEN total_cost ELSE 0 END) as volume,
@@ -2610,11 +2604,7 @@ class AnalyticsEngine:
             FROM read_json_auto('{trades_path}')
             WHERE status = 'filled'
         """
-        
-        if category:
-            # This works because we added 'category' to the JSONL schema!
-            query += f" AND category = '{category}'"
-            
+
         # Execute and return as a dictionary (for the Agent to read)
         df = self.con.execute(query).df()
         return df.to_dict(orient="records")[0]
@@ -2645,8 +2635,8 @@ DuckDB sits "on the side" as a read-only observer:
 | Area | Change Required? | Details |
 |------|------------------|---------|
 | **Files** | No | Keep `jsonl` and `yaml` formats |
-| **TradeExecution Model** | Yes | Add `category` and `strategy` fields |
-| **Trader Agent** | Yes | Copy `category` from Recommendation when logging trades |
+| **TradeExecution Model** | Yes | Add `strategy` field |
+| **Trader Agent** | Yes | Set `strategy` when logging trades |
 | **Dependencies** | Yes | Add `duckdb` and `pandas` to requirements.txt |
 | **New Service** | Yes | Create `services/analytics.py` |
 

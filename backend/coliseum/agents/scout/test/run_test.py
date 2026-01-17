@@ -59,7 +59,7 @@ logging.getLogger("asyncio").setLevel(logging.WARNING)
 def _create_test_scout_agent() -> Agent[ScoutDependencies, ScoutOutput]:
     """Create a Scout agent for testing (no persistence)."""
     return Agent(
-        model=get_model_string(FireworksModel.GPT_OSS_120B),
+        model=get_model_string(FireworksModel.DEEPSEEK_V3_2),
         output_type=ScoutOutput,
         deps_type=ScoutDependencies,
         system_prompt=SCOUT_SYSTEM_PROMPT,
@@ -99,6 +99,14 @@ def _register_test_tools(agent: Agent[ScoutDependencies, ScoutOutput]) -> None:
             logger.warning(f"   ⚠️  All {markets_before} markets were filtered out by volume threshold!")
             logger.warning(f"   💡 Consider lowering min_volume from {min_volume:,}")
 
+        # Filter out extreme probability markets (no actionable edge)
+        # Markets >95% or <5% implied probability have little research value
+        extreme_count = len(markets)
+        markets = [m for m in markets if 5 <= (m.yes_ask or 50) <= 95]
+        extreme_count -= len(markets)
+        if extreme_count > 0:
+            logger.info(f"   ✓ Filtered out {extreme_count} extreme probability markets (>95% or <5%)")
+
         # Convert to JSON-serializable format for LLM with spread calculations
         result = [
             {
@@ -115,7 +123,6 @@ def _register_test_tools(agent: Agent[ScoutDependencies, ScoutOutput]) -> None:
                 "volume": m.volume,
                 "open_interest": m.open_interest,
                 "close_time": m.close_time.isoformat() if m.close_time else None,
-                "category": m.category,
             }
             for m in markets
         ]
@@ -184,9 +191,11 @@ async def run_scout_test(
     
     logger.info(f"⚙️  Min volume: {config.min_volume:,} | Min liquidity: {config.min_liquidity_cents}¢")
 
-    # Create Kalshi client
-    logger.info("\n🔌 Connecting to Kalshi API...")
-    async with KalshiClient() as client:
+    # Create Kalshi client with proper config (use production API for real market data)
+    logger.info("\n🔌 Connecting to Kalshi API (production)...")
+    from coliseum.services.kalshi.config import KalshiConfig
+    kalshi_config = KalshiConfig(paper_mode=False)  # Use production API for real market data
+    async with KalshiClient(config=kalshi_config) as client:
         deps = ScoutDependencies(
             kalshi_client=client,
             config=config,
@@ -237,7 +246,7 @@ async def run_scout_test(
                 logger.info(f"     ID: {opp.id}")
                 logger.info(f"     Market: {opp.market_ticker}")
                 logger.info(f"     Title: {opp.title[:65]}...")
-                logger.info(f"     Category: {opp.category} | Priority: {opp.priority.upper()}")
+                logger.info(f"     Priority: {opp.priority.upper()}")
                 logger.info(f"     Prices: YES {opp.yes_price * 100:.0f}¢ | NO {opp.no_price * 100:.0f}¢")
                 logger.info(f"     Close Time: {opp.close_time}")
                 logger.info(f"     Rationale: {opp.rationale[:120]}...")

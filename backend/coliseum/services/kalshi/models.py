@@ -21,7 +21,6 @@ class Market(BaseModel):
     open_interest: int = 0
     close_time: datetime | None = None
     status: str = "unknown"
-    category: str = "N/A"
     result: str | None = None
 
     @field_validator("close_time", mode="before")
@@ -66,7 +65,6 @@ class Market(BaseModel):
             open_interest=data.get("open_interest", 0),
             close_time=data.get("close_time"),
             status=data.get("status", "unknown"),
-            category=data.get("category", "N/A"),
             result=data.get("result"),
         )
 

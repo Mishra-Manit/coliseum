@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 def _create_scout_agent() -> Agent[ScoutDependencies, ScoutOutput]:
     """Create the Scout agent (called lazily to avoid loading API keys at import time)."""
     return Agent(
-        model=get_model_string(FireworksModel.GPT_OSS_120B),
+        model=get_model_string(FireworksModel.DEEPSEEK_V3_2),
         output_type=ScoutOutput,
         deps_type=ScoutDependencies,
         system_prompt=SCOUT_SYSTEM_PROMPT,
@@ -48,6 +48,10 @@ def _register_tools(agent: Agent[ScoutDependencies, ScoutOutput]) -> None:
         min_volume = 10000
         markets = [m for m in markets if m.volume >= min_volume]
 
+        # Filter out extreme probability markets (no actionable edge)
+        # Markets >95% or <5% implied probability have little research value
+        markets = [m for m in markets if 5 <= (m.yes_ask or 50) <= 95]
+
         # Convert to JSON-serializable format for LLM with spread calculations
         return [
             {
@@ -64,7 +68,6 @@ def _register_tools(agent: Agent[ScoutDependencies, ScoutOutput]) -> None:
                 "volume": m.volume,
                 "open_interest": m.open_interest,
                 "close_time": m.close_time.isoformat() if m.close_time else None,
-                "category": m.category,
             }
             for m in markets
         ]
@@ -91,7 +94,7 @@ def get_scout_agent() -> Agent[ScoutDependencies, ScoutOutput]:
         settings = get_settings()
         if settings.fireworks_api_key:
             os.environ["FIREWORKS_API_KEY"] = settings.fireworks_api_key
-            
+
         _scout_agent = _create_scout_agent()
         _register_tools(_scout_agent)
     return _scout_agent
@@ -106,8 +109,10 @@ async def run_scout(
 
     logger.info("Starting Scout scan...")
 
-    # Create Kalshi client
-    async with KalshiClient() as client:
+    # Create Kalshi client with proper config (respects paper_mode setting)
+    from coliseum.services.kalshi.config import KalshiConfig
+    kalshi_config = KalshiConfig(paper_mode=settings.trading.paper_mode)
+    async with KalshiClient(config=kalshi_config) as client:
         deps = ScoutDependencies(
             kalshi_client=client,
             config=settings.scout,
@@ -137,7 +142,7 @@ async def run_scout(
 
                 logger.info(
                     f"Queued {opp.priority} priority opportunity: "
-                    f"{opp.market_ticker} ({opp.category})"
+                    f"{opp.market_ticker}"
                 )
             except Exception as e:
                 logger.error(f"Failed to save/queue opportunity {opp.id}: {e}")
