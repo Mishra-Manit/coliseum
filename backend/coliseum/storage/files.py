@@ -24,6 +24,11 @@ from coliseum.storage.state import get_data_dir
 
 logger = logging.getLogger(__name__)
 
+# Status type alias for opportunity lifecycle
+OpportunityStatus = Literal[
+    "pending", "researching", "recommended", "traded", "expired", "skipped"
+]
+
 
 # ============================================================================
 # Pydantic Models
@@ -44,6 +49,10 @@ class OpportunitySignal(BaseModel):
     )
     title: str = Field(
         description="Human-readable market title describing the event outcome"
+    )
+    subtitle: str = Field(
+        default="",
+        description="Additional context or specific outcome being bet on (e.g., movie name, player name). Empty string if not applicable."
     )
     yes_price: float = Field(
         ge=0, le=1,
@@ -210,14 +219,16 @@ def save_opportunity(opportunity: OpportunitySignal) -> Path:
     filename = f"{opportunity.market_ticker}.md"
     file_path = date_dir / filename
 
-    # Prepare frontmatter (all fields except title and rationale)
+    # Prepare frontmatter (all fields except title, subtitle, and rationale)
     frontmatter = opportunity.model_dump(
-        mode="json", exclude={"title", "rationale"}
+        mode="json", exclude={"title", "subtitle", "rationale"}
     )
 
     # Prepare markdown body
-    body = f"""# {opportunity.title}
+    subtitle_section = f"\n**Outcome**: {opportunity.subtitle}\n" if opportunity.subtitle else ""
 
+    body = f"""# {opportunity.title}
+{subtitle_section}
 ## Scout Assessment
 
 **Priority**: {opportunity.priority.title()}
@@ -398,3 +409,103 @@ def generate_recommendation_id() -> str:
 def generate_trade_id() -> str:
     """Generate unique trade execution ID with trade_ prefix."""
     return f"trade_{uuid4().hex[:8]}"
+
+
+def find_opportunity_file(market_ticker: str, lookback_days: int = 7) -> Path | None:
+    """Find the opportunity markdown file for a given market ticker.
+    
+    Searches all date directories (newest to oldest) within lookback_days.
+    """
+    data_dir = get_data_dir()
+    opps_dir = data_dir / "opportunities"
+    
+    if not opps_dir.exists():
+        return None
+    
+    # Get all date directories and sort newest first
+    date_dirs = sorted(
+        [d for d in opps_dir.iterdir() if d.is_dir()],
+        key=lambda d: d.name,
+        reverse=True  # Newest first
+    )
+    
+    # Search in each date directory
+    for date_dir in date_dirs[:lookback_days + 1]:  # Limit to lookback_days
+        file_path = date_dir / f"{market_ticker}.md"
+        if file_path.exists():
+            return file_path
+    
+    return None
+
+
+def update_opportunity_status(
+    market_ticker: str,
+    new_status: OpportunityStatus,
+    lookback_days: int = 7,
+) -> bool:
+    """Update the status field in an opportunity's markdown frontmatter.
+    
+    This updates both the YAML frontmatter and preserves the rest of the file.
+    Also updates the state.yaml seen_markets entry if present.
+    """
+    file_path = find_opportunity_file(market_ticker, lookback_days)
+    
+    if file_path is None:
+        logger.warning(f"Opportunity file not found for {market_ticker}")
+        return False
+    
+    try:
+        content = file_path.read_text(encoding="utf-8")
+        
+        # Parse frontmatter and body
+        if not content.startswith("---"):
+            logger.error(f"Invalid frontmatter format in {file_path}")
+            return False
+        
+        # Split into frontmatter and body
+        parts = content.split("---", 2)
+        if len(parts) < 3:
+            logger.error(f"Could not parse frontmatter in {file_path}")
+            return False
+        
+        frontmatter_raw = parts[1]
+        body = parts[2]
+        
+        # Parse YAML frontmatter
+        frontmatter = yaml.safe_load(frontmatter_raw)
+        if frontmatter is None:
+            frontmatter = {}
+        
+        old_status = frontmatter.get("status", "unknown")
+        frontmatter["status"] = new_status
+        
+        # Reconstruct file with updated frontmatter
+        new_frontmatter_raw = yaml.dump(
+            frontmatter,
+            default_flow_style=False,
+            allow_unicode=True,
+            sort_keys=False,
+        )
+        new_content = f"---\n{new_frontmatter_raw}---{body}"
+        
+        # Write back
+        file_path.write_text(new_content, encoding="utf-8")
+        
+        logger.info(
+            f"Updated opportunity status: {market_ticker} ({old_status} -> {new_status})"
+        )
+        
+        # Also update state.yaml if this market is tracked
+        from coliseum.storage.state import update_market_status
+        update_market_status(market_ticker, new_status)
+        
+        return True
+        
+    except Exception as e:
+        logger.error(f"Failed to update opportunity status for {market_ticker}: {e}")
+        return False
+
+
+def opportunity_exists(market_ticker: str, lookback_days: int = 7) -> bool:
+    """Check if an opportunity file exists for a given market ticker."""
+    return find_opportunity_file(market_ticker, lookback_days) is not None

@@ -14,17 +14,18 @@ You MUST return a valid ScoutOutput JSON object with these exact fields:
 - opportunities_found: Integer (length of opportunities array)
 - filtered_out: Integer (markets_scanned - opportunities_found)
 
-Each OpportunitySignal requires ALL 11 fields:
+Each OpportunitySignal requires ALL 12 fields:
 - id: Use generate_opportunity_id_tool() to create unique IDs
 - event_ticker: From market data
 - market_ticker: From market data 'ticker' field
-- title: Market title
+- title: Market title from market data
+- subtitle: Market subtitle from market data (specifies WHICH outcome, e.g., "The People's Joker" for Netflix rankings). Use empty string "" if subtitle is empty or not provided.
 - yes_price: yes_ask / 100 (decimal 0-1)
 - no_price: no_ask / 100 (decimal 0-1)
 - close_time: ISO 8601 timestamp
 - priority: "high", "medium", or "low"
 - rationale: Your explanation (grounded in market data only)
-- discovered_at: Current timestamp (ISO 8601)
+- discovered_at: Use get_current_time() to get current timestamp (ISO 8601)
 - status: Always "pending"
 
 ### Example Output Structure
@@ -37,6 +38,7 @@ Each OpportunitySignal requires ALL 11 fields:
       "event_ticker": "KXNFL-2024",
       "market_ticker": "KXNFL-2024-KC-WIN",
       "title": "Will Kansas City win Super Bowl 2024?",
+      "subtitle": "",
       "yes_price": 0.42,
       "no_price": 0.59,
       "close_time": "2024-02-15T23:59:00Z",
@@ -44,9 +46,23 @@ Each OpportunitySignal requires ALL 11 fields:
       "rationale": "Tight 3-cent spread with 42% implied probability. High volume (125k contracts) indicates strong liquidity. Market closes in 48 hours.",
       "discovered_at": "2024-01-15T14:30:00Z",
       "status": "pending"
+    },
+    {
+      "id": "opp_b2c3d4e5",
+      "event_ticker": "KXNETFLIXRANKMOVIE-26JAN19",
+      "market_ticker": "KXNETFLIXRANKMOVIE-26JAN19-PEO",
+      "title": "Top US Netflix Movie on Jan 19, 2026?",
+      "subtitle": "The People's Joker",
+      "yes_price": 0.10,
+      "no_price": 0.92,
+      "close_time": "2026-01-20T04:59:00Z",
+      "priority": "medium",
+      "rationale": "2-cent spread with 180k volume. Subtitle specifies the exact movie outcome being priced.",
+      "discovered_at": "2024-01-15T14:30:00Z",
+      "status": "pending"
     }
   ],
-  "scan_summary": "Scanned 147 markets, identified 5 high-quality opportunities across sports and politics. Focused on tight spreads (<5 cents) closing within 72 hours.",
+  "scan_summary": "Scanned 147 markets, identified 5 high-quality opportunities across sports and entertainment. Focused on tight spreads (<5 cents) closing within 72 hours.",
   "markets_scanned": 147,
   "opportunities_found": 5,
   "filtered_out": 142
@@ -98,11 +114,13 @@ Base rationale strictly on: spread, volume, implied probability, close time, mar
 3. Apply selection criteria: spreads, research potential, parlay detection
 4. For each selected opportunity:
    - Call generate_opportunity_id_tool() to get unique ID
-   - Extract all required fields from market data
+   - Call get_current_time() to get current timestamp for discovered_at field
+   - Extract all required fields from market data (including subtitle field)
    - Calculate yes_price = yes_ask / 100, no_price = no_ask / 100
+   - Set subtitle to market's subtitle field (or empty string "" if not provided)
    - Assign priority (high/medium/low)
    - Write grounded rationale (market data only)
-   - Set discovered_at = current timestamp
+   - Set discovered_at to the timestamp from get_current_time()
    - Set status = "pending"
 5. Calculate summary statistics
 6. Return valid ScoutOutput JSON
