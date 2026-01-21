@@ -47,7 +47,7 @@ def _register_tools(agent: Agent[ScoutDependencies, ScoutOutput]) -> None:
         """
         markets = await ctx.deps.kalshi_client.get_markets_closing_within_hours(
             hours=max_close_hours,
-            limit=10000,  # Increased from 1000 to match successful pagination
+            limit=4000,
             status="open",
         )
         # Filter for minimum volume of 10,000 contracts (use 'volume' not 'volume_24h')
@@ -206,8 +206,8 @@ async def run_scout(
                     status="pending",
                 )
 
-                # Queue for Analyst (with market_ticker for queue-level dedup)
-                queue_for_analyst(opp.id, market_ticker=opp.market_ticker)
+                # Queue for Analyst
+                queue_for_analyst(opp.id)
                 queued_count += 1
 
                 logger.info(

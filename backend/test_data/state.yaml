@@ -1,4 +1,4 @@
-last_updated: '2026-01-18T03:43:40.249026'
+last_updated: '2026-01-21T08:42:37.471265'
 portfolio:
   total_value: 10000.0
   cash_balance: 10000.0
@@ -15,53 +15,28 @@ risk_status:
   trading_halted: false
   capital_at_risk_pct: 0.0
 seen_markets:
-  KXNETFLIXRANKMOVIE-26JAN19-PEO:
-    opportunity_id: opp_9a313c4a
-    discovered_at: '2026-01-18T03:40:43.240909Z'
-    close_time: '2026-01-20T04:59:00Z'
+  KXBTCD-26JAN2117-T89249.99:
+    opportunity_id: opp_a0426ee6
+    discovered_at: '2026-01-21T08:42:37.443825Z'
+    close_time: '2026-01-21T22:00:00Z'
     status: pending
-  KXRT28YEARSLATERTBT-92:
-    opportunity_id: opp_95c5d179
-    discovered_at: '2026-01-18T03:40:43.248060Z'
-    close_time: '2026-01-19T15:00:00Z'
+  KXSPOTIFYW-26JAN22-END:
+    opportunity_id: opp_96e2a09c
+    discovered_at: '2026-01-21T08:42:37.452773Z'
+    close_time: '2026-01-23T04:59:00Z'
     status: pending
-  KXNETFLIXRANKSHOWRUNNERUP-26JAN19-112:
-    opportunity_id: opp_d2fbcff8
-    discovered_at: '2026-01-18T03:40:43.250685Z'
-    close_time: '2026-01-20T04:59:00Z'
+  KXOSCARNOMDIR-26-KLA:
+    opportunity_id: opp_060f4349
+    discovered_at: '2026-01-21T08:42:37.460863Z'
+    close_time: '2026-01-22T17:30:00Z'
     status: pending
-  KXSCOTTISHPREMGAME-26JAN06LIVMIR-MIR:
-    opportunity_id: opp_f3450cad
-    discovered_at: '2026-01-18T03:40:43.253274Z'
-    close_time: '2026-01-20T23:45:00Z'
+  KXALBUMSALES-DBD-120000:
+    opportunity_id: opp_d01250b1
+    discovered_at: '2026-01-21T08:42:37.466138Z'
+    close_time: '2026-01-23T04:59:00Z'
     status: pending
-  KXTOPSONG-26JAN24-THE:
-    opportunity_id: opp_63c8486b
-    discovered_at: '2026-01-18T03:40:43.256253Z'
-    close_time: '2026-01-19T03:59:00Z'
-    status: pending
-  KXNETFLIXRANKMOVIE-26JAN19-RIP:
-    opportunity_id: opp_b59beee3
-    discovered_at: '2026-01-18T03:41:29.082578Z'
-    close_time: '2026-01-20T04:59:00Z'
-    status: researching
-  KXTRUMPSAY-26JAN19-CRYP:
-    opportunity_id: opp_45fc5b8b
-    discovered_at: '2026-01-18T03:41:29.097460Z'
-    close_time: '2026-01-19T15:00:00Z'
-    status: pending
-  KXNFLMENTION-26JAN18SFSEA-FINE:
-    opportunity_id: opp_bcbc01b1
-    discovered_at: '2026-01-18T03:41:29.101934Z'
-    close_time: '2026-01-18T06:00:00Z'
-    status: pending
-  KXNFLMENTION-26JAN18LACHI-WHAT:
-    opportunity_id: opp_d06df351
-    discovered_at: '2026-01-18T03:41:29.106263Z'
-    close_time: '2026-01-19T04:30:00Z'
-    status: pending
-  KXNETFLIXRANKMOVIEGLOBAL-26JAN19-PEO:
-    opportunity_id: opp_542e7fd3
-    discovered_at: '2026-01-18T03:41:29.111375Z'
-    close_time: '2026-01-20T04:59:00Z'
+  KXEREDIVISIEGAME-26JAN09NIJFCU-NIJ:
+    opportunity_id: opp_6f11530e
+    discovered_at: '2026-01-21T08:42:37.471256Z'
+    close_time: '2026-01-23T19:00:00Z'
     status: pending
