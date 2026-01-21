@@ -89,8 +89,11 @@ def init_test_data_structure() -> None:
         config_path.write_text(
             "# Test configuration\n"
             "trading:\n"
-            "  paper_mode: true\n"
-            "  initial_bankroll: 10000.0\n",
+            "  paper_mode: false\n"
+            "  initial_bankroll: 10000.0\n"
+            "\n"
+            "scout:\n"
+            "  max_opportunities_per_scan: 5\n",
             encoding="utf-8",
         )
 

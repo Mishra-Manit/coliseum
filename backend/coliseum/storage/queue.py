@@ -25,6 +25,7 @@ class QueueItem(BaseModel):
     id: str
     opportunity_id: str | None = None
     recommendation_id: str | None = None
+    market_ticker: str | None = None
     queued_at: datetime
     file_path: Path
 
@@ -45,19 +46,44 @@ def _generate_queue_filename() -> str:
     return f"{timestamp}_{unique_id}.json"
 
 
-def queue_for_analyst(opportunity_id: str) -> None:
-    """Queue an opportunity ID for the Analyst agent."""
+def queue_for_analyst(opportunity_id: str, market_ticker: str | None = None) -> bool:
+    """Queue an opportunity ID for the Analyst agent.
+    
+    Args:
+        opportunity_id: The opportunity ID to queue
+        market_ticker: Optional market ticker for duplicate checking
+        
+    Returns:
+        True if queued, False if skipped (already queued for this market)
+    """
     queue_dir = _get_queue_dir("analyst")
+    
+    # Check for existing queue entry with same market_ticker
+    if market_ticker:
+        for existing_file in queue_dir.glob("*.json"):
+            try:
+                data = json.loads(existing_file.read_text(encoding="utf-8"))
+                if data.get("market_ticker") == market_ticker:
+                    logger.info(
+                        f"Skipping duplicate queue for {market_ticker} "
+                        f"(already queued as {data.get('opportunity_id')})"
+                    )
+                    return False
+            except Exception:
+                continue
+    
     file_path = queue_dir / _generate_queue_filename()
 
     item = {
         "opportunity_id": opportunity_id,
+        "market_ticker": market_ticker,
         "queued_at": datetime.utcnow().isoformat(),
     }
 
     try:
         file_path.write_text(json.dumps(item, indent=2), encoding="utf-8")
         logger.info(f"Queued opportunity {opportunity_id} for Analyst")
+        return True
     except Exception as e:
         logger.error(f"Failed to queue opportunity {opportunity_id}: {e}")
         raise
@@ -94,6 +120,7 @@ def get_pending(agent_name: Literal["analyst", "trader"]) -> list[QueueItem]:
                 id=file_path.stem,
                 opportunity_id=data.get("opportunity_id"),
                 recommendation_id=data.get("recommendation_id"),
+                market_ticker=data.get("market_ticker"),
                 queued_at=datetime.fromisoformat(data["queued_at"]),
                 file_path=file_path,
             ))

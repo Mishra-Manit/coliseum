@@ -11,6 +11,12 @@ from coliseum.llm_providers import AnthropicModel, FireworksModel, get_model_str
 from coliseum.services.kalshi.client import KalshiClient
 from coliseum.storage.files import save_opportunity, generate_opportunity_id
 from coliseum.storage.queue import queue_for_analyst
+from coliseum.storage.state import (
+    cleanup_seen_markets,
+    get_seen_tickers,
+    is_market_seen,
+    mark_market_seen,
+)
 
 from .models import ScoutDependencies, ScoutOutput
 from .prompts import SCOUT_SYSTEM_PROMPT
@@ -81,6 +87,12 @@ def _register_tools(agent: Agent[ScoutDependencies, ScoutOutput]) -> None:
         """
         return generate_opportunity_id()
 
+    @agent.tool
+    def get_current_time(ctx: RunContext[ScoutDependencies]) -> str:
+        """Get the current UTC timestamp in ISO 8601 format."""
+        from datetime import datetime, timezone
+        return datetime.now(timezone.utc).isoformat()
+
 
 # Global agent instance (created on first use)
 _scout_agent: Agent[ScoutDependencies, ScoutOutput] | None = None
@@ -120,6 +132,25 @@ async def run_scout(
     mode_label = "[DRY RUN] " if dry_run else ""
     logger.info(f"{mode_label}Starting Scout scan...")
 
+    # Cleanup expired markets from seen_markets before scanning
+    if not dry_run:
+        try:
+            cleaned = cleanup_seen_markets()
+            if cleaned > 0:
+                logger.info(f"Cleaned up {cleaned} expired markets from tracking")
+        except Exception as e:
+            logger.warning(f"Failed to cleanup seen_markets: {e}")
+
+    # Get currently tracked markets to inject into prompt context
+    seen_tickers = get_seen_tickers()
+    seen_context = ""
+    if seen_tickers:
+        seen_context = (
+            "\n\nPREVIOUSLY DISCOVERED MARKETS (DO NOT SELECT THESE - already being processed):\n"
+            + "\n".join(f"- {ticker}" for ticker in seen_tickers)
+        )
+        logger.debug(f"Injecting {len(seen_tickers)} seen tickers into prompt context")
+
     # Create Kalshi client with proper config (respects paper_mode setting)
     from coliseum.services.kalshi.config import KalshiConfig
     kalshi_config = KalshiConfig(paper_mode=settings.trading.paper_mode)
@@ -129,14 +160,15 @@ async def run_scout(
             config=settings.scout,
         )
 
-        # Run the agent
+        # Run the agent with seen markets context
         agent = get_scout_agent()
-        result = await agent.run(
+        prompt = (
             f"Scan Kalshi markets and identify {settings.scout.max_opportunities_per_scan} "
             f"high-quality trading opportunities. "
-            f"Only include markets with significant volume (>10,000 contracts) to ensure liquidity.",
-            deps=deps,
+            f"Only include markets with significant volume (>10,000 contracts) to ensure liquidity."
+            f"{seen_context}"
         )
+        result = await agent.run(prompt, deps=deps)
 
         output: ScoutOutput = result.output
 
@@ -149,14 +181,34 @@ async def run_scout(
             )
             return output
 
-        # Save opportunities to disk and queue for Analyst
+        # Save opportunities to disk, mark as seen, and queue for Analyst
+        queued_count = 0
+        skipped_count = 0
+        
         for opp in output.opportunities:
             try:
+                # Check if already seen (safety net - LLM might still select duplicates)
+                if is_market_seen(opp.market_ticker):
+                    logger.info(
+                        f"Skipping duplicate: {opp.market_ticker} (already in seen_markets)"
+                    )
+                    skipped_count += 1
+                    continue
+
                 # Save to data/opportunities/
                 save_opportunity(opp)
 
-                # Queue for Analyst
-                queue_for_analyst(opp.id)
+                # Mark as seen to prevent future duplicates
+                mark_market_seen(
+                    market_ticker=opp.market_ticker,
+                    opportunity_id=opp.id,
+                    close_time=opp.close_time,
+                    status="pending",
+                )
+
+                # Queue for Analyst (with market_ticker for queue-level dedup)
+                queue_for_analyst(opp.id, market_ticker=opp.market_ticker)
+                queued_count += 1
 
                 logger.info(
                     f"Queued {opp.priority} priority opportunity: "
@@ -168,7 +220,7 @@ async def run_scout(
         logger.info(
             f"Scout scan complete: "
             f"{output.opportunities_found} opportunities found, "
-            f"{len(output.opportunities)} queued"
+            f"{queued_count} queued, {skipped_count} skipped (duplicates)"
         )
 
         return output

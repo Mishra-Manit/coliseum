@@ -61,6 +61,9 @@ celerybeat.pid
 htmlcov/
 .tox/
 
+# Test Data
+test_data/
+
 # OS
 .DS_Store
 Thumbs.db
