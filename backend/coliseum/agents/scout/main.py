@@ -2,6 +2,7 @@
 
 import os
 import logging
+from datetime import datetime, timezone
 from typing import Literal
 
 from pydantic_ai import Agent, RunContext
@@ -12,10 +13,11 @@ from coliseum.services.kalshi.client import KalshiClient
 from coliseum.storage.files import save_opportunity, generate_opportunity_id
 from coliseum.storage.queue import queue_for_analyst
 from coliseum.storage.state import (
+    SeenMarket,
     cleanup_seen_markets,
     get_seen_tickers,
-    is_market_seen,
-    mark_market_seen,
+    load_state,
+    save_state,
 )
 
 from .models import ScoutDependencies, ScoutOutput
@@ -90,7 +92,6 @@ def _register_tools(agent: Agent[ScoutDependencies, ScoutOutput]) -> None:
     @agent.tool
     def get_current_time(ctx: RunContext[ScoutDependencies]) -> str:
         """Get the current UTC timestamp in ISO 8601 format."""
-        from datetime import datetime, timezone
         return datetime.now(timezone.utc).isoformat()
 
 
@@ -181,32 +182,35 @@ async def run_scout(
             )
             return output
 
-        # Save opportunities to disk, mark as seen, and queue for Analyst
+        # Load state once for duplicate checking and batch update
+        state = load_state()
+        now = datetime.now(timezone.utc)
+
         queued_count = 0
         skipped_count = 0
-        
+        added_count = 0
+
         for opp in output.opportunities:
             try:
-                # Check if already seen (safety net - LLM might still select duplicates)
-                if is_market_seen(opp.market_ticker):
+                # Check if already seen (in-memory state check)
+                if opp.market_ticker in state.seen_markets:
                     logger.info(
                         f"Skipping duplicate: {opp.market_ticker} (already in seen_markets)"
                     )
                     skipped_count += 1
                     continue
 
-                # Save to data/opportunities/
-                save_opportunity(opp)
-
-                # Mark as seen to prevent future duplicates
-                mark_market_seen(
-                    market_ticker=opp.market_ticker,
+                # Mark as seen immediately in-memory (before operations that can fail)
+                state.seen_markets[opp.market_ticker] = SeenMarket(
                     opportunity_id=opp.id,
+                    discovered_at=now,
                     close_time=opp.close_time,
                     status="pending",
                 )
+                added_count += 1
 
-                # Queue for Analyst
+                # Now perform operations that might fail
+                save_opportunity(opp)
                 queue_for_analyst(opp.id)
                 queued_count += 1
 
@@ -216,6 +220,12 @@ async def run_scout(
                 )
             except Exception as e:
                 logger.error(f"Failed to save/queue opportunity {opp.id}: {e}")
+                # Market is still marked as seen to prevent retry loops
+
+        # Batch update: Write updated state once if any markets were added
+        if added_count > 0:
+            save_state(state)
+            logger.info(f"Batch marked {added_count} markets as seen")
 
         logger.info(
             f"Scout scan complete: "

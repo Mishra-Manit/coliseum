@@ -1941,13 +1941,6 @@ backend/
 - [ ] Implement `run_scout()` function that writes to `data/opportunities/`
 - [ ] Queue discovered opportunities for Analyst
 
-#### 1.5 Scheduler (`coliseum/scheduler.py`)
-- [ ] Create `AsyncIOScheduler` with jobs:
-  - Scout full scan: Every hour at `:00`
-  - Scout quick scan: Every 15 minutes
-  - Process analyst queue: Every 5 minutes
-  - Process trader queue: Every 5 minutes
-- [ ] Implement `start_scheduler()` and `stop_scheduler()` functions
 
 #### 1.6 Phase 1 Verification
 | Test | Method |
@@ -1955,7 +1948,7 @@ backend/
 | Storage atomic writes | Unit test: write state, crash mid-write, verify no corruption |
 | Kalshi API connection | Integration: fetch markets, verify response parsing |
 | Scout market discovery | Manual: run scout, inspect `data/opportunities/` output |
-| Scheduler runs jobs | Manual: start scheduler, verify jobs execute on schedule |
+
 
 ---
 
@@ -2133,12 +2126,6 @@ backend/
   - `send_daily_summary(portfolio)` → 📊 End of day summary
 - [ ] Add quiet hours support (only critical alerts during quiet hours)
 
-#### 4.4 Scheduled Alert Jobs
-- [ ] Add to scheduler:
-  - Guardian position check: Every 15 minutes
-  - Guardian news scan: Every 30 minutes
-  - Daily portfolio snapshot: 4 PM EST
-  - Daily summary Telegram: 4:05 PM EST
 
 #### 4.5 Phase 4 Verification
 | Test | Method |
@@ -2214,6 +2201,32 @@ backend/
 | CLI commands work | Manual: run each command, verify output |
 | Paper trading metrics accurate | Compare logged trades to Kalshi market outcomes |
 | Live trade executes | Integration: place small live trade, verify on Kalshi |
+
+---
+
+
+
+### Phase 6: Automation & Scheduling (Week 10+)
+
+**Goal**: Full autonomous operation with scheduled jobs and robust alerting.
+
+#### 6.1 Scheduler Implementation (`coliseum/scheduler.py`)
+- [ ] Create `AsyncIOScheduler` with jobs:
+  - Scout full scan: Every hour at `:00`
+  - Scout quick scan: Every 15 minutes
+  - Process analyst queue: Every 5 minutes
+  - Process trader queue: Every 5 minutes
+  - Guardian position check: Every 15 minutes
+  - Guardian news scan: Every 30 minutes
+  - Daily portfolio snapshot: 4 PM EST
+  - Daily summary Telegram: 4:05 PM EST
+  - Settlement check: Every 30 minutes
+- [ ] Implement `start_scheduler()` and `stop_scheduler()` functions
+
+#### 6.2 Phase 6 Verification
+| Test | Method |
+|------|--------|
+| Scheduler runs jobs | Manual: start scheduler, verify jobs execute on schedule |
 
 ---
 

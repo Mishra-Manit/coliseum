@@ -25,7 +25,6 @@ class QueueItem(BaseModel):
     id: str
     opportunity_id: str | None = None
     recommendation_id: str | None = None
-    market_ticker: str | None = None
     queued_at: datetime
     file_path: Path
 
@@ -98,7 +97,6 @@ def get_pending(agent_name: Literal["analyst", "trader"]) -> list[QueueItem]:
                 id=file_path.stem,
                 opportunity_id=data.get("opportunity_id"),
                 recommendation_id=data.get("recommendation_id"),
-                market_ticker=data.get("market_ticker"),
                 queued_at=datetime.fromisoformat(data["queued_at"]),
                 file_path=file_path,
             ))
