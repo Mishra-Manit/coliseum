@@ -99,7 +99,7 @@ Guardian ◀──(OpenPosition)─────────┘
 | **Primary LLM** | Anthropic (Claude Sonnet 4) | Agent reasoning, analysis |
 | **Fast LLM** | Anthropic (Claude Haiku) | Quick decisions, monitoring |
 | **Deep Reasoning** | Anthropic (Claude Opus 4) | Complex analysis (optional) |
-| **Grounded Search** | Exa AI | Research with citations |
+| **Research Answers** | Exa AI | Comprehensive answers with citations |
 | **Real-time Search** | Perplexity API | Breaking news, current events |
 
 ### External APIs
@@ -108,7 +108,7 @@ Guardian ◀──(OpenPosition)─────────┘
 |-----|---------|----------------|
 | **Kalshi Markets** | Read market data | API Key (public endpoints) |
 | **Kalshi Trading** | Execute trades | API Key + Private Key (member API) |
-| **Exa AI** | Grounded web research | API Key |
+| **Exa AI** | Question answering with cited sources | API Key |
 | **Perplexity** | Real-time information | API Key |
 
 ---
@@ -261,8 +261,7 @@ class TradeRecommendation(BaseModel):
 #### Tools Available
 | Tool | Description |
 |------|-------------|
-| `exa_search` | Grounded web search with citations |
-| `exa_answer` | Question answering with sources |
+| `exa_answer` | Ask questions about the event and receive comprehensive answers with cited sources |
 | `perplexity_search` | Real-time news search |
 | `get_historical_data` | Query internal database for precedents |
 | `calculate_expected_value` | EV calculation helper |
@@ -1956,11 +1955,13 @@ backend/
 
 **Goal**: Analyst agent produces high-quality trade recommendations backed by research.
 
-#### 2.1 Exa AI Integration (`coliseum/services/exa.py`)
-- [ ] Create `ExaResearcher` class wrapping `exa-py` client
-- [ ] Implement `search(query, num_results)` → List of results with URLs
-- [ ] Implement `answer(question)` → Answer with source citations
-- [ ] Add error handling and retry logic
+#### 2.1 Exa AI Integration (`coliseum/services/exa/`)
+- [x] Create `ExaClient` async wrapper for `exa-py` SDK
+- [x] Implement `answer(question, include_text, system_prompt)` → `ExaAnswerResponse` with citations
+- [x] Add error handling with retry logic (exponential backoff for 429/5xx errors)
+- [x] Define Pydantic models: `ExaAnswerResponse`, `ExaCitation`, `ExaConfig`
+
+**Note**: Uses only the Exa `answer` endpoint for comprehensive research responses with built-in citations, eliminating need for separate search/synthesis steps.
 
 #### 2.2 Analyst Agent (`coliseum/agents/analyst.py`)
 - [ ] Create Pydantic models:
@@ -1969,11 +1970,15 @@ backend/
   - `TradeRecommendation` (action, confidence, edge, EV, sizing)
 - [ ] Implement `analyst_agent` with PydanticAI
 - [ ] Add tools:
-  - `generate_search_queries(opportunity)` → List of search queries
-  - `exa_search(query)` → Execute Exa search
-  - `synthesize_research(results)` → Create ResearchBrief
+  - `exa_answer(question)` → Ask comprehensive questions about the event and receive detailed answers with citations
   - `calculate_edge_ev(probability, market_price)` → Edge and EV
-- [ ] Implement research workflow (query → search → synthesize → recommend)
+- [ ] Implement research workflow:
+  1. Receive opportunity from Scout queue
+  2. Formulate research questions about the event
+  3. Use `exa_answer` to gather comprehensive information
+  4. Synthesize findings into `ResearchBrief`
+  5. Calculate edge and expected value
+  6. Generate `TradeRecommendation` with confidence score
 
 #### 2.3 Edge/EV Calculations (`coliseum/agents/calculations.py`)
 - [ ] `calculate_edge(true_prob, market_prob)` → Edge percentage
@@ -1998,8 +2003,8 @@ backend/
 #### 2.6 Phase 2 Verification
 | Test | Method |
 |------|--------|
-| Exa search returns results | Unit test with real API call |
-| Research brief quality | Manual: inspect generated briefs for source quality |
+| Exa answer endpoint | Unit test: verify comprehensive answers with citations are returned |
+| Research brief quality | Manual: inspect generated briefs for source quality and citation accuracy |
 | Edge/EV calculations | Unit test: verify math against known examples |
 | Full pipeline | Integration: opportunity → research → recommendation |
 

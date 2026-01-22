@@ -47,7 +47,7 @@ This file provides project-specific context for AI coding assistants working wit
 |---------|----------|----------|
 | **Primary LLM** | Anthropic (Claude Sonnet) | Agent reasoning, analysis |
 | **Fast LLM** | Anthropic (Claude Haiku) | Quick decisions, monitoring |
-| **Grounded Search** | Exa AI | Research with citations |
+| **Research Answers** | Exa AI | Comprehensive answers with citations |
 | **Real-time Search** | Perplexity API | Breaking news, current events |
 
 ### External APIs
@@ -56,7 +56,7 @@ This file provides project-specific context for AI coding assistants working wit
 |-----|---------|
 | **Kalshi Markets** | Read market data (public) |
 | **Kalshi Trading** | Execute trades (API Key + Private Key auth) |
-| **Exa AI** | Grounded web research |
+| **Exa AI** | Question answering with cited sources |
 | **Telegram Bot** | Real-time alerts and notifications |
 
 ---
@@ -85,7 +85,11 @@ backend/
 │   │
 │   └── services/             # External API clients
 │       ├── kalshi.py         # Kalshi API (public + trading)
-│       ├── exa.py            # Exa AI research
+│       ├── exa/              # Exa AI research (answer endpoint)
+│       │   ├── client.py     # Async ExaClient wrapper
+│       │   ├── models.py     # ExaAnswerResponse, ExaCitation
+│       │   ├── config.py     # ExaConfig with defaults
+│       │   └── exceptions.py # Error handling
 │       └── telegram.py       # Telegram alerts
 │
 ├── data/                     # Runtime data (git-ignored portions)
