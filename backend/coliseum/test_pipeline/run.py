@@ -13,7 +13,7 @@ Usage:
     python -m coliseum.test_pipeline scout
     python -m coliseum.test_pipeline scout --dry-run  # No file persistence
     python -m coliseum.test_pipeline analyst --opportunity-id opp_123
-    python -m coliseum.test_pipeline trader --recommendation-id rec_xyz
+    python -m coliseum.test_pipeline trader --analysis-id analysis_xyz
     python -m coliseum.test_pipeline guardian
 
     # Run full pipeline:
@@ -69,8 +69,6 @@ def init_test_data_structure() -> None:
     # Create subdirectories matching data/ structure
     subdirs = [
         "opportunities",
-        "research",
-        "recommendations",
         "positions/open",
         "positions/closed",
         "trades",
@@ -227,13 +225,10 @@ async def run_scout_test(dry_run: bool = False) -> None:
             logger.info(f"\n   OPPORTUNITIES ({len(output.opportunities)}):")
             logger.info("-" * 70)
             for i, opp in enumerate(output.opportunities, 1):
-                priority_emoji = {"high": "[HIGH]", "medium": "[MED]", "low": "[LOW]"}
-                emoji = priority_emoji.get(opp.priority, "[?]")
-                logger.info(f"\n   {emoji} Opportunity {i}/{len(output.opportunities)}")
+                logger.info(f"\n   Opportunity {i}/{len(output.opportunities)}")
                 logger.info(f"      ID: {opp.id}")
                 logger.info(f"      Market: {opp.market_ticker}")
                 logger.info(f"      Title: {opp.title[:65]}...")
-                logger.info(f"      Priority: {opp.priority.upper()}")
                 logger.info(f"      Prices: YES {opp.yes_price * 100:.0f}c | NO {opp.no_price * 100:.0f}c")
                 logger.info(f"      Close Time: {opp.close_time}")
         else:
@@ -286,7 +281,7 @@ async def run_analyst_test(opportunity_id: str | None = None) -> None:
     # TODO: Implement actual Analyst agent when main.py is ready
     logger.warning("   Analyst agent not yet implemented in main.py")
     logger.info("   To implement: Create Analyst agent with Exa/Perplexity tools")
-    logger.info("   Expected output: ResearchBrief + TradeRecommendation")
+    logger.info("   Expected output: OpportunitySignal with research + recommendation appended")
 
     logger.info("\n" + "=" * 70)
     logger.info("Analyst test complete (stub implementation)")
@@ -297,12 +292,12 @@ async def run_analyst_test(opportunity_id: str | None = None) -> None:
 # Trader Agent Test Runner
 # =============================================================================
 
-async def run_trader_test(recommendation_id: str | None = None) -> None:
-    """Run Trader agent on recommendations.
+async def run_trader_test(analysis_id: str | None = None) -> None:
+    """Run Trader agent on analysis reports.
 
     Args:
-        recommendation_id: Specific recommendation ID to execute. If None, processes all
-                          pending recommendations from test_data/queue/trader/.
+        analysis_id: Specific analysis ID to execute. If None, processes all
+                     pending analysis reports from test_data/queue/trader/.
 
     Note:
         This test runs in PAPER MODE only. No real trades are executed.
@@ -317,18 +312,18 @@ async def run_trader_test(recommendation_id: str | None = None) -> None:
     # Override data directory to use test_data/
     _override_data_dir()
 
-    if recommendation_id:
-        logger.info(f"   Processing specific recommendation: {recommendation_id}")
+    if analysis_id:
+        logger.info(f"   Processing specific analysis: {analysis_id}")
     else:
-        logger.info("   Processing all pending recommendations")
+        logger.info("   Processing all pending analysis reports")
 
     logger.info("-" * 70)
 
-    # Check for pending recommendations
+    # Check for pending analysis reports
     from coliseum.storage.queue import get_pending
 
     pending = get_pending("trader")
-    logger.info(f"   Found {len(pending)} pending recommendations in queue")
+    logger.info(f"   Found {len(pending)} pending analysis reports in queue")
 
     # TODO: Implement actual Trader agent when main.py is ready
     logger.warning("   Trader agent not yet implemented in main.py")
@@ -407,11 +402,11 @@ async def run_full_pipeline() -> None:
     logger.info("=" * 70)
     await run_analyst_test(opportunity_id=None)
 
-    # Step 3: Trader - Execute recommendations
+    # Step 3: Trader - Execute analysis reports
     logger.info("\n" + "=" * 70)
     logger.info("STEP 3/4: Trader")
     logger.info("=" * 70)
-    await run_trader_test(recommendation_id=None)
+    await run_trader_test(analysis_id=None)
 
     # Step 4: Guardian - Monitor positions
     logger.info("\n" + "=" * 70)
@@ -452,7 +447,7 @@ Examples:
 
     # Run Trader agent test (paper mode)
     python -m coliseum.test_pipeline trader
-    python -m coliseum.test_pipeline trader --recommendation-id rec_xyz12345
+    python -m coliseum.test_pipeline trader --analysis-id analysis_xyz12345
 
     # Run Guardian agent test
     python -m coliseum.test_pipeline guardian
@@ -485,12 +480,12 @@ Examples:
     )
 
     # Trader command
-    trader_parser = subparsers.add_parser("trader", help="Run Trader agent to execute recommendations")
+    trader_parser = subparsers.add_parser("trader", help="Run Trader agent to execute analyses")
     trader_parser.add_argument(
-        "--recommendation-id",
+        "--analysis-id",
         type=str,
         default=None,
-        help="Specific recommendation ID to execute (default: all pending)",
+        help="Specific analysis ID to execute (default: all pending)",
     )
 
     # Guardian command
@@ -523,7 +518,7 @@ Examples:
             sys.exit(0)
 
         elif args.command == "trader":
-            asyncio.run(run_trader_test(recommendation_id=args.recommendation_id))
+            asyncio.run(run_trader_test(analysis_id=args.analysis_id))
             sys.exit(0)
 
         elif args.command == "guardian":

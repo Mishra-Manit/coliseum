@@ -1,4 +1,4 @@
-last_updated: '2026-01-21T08:42:37.471265'
+last_updated: '2026-01-23T07:43:36.155894'
 portfolio:
   total_value: 10000.0
   cash_balance: 10000.0
@@ -15,28 +15,33 @@ risk_status:
   trading_halted: false
   capital_at_risk_pct: 0.0
 seen_markets:
-  KXBTCD-26JAN2117-T89249.99:
-    opportunity_id: opp_a0426ee6
-    discovered_at: '2026-01-21T08:42:37.443825Z'
-    close_time: '2026-01-21T22:00:00Z'
-    status: pending
-  KXSPOTIFYW-26JAN22-END:
-    opportunity_id: opp_96e2a09c
-    discovered_at: '2026-01-21T08:42:37.452773Z'
-    close_time: '2026-01-23T04:59:00Z'
-    status: pending
-  KXOSCARNOMDIR-26-KLA:
-    opportunity_id: opp_060f4349
-    discovered_at: '2026-01-21T08:42:37.460863Z'
-    close_time: '2026-01-22T17:30:00Z'
-    status: pending
-  KXALBUMSALES-DBD-120000:
-    opportunity_id: opp_d01250b1
-    discovered_at: '2026-01-21T08:42:37.466138Z'
-    close_time: '2026-01-23T04:59:00Z'
-    status: pending
   KXEREDIVISIEGAME-26JAN09NIJFCU-NIJ:
     opportunity_id: opp_6f11530e
     discovered_at: '2026-01-21T08:42:37.471256Z'
     close_time: '2026-01-23T19:00:00Z'
+    status: researching
+  KXAAAGASW-26JAN26-2.855:
+    opportunity_id: opp_db9a6b8c
+    discovered_at: '2026-01-23T06:50:33.078207Z'
+    close_time: '2026-01-26T04:59:00Z'
+    status: researching
+  KXTRUMPUFC-324:
+    opportunity_id: opp_b5fecaf7
+    discovered_at: '2026-01-23T06:50:33.078207Z'
+    close_time: '2026-01-25T15:00:00Z'
+    status: pending
+  KXHIGHCHI-26JAN23-B9.5:
+    opportunity_id: opp_65b9633d
+    discovered_at: '2026-01-23T06:50:33.078207Z'
+    close_time: '2026-01-24T05:59:00Z'
+    status: evaluated
+  KXBTCD-26JAN2317-T89499.99:
+    opportunity_id: opp_66ed3dfc
+    discovered_at: '2026-01-23T06:50:33.078207Z'
+    close_time: '2026-01-23T22:00:00Z'
+    status: pending
+  KXBTCD-26JAN2317-T88999.99:
+    opportunity_id: opp_94ad920a
+    discovered_at: '2026-01-23T06:50:33.078207Z'
+    close_time: '2026-01-23T22:00:00Z'
     status: pending

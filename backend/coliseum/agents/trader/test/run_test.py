@@ -12,8 +12,8 @@ Usage:
     source venv/bin/activate
     python -m coliseum.agents.trader.test.run_test
 
-    # With specific recommendation to execute:
-    python -m coliseum.agents.trader.test.run_test --recommendation-id "rec_abc123"
+    # With specific analysis to execute:
+    python -m coliseum.agents.trader.test.run_test --analysis-id "analysis_abc123"
 """
 
 import asyncio
@@ -42,13 +42,13 @@ logging.getLogger("urllib3").setLevel(logging.WARNING)
 
 
 async def run_trader_test(
-    recommendation_id: str | None = None,
+    analysis_id: str | None = None,
     paper_mode: bool = True,
 ) -> None:
     """Execute a Trader order in test mode (paper trading only).
 
     Args:
-        recommendation_id: Specific recommendation ID to execute (optional)
+        analysis_id: Specific analysis ID to execute (optional)
         paper_mode: Always True for testing - no real trades
     """
     if not paper_mode:
@@ -58,13 +58,13 @@ async def run_trader_test(
     logger.info("=" * 60)
     logger.info("TRADER AGENT TEST (PAPER MODE)")
     logger.info("=" * 60)
-    logger.info(f"Recommendation ID: {recommendation_id or 'None (will use sample)'}")
+    logger.info(f"Analysis ID: {analysis_id or 'None (will use sample)'}")
     logger.info(f"Paper mode: {paper_mode}")
     logger.info("-" * 60)
 
     # TODO: Implement Trader agent test
     # 1. Create TraderDependencies with Kalshi client (paper mode)
-    # 2. Create sample recommendation or load from file
+    # 2. Create sample analysis or load from file
     # 3. Run risk validation
     # 4. Simulate order execution
     # 5. Print execution results without saving
@@ -86,20 +86,20 @@ def main() -> None:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-    # Run with sample recommendation
+    # Run with sample analysis
     python -m coliseum.agents.trader.test.run_test
 
-    # Execute a specific recommendation
-    python -m coliseum.agents.trader.test.run_test --recommendation-id "rec_abc123"
+    # Execute a specific analysis
+    python -m coliseum.agents.trader.test.run_test --analysis-id "analysis_abc123"
 
 Note: This test ALWAYS runs in paper mode. No real trades are ever executed.
         """,
     )
     parser.add_argument(
-        "--recommendation-id",
+        "--analysis-id",
         type=str,
         default=None,
-        help="Specific recommendation ID to execute",
+        help="Specific analysis ID to execute",
     )
 
     args = parser.parse_args()
@@ -107,7 +107,7 @@ Note: This test ALWAYS runs in paper mode. No real trades are ever executed.
     try:
         asyncio.run(
             run_trader_test(
-                recommendation_id=args.recommendation_id,
+                analysis_id=args.analysis_id,
                 paper_mode=True,  # Always paper mode for safety
             )
         )
