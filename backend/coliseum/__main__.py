@@ -91,8 +91,6 @@ scout:
   quick_scan_min_volume: 50000
 
 analyst:
-  research_depth: standard
-  min_confidence_threshold: 0.6
   max_research_time_seconds: 300
   required_sources: 3
 
@@ -196,8 +194,6 @@ def cmd_config(args: argparse.Namespace) -> int:
         print(f"  Quick Scan Min Volume: {settings.scout.quick_scan_min_volume:,}\n")
 
         print("Analyst:")
-        print(f"  Research Depth: {settings.analyst.research_depth}")
-        print(f"  Min Confidence: {settings.analyst.min_confidence_threshold:.0%}")
         print(f"  Max Research Time: {settings.analyst.max_research_time_seconds}s")
         print(f"  Required Sources: {settings.analyst.required_sources}\n")
 
@@ -313,7 +309,7 @@ def cmd_scout(args: argparse.Namespace) -> int:
         if result.opportunities:
             print(f"Queued {len(result.opportunities)} opportunities for Analyst:")
             for opp in result.opportunities[:5]:
-                print(f"  • {opp.market_ticker} ({opp.priority} priority)")
+                print(f"  • {opp.market_ticker}")
             if len(result.opportunities) > 5:
                 print(f"  ... and {len(result.opportunities) - 5} more")
             print()
@@ -341,7 +337,6 @@ def cmd_analyst(args: argparse.Namespace) -> int:
         result = asyncio.run(run_analyst(opportunity_id, settings))
 
         print(f"✓ Analyst pipeline complete\n")
-        print(f"Confidence: {result.confidence:.0%}")
         print(f"Estimated True Probability: {result.estimated_true_probability:.0%}")
         print(f"Current Market Price: {result.current_market_price:.0%}")
         print(f"Edge: {result.edge:+.2%}")
