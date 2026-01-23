@@ -184,13 +184,12 @@ Appends to opportunity file:
 
 #### 2B. Recommender Sub-Agent ⚖️
 
-**Mission**: Evaluate trading opportunity and generate recommendation based on research.
+**Mission**: Evaluate trading opportunity and compute metrics based on research.
 
 ##### Responsibilities
 - Calculate edge and expected value using research insights
-- Assess trade quality (confidence, risk, opportunity cost)
-- Apply risk management filters
-- Generate buy/sell recommendation with position sizing
+- Assess trade quality (confidence, uncertainty, opportunity cost)
+- Determine position sizing
 - Append recommendation section to opportunity file
 
 ##### Tools Available
@@ -200,14 +199,12 @@ Appends to opportunity file:
 | `calculate_edge` | Compute market inefficiency | `agents/calculations.py` |
 | `calculate_ev` | Expected value calculation | `agents/calculations.py` |
 | `kelly_criterion` | Optimal position sizing | `agents/calculations.py` |
-| `risk_check` | Validate against hard limits | `agents/risk.py` |
 
 ##### Output Format
 Appends to opportunity file:
-- Trade evaluation (YES/NO recommendation)
-- Edge and EV calculations
+- Trade evaluation metrics (edge, EV, estimated probability)
 - Position sizing (Kelly fraction, contract quantity)
-- Reasoning and risk assessment
+- Concise reasoning (~100 words)
 
 ---
 

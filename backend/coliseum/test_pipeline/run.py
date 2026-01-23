@@ -264,18 +264,52 @@ async def run_analyst_test(opportunity_id: str | None = None) -> None:
 
     if opportunity_id:
         logger.info(f"   Processing specific opportunity: {opportunity_id}")
-    else:
-        logger.info("   No opportunity_id provided (queue removed).")
 
     logger.info("-" * 70)
 
-    # TODO: Implement actual Analyst agent when main.py is ready
-    logger.warning("   Analyst agent not yet implemented in main.py")
-    logger.info("   To implement: Create Analyst agent with Exa/Perplexity tools")
-    logger.info("   Expected output: OpportunitySignal with research + recommendation appended")
+    if not opportunity_id:
+        logger.info("   No opportunity_id provided (queue removed).")
+        logger.info("   Nothing to process for analyst test.")
+        logger.info("\n" + "=" * 70)
+        logger.info("Analyst test complete (no-op)")
+        logger.info("=" * 70 + "\n")
+        return
+
+    from coliseum.agents.analyst import run_analyst
+    from coliseum.config import get_settings
+
+    settings = get_settings()
+
+    try:
+        opportunity = await run_analyst(
+            opportunity_id=opportunity_id,
+            settings=settings,
+            dry_run=False,
+        )
+    except Exception as e:
+        logger.exception(f"Analyst test failed: {e}")
+        raise
 
     logger.info("\n" + "=" * 70)
-    logger.info("Analyst test complete (stub implementation)")
+    logger.info("Analyst results")
+    logger.info("=" * 70)
+    logger.info(f"   Market: {opportunity.market_ticker}")
+    logger.info(f"   Status: {opportunity.status}")
+    logger.info(f"   Research sources: {opportunity.research_sources_count}")
+    logger.info(f"   Edge: {opportunity.edge:+.2%}" if opportunity.edge is not None else "   Edge: N/A")
+    logger.info(
+        f"   Expected Value: {opportunity.expected_value:+.2%}"
+        if opportunity.expected_value is not None
+        else "   Expected Value: N/A"
+    )
+    logger.info(
+        f"   Suggested Size: {opportunity.suggested_position_pct:.1%}"
+        if opportunity.suggested_position_pct is not None
+        else "   Suggested Size: N/A"
+    )
+
+    logger.info("\n" + "=" * 70)
+    logger.info("Analyst test complete")
     logger.info("=" * 70 + "\n")
 
 
