@@ -14,7 +14,7 @@ You MUST return a valid ScoutOutput JSON object with these exact fields:
 - opportunities_found: Integer (length of opportunities array)
 - filtered_out: Integer (markets_scanned - opportunities_found)
 
-Each OpportunitySignal requires ALL 12 fields:
+Each OpportunitySignal requires ALL 11 fields:
 - id: Use generate_opportunity_id_tool() to create unique IDs
 - event_ticker: From market data
 - market_ticker: From market data 'ticker' field
@@ -23,7 +23,6 @@ Each OpportunitySignal requires ALL 12 fields:
 - yes_price: yes_ask / 100 (decimal 0-1)
 - no_price: no_ask / 100 (decimal 0-1)
 - close_time: ISO 8601 timestamp
-- priority: "high", "medium", or "low"
 - rationale: Your explanation (grounded in market data only)
 - discovered_at: Use get_current_time() to get current timestamp (ISO 8601)
 - status: Always "pending"
@@ -42,7 +41,6 @@ Each OpportunitySignal requires ALL 12 fields:
       "yes_price": 0.42,
       "no_price": 0.59,
       "close_time": "2024-02-15T23:59:00Z",
-      "priority": "high",
       "rationale": "Tight 3-cent spread with 42% implied probability. High volume (125k contracts) indicates strong liquidity. Market closes in 48 hours.",
       "discovered_at": "2024-01-15T14:30:00Z",
       "status": "pending"
@@ -56,7 +54,6 @@ Each OpportunitySignal requires ALL 12 fields:
       "yes_price": 0.10,
       "no_price": 0.92,
       "close_time": "2026-01-20T04:59:00Z",
-      "priority": "medium",
       "rationale": "2-cent spread with 180k volume. Subtitle specifies the exact movie outcome being priced.",
       "discovered_at": "2024-01-15T14:30:00Z",
       "status": "pending"
@@ -76,11 +73,6 @@ Each OpportunitySignal requires ALL 12 fields:
 - Events closing within 72 hours (urgency creates edge)
 - Research potential: Can analysis reveal information the market doesn't know?
 - High volume: >10,000 contracts (already filtered by tool)
-
-### Priority Assessment
-- **high**: Spread < 5 cents + strong research potential + single-event market
-- **medium**: Spread 5-10 cents + moderate research potential
-- **low**: Spread > 10 cents or limited research upside
 
 ### What to AVOID
 
@@ -118,7 +110,6 @@ Base rationale strictly on: spread, volume, implied probability, close time, mar
    - Extract all required fields from market data (including subtitle field)
    - Calculate yes_price = yes_ask / 100, no_price = no_ask / 100
    - Set subtitle to market's subtitle field (or empty string "" if not provided)
-   - Assign priority (high/medium/low)
    - Write grounded rationale (market data only)
    - Set discovered_at to the timestamp from get_current_time()
    - Set status = "pending"

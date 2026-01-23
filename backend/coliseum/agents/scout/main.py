@@ -215,8 +215,7 @@ async def run_scout(
                 queued_count += 1
 
                 logger.info(
-                    f"Queued {opp.priority} priority opportunity: "
-                    f"{opp.market_ticker}"
+                    f"Queued opportunity: {opp.market_ticker}"
                 )
             except Exception as e:
                 logger.error(f"Failed to save/queue opportunity {opp.id}: {e}")
