@@ -72,10 +72,6 @@ def init_test_data_structure() -> None:
         "positions/open",
         "positions/closed",
         "trades",
-        "queue/analyst",
-        "queue/trader",
-        "alerts",
-        "snapshots",
     ]
 
     for subdir in subdirs:
@@ -184,7 +180,7 @@ async def run_scout_test(dry_run: bool = False) -> None:
     """Run Scout agent using production code.
 
     Args:
-        dry_run: If True, skip file persistence and queue operations.
+        dry_run: If True, skip file persistence.
                  The agent runs and returns results, but nothing is saved to disk.
                  If False, saves to test_data/ directory (isolated from production).
     """
@@ -254,8 +250,7 @@ async def run_analyst_test(opportunity_id: str | None = None) -> None:
     """Run Analyst agent on opportunities.
 
     Args:
-        opportunity_id: Specific opportunity ID to analyze. If None, processes all
-                       pending opportunities from test_data/queue/analyst/.
+        opportunity_id: Specific opportunity ID to analyze. If None, skip processing.
     """
     logger.info("\n" + "=" * 70)
     logger.info("Analyst Agent Test")
@@ -267,14 +262,10 @@ async def run_analyst_test(opportunity_id: str | None = None) -> None:
     # Override data directory to use test_data/
     _override_data_dir()
 
-    # Check for pending opportunities
-    from coliseum.storage.queue import get_pending
-
     if opportunity_id:
         logger.info(f"   Processing specific opportunity: {opportunity_id}")
     else:
-        pending = get_pending("analyst")
-        logger.info(f"   Found {len(pending)} pending opportunities in queue")
+        logger.info("   No opportunity_id provided (queue removed).")
 
     logger.info("-" * 70)
 
@@ -296,8 +287,7 @@ async def run_trader_test(analysis_id: str | None = None) -> None:
     """Run Trader agent on analysis reports.
 
     Args:
-        analysis_id: Specific analysis ID to execute. If None, processes all
-                     pending analysis reports from test_data/queue/trader/.
+        analysis_id: Specific analysis ID to execute. If None, skip processing.
 
     Note:
         This test runs in PAPER MODE only. No real trades are executed.
@@ -315,15 +305,9 @@ async def run_trader_test(analysis_id: str | None = None) -> None:
     if analysis_id:
         logger.info(f"   Processing specific analysis: {analysis_id}")
     else:
-        logger.info("   Processing all pending analysis reports")
+        logger.info("   No analysis_id provided (queue removed).")
 
     logger.info("-" * 70)
-
-    # Check for pending analysis reports
-    from coliseum.storage.queue import get_pending
-
-    pending = get_pending("trader")
-    logger.info(f"   Found {len(pending)} pending analysis reports in queue")
 
     # TODO: Implement actual Trader agent when main.py is ready
     logger.warning("   Trader agent not yet implemented in main.py")
