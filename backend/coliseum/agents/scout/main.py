@@ -11,7 +11,6 @@ from coliseum.config import Settings, get_settings
 from coliseum.llm_providers import AnthropicModel, FireworksModel, get_model_string
 from coliseum.services.kalshi.client import KalshiClient
 from coliseum.storage.files import save_opportunity, generate_opportunity_id
-from coliseum.storage.queue import queue_for_analyst
 from coliseum.storage.state import (
     SeenMarket,
     cleanup_seen_markets,
@@ -121,7 +120,7 @@ async def run_scout(
 
     Args:
         settings: Optional Settings override. Defaults to get_settings().
-        dry_run: If True, skip file persistence and queue operations.
+        dry_run: If True, skip file persistence.
                  Useful for testing agent logic without side effects.
 
     Returns:
@@ -186,7 +185,6 @@ async def run_scout(
         state = load_state()
         now = datetime.now(timezone.utc)
 
-        queued_count = 0
         skipped_count = 0
         added_count = 0
 
@@ -211,14 +209,10 @@ async def run_scout(
 
                 # Now perform operations that might fail
                 save_opportunity(opp)
-                queue_for_analyst(opp.id)
-                queued_count += 1
 
-                logger.info(
-                    f"Queued opportunity: {opp.market_ticker}"
-                )
+                logger.info(f"Saved opportunity: {opp.market_ticker}")
             except Exception as e:
-                logger.error(f"Failed to save/queue opportunity {opp.id}: {e}")
+                logger.error(f"Failed to save opportunity {opp.id}: {e}")
                 # Market is still marked as seen to prevent retry loops
 
         # Batch update: Write updated state once if any markets were added
@@ -229,7 +223,7 @@ async def run_scout(
         logger.info(
             f"Scout scan complete: "
             f"{output.opportunities_found} opportunities found, "
-            f"{queued_count} queued, {skipped_count} skipped (duplicates)"
+            f"{skipped_count} skipped (duplicates)"
         )
 
         return output

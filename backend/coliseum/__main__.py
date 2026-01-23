@@ -42,14 +42,9 @@ def cmd_init(args: argparse.Namespace) -> int:
 
         subdirs = [
             "opportunities",
-            "analysis",
             "positions/open",
             "positions/closed",
             "trades",
-            "alerts",
-            "snapshots",
-            "queue/analyst",
-            "queue/trader",
         ]
 
         for subdir in subdirs:

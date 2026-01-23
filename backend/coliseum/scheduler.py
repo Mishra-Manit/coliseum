@@ -59,15 +59,6 @@ def start_scheduler(settings: Settings) -> NoReturn:
         f"Registered job: Guardian News Scan (every {settings.scheduler.guardian_news_scan_minutes} min)"
     )
 
-    scheduler.add_job(
-        _placeholder_job,
-        CronTrigger(hour=21, minute=0),  # 4 PM EST = 9 PM UTC
-        args=["Daily Portfolio Snapshot"],
-        id="daily-snapshot",
-        name="Daily Snapshot",
-    )
-    logger.info("Registered job: Daily Portfolio Snapshot (4:00 PM EST)")
-
     try:
         logger.info("✓ Scheduler starting...")
         logger.info(f"✓ {len(scheduler.get_jobs())} jobs registered")
