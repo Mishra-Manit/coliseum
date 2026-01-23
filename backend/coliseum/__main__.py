@@ -21,6 +21,16 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
+# Initialize Logfire cloud tracking (must be before agent imports)
+try:
+    from coliseum.observability import initialize_logfire
+
+    settings = get_settings()
+    initialize_logfire(settings)
+except Exception as e:
+    logger.warning(f"Failed to initialize Logfire: {e}")
+    # Continue running - observability is optional
+
 
 def cmd_init(args: argparse.Namespace) -> int:
     """Initialize data directory structure and configuration files."""
@@ -32,8 +42,7 @@ def cmd_init(args: argparse.Namespace) -> int:
 
         subdirs = [
             "opportunities",
-            "research",
-            "recommendations",
+            "analysis",
             "positions/open",
             "positions/closed",
             "trades",
@@ -317,6 +326,37 @@ def cmd_scout(args: argparse.Namespace) -> int:
         return 1
 
 
+def cmd_analyst(args: argparse.Namespace) -> int:
+    """Run Analyst pipeline (Researcher + Recommender) manually."""
+    import asyncio
+
+    try:
+        from coliseum.agents.analyst import run_analyst
+
+        opportunity_id = args.opportunity_id
+        print(f"\n=== Analyst Pipeline ===\n")
+        print(f"Opportunity ID: {opportunity_id}\n")
+
+        settings = get_settings()
+        result = asyncio.run(run_analyst(opportunity_id, settings))
+
+        print(f"✓ Analyst pipeline complete\n")
+        print(f"Confidence: {result.confidence:.0%}")
+        print(f"Estimated True Probability: {result.estimated_true_probability:.0%}")
+        print(f"Current Market Price: {result.current_market_price:.0%}")
+        print(f"Edge: {result.edge:+.2%}")
+        print(f"Expected Value: {result.expected_value:+.2%}")
+        print(f"Suggested Position: {result.suggested_position_pct:.1%}\n")
+        print("Trade decision pending (no BUY/NO decision made).\n")
+
+        return 0
+
+    except Exception as e:
+        logger.error(f"Analyst failed: {e}", exc_info=True)
+        print(f"\n❌ Analyst failed: {e}\n")
+        return 1
+
+
 def cmd_run(args: argparse.Namespace) -> int:
     """Start the autonomous trading system."""
     try:
@@ -391,6 +431,17 @@ def main() -> int:
         help="Scan type: full (all markets) or quick (high-volume only)",
     )
     parser_scout.set_defaults(func=cmd_scout)
+
+    parser_analyst = subparsers.add_parser(
+        "analyst",
+        help="Run Analyst pipeline (Researcher + Recommender) manually",
+    )
+    parser_analyst.add_argument(
+        "--opportunity-id",
+        required=True,
+        help="Opportunity ID to analyze",
+    )
+    parser_analyst.set_defaults(func=cmd_analyst)
 
     parser_run = subparsers.add_parser(
         "run",

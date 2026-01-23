@@ -20,6 +20,11 @@ def _placeholder_job(job_name: str) -> None:
 
 def start_scheduler(settings: Settings) -> NoReturn:
     """Start the APScheduler with configured jobs."""
+    # Initialize Logfire for scheduled job tracking
+    from coliseum.observability import initialize_logfire
+
+    initialize_logfire(settings)
+
     scheduler = BlockingScheduler()
 
     scheduler.add_job(
