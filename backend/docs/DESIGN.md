@@ -68,14 +68,16 @@
 ### Agent Communication Flow
 
 ```
-Scout ──(NewOpportunity)──▶ Analyst ──(TradeRecommendation)──▶ Trader
-                                                                   │
-                                   ┌───────────────────────────────┘
-                                   │
-Guardian ◀──(OpenPosition)─────────┘
-    │
-    └──(ExitSignal)──▶ Trader ──(ClosePosition)──▶ Kalshi
+Scout ──(Creates Opportunity File)──▶ Researcher ──(Appends Research)──▶ Recommender ──(Appends Evaluation)──▶ Trader
+                                                                                                                    │
+                                                                                   ┌────────────────────────────────┘
+                                                                                   │
+Guardian ◀──(OpenPosition)─────────────────────────────────────────────────────────┘
+   │
+   └──(ExitSignal)──▶ Trader ──(ClosePosition)──▶ Kalshi
 ```
+
+**Key Architecture Change**: All three stages (Scout, Researcher, Recommender) write to a **single opportunity file**, progressively enriching it with new sections and frontmatter fields. This eliminates the need for separate `research/` and `recommendations/` directories and provides a unified audit trail per event.
 
 ---
 
@@ -150,7 +152,6 @@ class OpportunitySignal(BaseModel):
     yes_price: float = Field(ge=0, le=1)
     no_price: float = Field(ge=0, le=1)
     close_time: datetime
-    priority: Literal["high", "medium", "low"]
     rationale: str  # Why this opportunity is interesting
 ```
 
@@ -168,103 +169,141 @@ class OpportunitySignal(BaseModel):
 
 ---
 
-### 2. Analyst Agent 📊
+### 2. Researcher Agent 🕵️
 
-**Mission**: Conduct deep research on opportunities and produce actionable trade recommendations.
+**Mission**: Conduct deep, objective research on opportunities to establish a grounded view of reality.
 
 #### Responsibilities
 - Receive opportunities from Scout
-- Conduct comprehensive research using Exa AI
-- **Execute Devil's Advocate Loop (Pro vs. Con)**
-- Analyze historical data and precedents
-- Synthesize findings to calculate expected value and edge
-- Generate trade recommendations with confidence scores
-- Document reasoning for audit trail
+- Formulate investigation questions
+- Execute deep search using Exa AI
+- Synthesize findings into a neutral, fact-based brief
+- **Output**: A research-only `AnalysisDraft` (no trade decision yet)
 
 #### Configuration
 
 ```python
-class AnalystConfig(BaseModel):
-    """Analyst agent configuration"""
-    research_depth: Literal["quick", "standard", "deep"] = "standard"
-    min_confidence_threshold: float = 0.6  # Don't recommend below this
-    max_research_time_seconds: int = 300  # 5 minute timeout
-    required_sources: int = 3  # Minimum sources for recommendation
+class ResearcherConfig(BaseModel):
+    """Researcher agent configuration"""
+    max_research_time_seconds: int = 300
+    required_sources: int = 3
     
-class ResearchBrief(BaseModel):
-    """Freeform research output with structured hooks for downstream agents"""
+class AnalysisDraft(BaseModel):
+    """Research-only draft written by the Researcher agent"""
+    # Identity
+    id: str
+    opportunity_id: str
     event_ticker: str
     market_ticker: str
     
-    # Freeform synthesis - agent organizes findings however it sees fit
-    synthesis: str  # Markdown-formatted research output
+    # Research Content
+    synthesis: str  # Markdown-formatted synthesis of findings
+    sources: list[str]  # Cited URLs
     
-    # Structured fields for downstream agent consumption
-    sources: list[str]  # URLs with citations
-    confidence_level: Literal["high", "medium", "low"]
-    sentiment: Literal["bullish", "bearish", "neutral"]
-    key_uncertainties: list[str]  # What could invalidate this analysis?
-    
-class TradeRecommendation(BaseModel):
-    """Output from Analyst agent"""
-    event_ticker: str
-    market_ticker: str
-    
-    # Recommendation
-    action: Literal["BUY_YES", "BUY_NO", "ABSTAIN"]
-    confidence: float = Field(ge=0, le=1)
-    
-    # Edge calculation
-    estimated_true_probability: float = Field(ge=0, le=1)
-    current_market_price: float = Field(ge=0, le=1)
-    expected_value: float  # EV per dollar risked
-    edge: float  # True prob - market prob
-    
-    # Research backing
-    research_brief: ResearchBrief
-    reasoning: str
-    key_risks: list[str]
-    
-    # Suggested sizing
-    suggested_position_pct: float = Field(ge=0, le=0.10)  # Max 10% of bankroll
-```
-
-#### Research Workflow
-
-```
-1. Receive Opportunity from Scout
-           │
-           ▼
-2. Initial Research (Facts & Data Collection)
-           │
-           ▼
-3. DEBATE PHASE
-   ├─ Analyst (PRO): Generates Bull Case (Why YES?)
-   │
-   ├─ Analyst (CON): Generates Bear Case (Why NO/Risks?)
-   │                 (Explicitly tasked to destroy the Bull case)
-           │
-           ▼
-4. Synthesis & Verdict
-   (Weighs Pro/Con, assigns final confidence score)
-           │
-           ▼
-5. Calculate Edge & Expected Value
-           │
-           ▼
-6. Generate Trade Recommendation
-           │
-           ▼
-7. Store in Database + Push to Trader Queue
+    # Metadata
+    created_at: datetime
+    research_duration_seconds: float
 ```
 
 #### Tools Available
 | Tool | Description |
 |------|-------------|
-| `exa_answer` | Ask questions about the event and receive comprehensive answers with cited sources |
-| `perplexity_search` | Real-time news search |
-| `get_historical_data` | Query internal database for precedents |
-| `calculate_expected_value` | EV calculation helper |
+| `exa_search` | Search for relevant articles and data |
+| `exa_answer` | Ask specific questions with cited answers |
+| `get_opportunity_details` | innovative retrieval of opportunity context |
+
+---
+
+### 3. Recommender Agent ⚖️
+
+**Mission**: Evaluate research findings to produce disciplined, mathematically sound trade decisions.
+
+#### Responsibilities
+- Read and analyze the `AnalysisDraft`
+- Estimate true probability of the event outcome
+- Calculate quantitative metrics (Edge, EV, Kelly Stake)
+- Apply risk management filters (Confidence thresholds)
+- **Output**: A finalized `AnalysisReport` (upgrading the Brief with a decision)
+
+#### Configuration
+
+```python
+class RecommenderConfig(BaseModel):
+    """Recommender agent configuration"""
+    min_edge_threshold: float = 0.05
+    
+class AnalysisReport(BaseModel):
+    """Unified artifact: Research + Recommendation"""
+    # ... Research fields inherited from Brief ...
+    
+    # Trade Decision
+    action: Literal["BUY_YES", "BUY_NO", "ABSTAIN"]
+    status: Literal["pending", "approved", "rejected"]
+    
+    # Quantitative Analysis
+    estimated_true_probability: float
+    current_market_price: float
+    expected_value: float
+    edge: float
+    
+    # Sizing
+    suggested_position_pct: float
+    
+    # Rationales
+    reasoning: str  # Why this trade?
+```
+
+#### Workflow
+
+```
+1. Researcher Starts
+   ├─ Reads Opportunity File (created by Scout)
+   ├─ Conducts Research (Exa AI)
+   ├─ Synthesizes Findings
+   │
+   ▼
+2. Researcher Finishes
+   └─ Appends Research Section to Opportunity File
+      └─ Updates frontmatter with research metadata
+           │
+           ▼
+3. Recommender Starts
+   ├─ Reads Same Opportunity File (now with research)
+   ├─ Extracts Research Synthesis
+   ├─ Evaluates Evidence (Bull vs Bear)
+   │
+   ▼
+4. Decision Logic
+   ├─ Assign True Probability
+   ├─ Calculate Edge (True Prob - Market Price)
+   ├─ Calculate EV
+   │
+   ▼
+5. Threshold Check
+   ├─ IF (Confidence > 60%) AND (Edge > 5%):
+   │    Action = BUY
+   ├─ ELSE:
+   │    Action = ABSTAIN
+   │
+   ▼
+6. Recommender Finishes
+   └─ Appends Trade Evaluation Section to Same Opportunity File
+      └─ Updates frontmatter with recommendation fields
+```
+
+**File Lifecycle**:
+- Scout creates: `opportunities/YYYY-MM-DD/TICKER.md` (initial version)
+- Researcher appends: Research section + updates frontmatter
+- Recommender appends: Trade evaluation section + updates frontmatter
+- Result: Single file with complete audit trail from discovery → research → decision
+
+#### Tools Available
+| Tool | Description |
+|------|-------------|
+| `read_research_brief` | Load the research context |
+| `calculate_edge` | Math helper |
+| `calculate_kelly` | Position sizing helper |
+| `get_market_price` | value lookup |
 
 ---
 
@@ -273,8 +312,8 @@ class TradeRecommendation(BaseModel):
 **Mission**: Execute trades with disciplined risk management and optimal position sizing.
 
 #### Responsibilities
-- Receive recommendations from Analyst
-- Validate recommendations against risk rules
+- Receive analysis reports from Analyst
+- Validate analysis reports against risk rules
 - Calculate optimal position size (Kelly Criterion)
 - Execute orders via Kalshi Trading API
 - Record all trades with full audit trail
@@ -325,7 +364,7 @@ class TradeExecution(BaseModel):
     ev_at_entry: float
     
     # Audit
-    recommendation_id: str  # Link to TradeRecommendation
+    opportunity_id: str  # Link to opportunity file (with full research + recommendation)
     executed_at: datetime
     reasoning: str
 ```
@@ -372,7 +411,7 @@ class RiskManager:
 #### Execution Flow
 
 ```
-1. Receive TradeRecommendation
+1. Receive Evaluated Opportunity (with research + recommendation)
            │
            ▼
 2. Risk Manager Validation ──(FAIL)──▶ Log & Reject
@@ -389,7 +428,7 @@ class RiskManager:
 5. Execute Order via Kalshi API
            │
            ▼
-6. Record Trade in Database
+6. Record Trade in JSONL Ledger
            │
            ▼
 7. Notify Guardian Agent of New Position
@@ -619,7 +658,7 @@ class OrderState(str, Enum):
 class WorkingOrder(BaseModel):
     """Tracks an order through the execution loop"""
     id: str  # UUID
-    recommendation_id: str
+    opportunity_id: str
     
     # Order details
     market_ticker: str
@@ -674,7 +713,7 @@ class ExecutionConfig(BaseModel):
 #### Updated Execution Flow
 
 ```
-1. Receive TradeRecommendation
+1. Receive Evaluated Opportunity (with research + recommendation)
            │
            ▼
 2. Risk Manager Validation ──(FAIL)──▶ Log & Reject
@@ -706,7 +745,7 @@ class ExecutionConfig(BaseModel):
 9. Enter Working Order Loop ─────────────────────────────────
            │
            ▼ (on fill)
-10. Record Trade in Ledger
+10. Record Trade in JSONL Ledger
            │
            ▼
 11. Notify Guardian of New Position
@@ -772,8 +811,6 @@ class PositionHealth(BaseModel):
     
     # Thesis assessment
     thesis_still_valid: bool
-    current_confidence: float
-    original_confidence: float
     
     # News/Events
     relevant_news: list[str]
@@ -857,6 +894,20 @@ All data is stored in the `data/` directory as human-readable Markdown and YAML 
 - **Simple backup**: Copy the folder to back up everything
 - **No database setup**: Zero configuration required
 
+### Single-File Event Tracking Architecture
+
+**Key Design Principle**: Each market opportunity is tracked in a **single Markdown file** that is progressively enriched by multiple agents:
+
+1. **Scout** creates the initial opportunity file with basic market data
+2. **Researcher** appends research synthesis and sources to the same file
+3. **Recommender** appends trade evaluation and metrics to the same file
+
+This provides:
+- **Single source of truth**: One file per event contains the complete history
+- **Audit trail**: Git diffs show exactly what each agent contributed
+- **Simpler architecture**: No need to track relationships between separate research/recommendation files
+- **Atomic operations**: Each agent uses atomic file writes (tempfile + rename) to prevent corruption
+
 ### Directory Layout
 
 ```
@@ -864,20 +915,10 @@ data/
 ├── config.yaml                    # System configuration
 ├── state.yaml                     # Current portfolio state (single source of truth)
 │
-├── opportunities/                 # Discovered by Scout
+├── opportunities/                 # Single file per event (Scout creates, Analyst appends)
 │   └── 2025-01-14/
-│       ├── TICKER-ABC-123.md
-│       └── TICKER-XYZ-456.md
-│
-├── research/                      # Generated by Analyst
-│   └── 2025-01-14/
-│       ├── TICKER-ABC-123.md
-│       └── TICKER-XYZ-456.md
-│
-├── recommendations/               # Trade recommendations from Analyst
-│   └── 2025-01-14/
-│       ├── TICKER-ABC-123.md
-│       └── TICKER-XYZ-456.md
+│       ├── TICKER-ABC-123.md      # Scout → Researcher → Recommender (all append)
+│       └── TICKER-XYZ-456.md      # Progressive enrichment in one file
 │
 ├── positions/                     # Active and closed positions
 │   ├── open/
@@ -924,8 +965,6 @@ scheduler:
   guardian_news_scan_minutes: 30
   
 analyst:
-  research_depth: standard        # quick, standard, deep
-  min_confidence_threshold: 0.6
   max_research_time_seconds: 300
   required_sources: 3
   
@@ -982,15 +1021,18 @@ risk_status:
 
 ---
 
-#### Opportunity File (`opportunities/YYYY-MM-DD/TICKER.md`)
+#### Unified Opportunity File (`opportunities/YYYY-MM-DD/TICKER.md`)
+
+This file is progressively enriched by all three agent stages:
+
+**Stage 1: Scout creates the file**
 
 ```markdown
 ---
 id: opp_abc123
 event_ticker: EVENT-ABC
 market_ticker: TICKER-ABC-123
-status: pending  # pending, researching, recommended, traded, expired, skipped
-priority: high
+status: pending  # pending, researching, evaluated, traded, expired, skipped
 discovered_at: "2025-01-14T10:00:00Z"
 close_time: "2025-01-16T20:00:00Z"
 yes_price: 0.45
@@ -1000,8 +1042,6 @@ no_price: 0.55
 # Will X happen by Y date?
 
 ## Scout Assessment
-
-**Priority**: High
 
 **Rationale**: This market shows significant volume with a 10-cent spread, suggesting 
 potential for price discovery. Recent news suggests the market may be mispriced.
@@ -1016,85 +1056,117 @@ potential for price discovery. Recent news suggests the market may be mispriced.
 | Closes | 2025-01-16 8:00 PM |
 ```
 
----
+**Stage 2: Researcher appends research section**
 
-#### Research Brief (`research/YYYY-MM-DD/TICKER.md`)
+The Researcher updates the frontmatter and appends a research section:
 
 ```markdown
 ---
-id: research_abc123
-opportunity_id: opp_abc123
+id: opp_abc123
 event_ticker: EVENT-ABC
 market_ticker: TICKER-ABC-123
-research_depth: standard
-model_used: claude-sonnet-4-20250514
-tokens_used: 4500
+status: researching  # Status updated
+discovered_at: "2025-01-14T10:00:00Z"
+close_time: "2025-01-16T20:00:00Z"
+yes_price: 0.45
+no_price: 0.55
+
+# Research fields added by Researcher
+research_completed_at: "2025-01-14T10:05:00Z"
+research_sources_count: 5
 research_duration_seconds: 45
-created_at: "2025-01-14T10:05:00Z"
-base_rate: 0.60
-sentiment: bullish
-information_quality: high
 ---
 
-# Research: Will X happen by Y date?
+# Will X happen by Y date?
 
-## Key Facts
+## Scout Assessment
 
-1. Historical data shows X has occurred 60% of the time under similar conditions
-2. Recent announcement by Z suggests increased likelihood
-3. Expert consensus has shifted in the past week
+**Rationale**: This market shows significant volume with a 10-cent spread...
 
-## Recent Developments
+## Market Snapshot
 
-- [2025-01-13] Major announcement from relevant authority
-- [2025-01-12] Market reaction to related event
-- [2025-01-10] Initial catalyst event occurred
+| Metric | Value |
+|--------|-------|
+| Yes Price | $0.45 |
+| No Price | $0.55 |
 
-## Expert Opinions
+---
 
-> "Based on our analysis, we expect a 65% probability..." - Expert A, Source 1
+## Research Synthesis
 
-> "The market appears to be underpricing this outcome..." - Expert B, Source 2
+Historical data shows X has occurred 60% of the time under similar conditions.
+Recent announcement by Z suggests increased likelihood...
 
-## Historical Precedents
+### Key Facts
 
-- Similar situation in 2024 resolved YES (70% of cases)
-- Comparable market in 2023 had similar pricing before resolution
+1. Fact one with citation
+2. Fact two with citation
+3. Fact three with citation
 
-## Sources
+### Sources
 
-1. [Source Title 1](https://example.com/source1) - Published 2025-01-13
-2. [Source Title 2](https://example.com/source2) - Published 2025-01-12
-3. [Source Title 3](https://example.com/source3) - Published 2025-01-10
+1. [Source Title 1](https://example.com/source1)
+2. [Source Title 2](https://example.com/source2)
 ```
 
----
+**Stage 3: Recommender appends trade evaluation**
 
-#### Trade Recommendation (`recommendations/YYYY-MM-DD/TICKER.md`)
+The Recommender updates the frontmatter again and appends final recommendation:
 
 ```markdown
 ---
-id: rec_abc123
-opportunity_id: opp_abc123
-research_brief_id: research_abc123
+id: opp_abc123
 event_ticker: EVENT-ABC
 market_ticker: TICKER-ABC-123
-action: BUY_YES  # BUY_YES, BUY_NO, ABSTAIN
-status: pending  # pending, approved, executed, rejected, expired
-confidence: 0.72
+status: evaluated  # Status updated again
+discovered_at: "2025-01-14T10:00:00Z"
+close_time: "2025-01-16T20:00:00Z"
+yes_price: 0.45
+no_price: 0.55
+
+# Research fields (from Researcher)
+research_completed_at: "2025-01-14T10:05:00Z"
+research_sources_count: 5
+research_duration_seconds: 45
+
+# Recommendation fields (added by Recommender)
 estimated_true_probability: 0.65
 current_market_price: 0.45
-expected_value: 0.44  # (0.65 * 1.22) - 1 where 1.22 = 1/0.45 - 1
-edge: 0.20  # 0.65 - 0.45
+expected_value: 0.44
+edge: 0.20
 suggested_position_pct: 0.05
-model_used: claude-sonnet-4-20250514
-created_at: "2025-01-14T10:10:00Z"
-executed_at: null
+recommendation_completed_at: "2025-01-14T10:10:00Z"
+action: BUY_YES
+recommendation_status: pending
 ---
 
-# Trade Recommendation: BUY YES on TICKER-ABC-123
+# Will X happen by Y date?
 
-## Summary
+## Scout Assessment
+
+**Rationale**: This market shows significant volume...
+
+## Market Snapshot
+
+| Metric | Value |
+|--------|-------|
+| Yes Price | $0.45 |
+| No Price | $0.55 |
+
+---
+
+## Research Synthesis
+
+Historical data shows X has occurred 60% of the time...
+
+### Sources
+
+1. [Source Title 1](https://example.com/source1)
+2. [Source Title 2](https://example.com/source2)
+
+---
+
+## Trade Evaluation
 
 | Metric | Value |
 |--------|-------|
@@ -1104,24 +1176,15 @@ executed_at: null
 | **Expected Value** | +44% |
 | **Suggested Size** | 5% of portfolio |
 
-## Reasoning
+### Reasoning
 
 Based on the research, the true probability of YES is estimated at **65%**, while the 
 market is pricing YES at only **45%**. This represents a significant edge of 20 percentage 
 points.
 
-The research quality is high with 3 corroborating sources, and the base rate analysis 
-supports our probability estimate.
+### Position Sizing
 
-## Key Risks
-
-1. **Time decay**: Event closes in 48 hours - limited time for thesis to play out
-2. **News sensitivity**: Unexpected announcements could shift odds quickly
-3. **Liquidity**: Spread may widen if we try to exit quickly
-
-## Position Sizing
-
-Using 1/4 Kelly with 72% confidence:
+Using 1/4 Kelly:
 - Kelly optimal: ~20% of bankroll
 - Fractional (1/4): 5% of bankroll
 - Suggested contracts: 50 at $0.45 = $22.50 cost
@@ -1134,7 +1197,7 @@ Using 1/4 Kelly with 72% confidence:
 ```yaml
 # positions/open/TICKER-ABC-123.yaml
 id: pos_abc123
-recommendation_id: rec_abc123
+opportunity_id: opp_abc123
 
 # Market info
 event_ticker: EVENT-ABC
@@ -1162,7 +1225,6 @@ last_checked: "2025-01-14T15:30:00Z"
 
 # Guardian assessment
 thesis_still_valid: true
-current_confidence: 0.75
 ```
 
 ---
@@ -1172,8 +1234,8 @@ current_confidence: 0.75
 JSON Lines format for easy appending and parsing:
 
 ```jsonl
-{"id":"trade_001","position_id":"pos_abc123","recommendation_id":"rec_abc123","market_ticker":"TICKER-ABC-123","side":"YES","action":"BUY","contracts":50,"price":0.45,"total":22.50,"portfolio_pct":0.05,"edge":0.20,"ev":0.44,"paper":true,"executed_at":"2025-01-14T10:15:00Z"}
-{"id":"trade_002","position_id":"pos_xyz456","recommendation_id":"rec_xyz456","market_ticker":"TICKER-XYZ-456","side":"NO","action":"BUY","contracts":30,"price":0.60,"total":18.00,"portfolio_pct":0.04,"edge":0.15,"ev":0.25,"paper":true,"executed_at":"2025-01-14T11:30:00Z"}
+{"id":"trade_001","position_id":"pos_abc123","opportunity_id":"opp_abc123","market_ticker":"TICKER-ABC-123","side":"YES","action":"BUY","contracts":50,"price":0.45,"total":22.50,"portfolio_pct":0.05,"edge":0.20,"ev":0.44,"paper":true,"executed_at":"2025-01-14T10:15:00Z"}
+{"id":"trade_002","position_id":"pos_xyz456","opportunity_id":"opp_xyz456","market_ticker":"TICKER-XYZ-456","side":"NO","action":"BUY","contracts":30,"price":0.60,"total":18.00,"portfolio_pct":0.04,"edge":0.15,"ev":0.25,"paper":true,"executed_at":"2025-01-14T11:30:00Z"}
 ```
 
 ---
@@ -1332,9 +1394,9 @@ python -m coliseum run
 # Run individual agents manually
 python -m coliseum scout --scan-type full
 python -m coliseum scout --scan-type quick
-python -m coliseum analyst --opportunity-id opp_abc123
+python -m coliseum analyst --opportunity-id opp_abc123  # Runs Researcher + Recommender
 python -m coliseum guardian --check-positions
-python -m coliseum trader --recommendation-id rec_abc123
+python -m coliseum trader --opportunity-id opp_abc123
 
 # Portfolio management
 python -m coliseum portfolio status
@@ -1365,9 +1427,9 @@ python -m coliseum serve --port 8000
 GET    /                             # Dashboard (static HTML)
 GET    /api/portfolio                # Current portfolio state
 GET    /api/positions                # List positions
-GET    /api/recommendations          # List pending recommendations
-POST   /api/recommendations/{id}/approve
-POST   /api/recommendations/{id}/reject
+GET    /api/opportunities            # List evaluated opportunities
+POST   /api/opportunities/{id}/approve
+POST   /api/opportunities/{id}/reject
 GET    /api/alerts                   # Recent alerts
 ```
 
@@ -1680,22 +1742,29 @@ async def scout_full_scan():
         queue_for_analyst(opp.id)
 
 async def process_analyst_queue():
-    """Analyst processes pending opportunities"""
+    """Analyst processes pending opportunities (Researcher + Recommender)"""
     pending = list((DATA_DIR / "queue" / "analyst").glob("*.json"))
     for item in pending:
         opportunity_id = json.loads(item.read_text())["opportunity_id"]
-        recommendation = await analyst_agent.research(opportunity_id)
-        if recommendation.action != "ABSTAIN":
-            save_recommendation(recommendation)
-            queue_for_trader(recommendation.id)
+        
+        # Run Researcher → appends research to opportunity file
+        await researcher_agent.research(opportunity_id)
+        
+        # Run Recommender → appends recommendation to same opportunity file
+        evaluated_opp = await recommender_agent.evaluate(opportunity_id)
+        
+        # If recommendation is BUY (not ABSTAIN), queue for trader
+        if evaluated_opp.action in ["BUY_YES", "BUY_NO"]:
+            queue_for_trader(opportunity_id)
+        
         item.unlink()  # Remove from queue
 
 async def process_trader_queue():
-    """Trader processes pending recommendations"""
+    """Trader processes evaluated opportunities"""
     pending = list((DATA_DIR / "queue" / "trader").glob("*.json"))
     for item in pending:
-        recommendation_id = json.loads(item.read_text())["recommendation_id"]
-        await trader_agent.evaluate_and_execute(recommendation_id)
+        opportunity_id = json.loads(item.read_text())["opportunity_id"]
+        await trader_agent.evaluate_and_execute(opportunity_id)
         item.unlink()
 ```
 
@@ -1784,19 +1853,17 @@ backend/
 │   │   └── perplexity.py     # Perplexity client
 │   └── scheduler.py          # APScheduler setup
 │
-└── data/                    
-    ├── config.yaml
-    ├── state.yaml
-    ├── opportunities/
-    ├── research/
-    ├── recommendations/
-    ├── positions/
-    ├── trades/
-    ├── alerts/
-    ├── snapshots/
-    └── queue/
-        ├── analyst/
-        └── trader/
+└── data/
+├── config.yaml
+├── state.yaml
+├── opportunities/          # Single file per event (progressively enriched)
+├── positions/
+├── trades/
+├── alerts/
+├── snapshots/
+└── queue/
+    ├── analyst/
+    └── trader/
 ```
 
 ### Backup Strategy
@@ -1887,9 +1954,7 @@ backend/
 └── data/                         # NEW: Runtime data directory
     ├── config.yaml               # System configuration
     ├── state.yaml                # Current portfolio state
-    ├── opportunities/            # Scout output
-    ├── research/                 # Analyst research briefs
-    ├── recommendations/          # Trade recommendations
+    ├── opportunities/            # Single file per event (Scout → Researcher → Recommender)
     ├── positions/
     │   ├── open/
     │   └── closed/
@@ -1953,7 +2018,7 @@ backend/
 
 ### Phase 2: Intelligence (Week 3-4)
 
-**Goal**: Analyst agent produces high-quality trade recommendations backed by research.
+**Goal**: Analyst pipeline produces high-quality analysis reports backed by research.
 
 #### 2.1 Exa AI Integration (`coliseum/services/exa/`)
 - [x] Create `ExaClient` async wrapper for `exa-py` SDK
@@ -1963,22 +2028,22 @@ backend/
 
 **Note**: Uses only the Exa `answer` endpoint for comprehensive research responses with built-in citations, eliminating need for separate search/synthesis steps.
 
-#### 2.2 Analyst Agent (`coliseum/agents/analyst.py`)
+#### 2.2 Analyst Pipeline (`coliseum/agents/analyst/`)
 - [ ] Create Pydantic models:
-  - `AnalystConfig` (research depth, min confidence, timeout)
-  - `ResearchBrief` (freeform synthesis, sources, confidence, sentiment, key uncertainties)
-  - `TradeRecommendation` (action, confidence, edge, EV, sizing)
-- [ ] Implement `analyst_agent` with PydanticAI
+  - `ResearcherConfig` (timeout, required sources)
+  - `RecommenderConfig` (min edge threshold)
+  - Extended `OpportunitySignal` (with research + recommendation fields)
+- [ ] Implement Researcher agent (`coliseum/agents/analyst/researcher/main.py`)
+- [ ] Implement Recommender agent (`coliseum/agents/analyst/recommender/main.py`)
 - [ ] Add tools:
-  - `exa_answer(question)` → Ask comprehensive questions about the event and receive detailed answers with citations
-  - `calculate_edge_ev(probability, market_price)` → Edge and EV
-- [ ] Implement research workflow:
-  1. Receive opportunity from Scout queue
-  2. Formulate research questions about the event
-  3. Use `exa_answer` to gather comprehensive information
-  4. Synthesize findings into `ResearchBrief`
-  5. Calculate edge and expected value
-  6. Generate `TradeRecommendation` with confidence score
+  - Researcher: `exa_answer(question)` → Comprehensive answers with citations
+  - Recommender: `read_opportunity_research()` → Extract research from opportunity file
+  - Recommender: `calculate_edge_ev(probability, market_price)` → Edge and EV
+- [ ] Implement append-based workflow:
+  1. Receive opportunity_id from Scout queue
+  2. **Researcher**: Load opportunity file, conduct research, append research section
+  3. **Recommender**: Load same opportunity file, extract research, append evaluation section
+  4. Result: Single opportunity file with all three stages (Scout → Researcher → Recommender)
 
 #### 2.3 Edge/EV Calculations (`coliseum/agents/calculations.py`)
 - [ ] `calculate_edge(true_prob, market_prob)` → Edge percentage
@@ -1989,11 +2054,10 @@ backend/
 - [ ] Implement `process_analyst_queue()`:
   1. Read pending items from `data/queue/analyst/`
   2. Load opportunity from `data/opportunities/`
-  3. Run analyst agent
-  4. Save research brief to `data/research/`
-  5. Save recommendation to `data/recommendations/`
-  6. If action != `ABSTAIN`, queue for trader
-  7. Delete processed queue item
+  3. Run Analyst pipeline (Researcher -> Recommender)
+  4. Save draft + final report to `data/analysis/`
+  5. If action != `ABSTAIN`, queue for trader
+  6. Delete processed queue item
 
 #### 2.5 Logfire Observability
 - [ ] Add `logfire.configure()` to `coliseum/__init__.py`
@@ -2164,7 +2228,7 @@ backend/
 #### 5.2 Paper Trading at Scale
 - [ ] Run full system in paper mode for 2-4 weeks
 - [ ] Track metrics:
-  - Hit rate (% of recommendations that resolve profitably)
+  - Hit rate (% of analyses that resolve profitably)
   - Edge accuracy (estimated edge vs actual outcome)
   - Average P&L per trade
   - Sharpe ratio simulation
@@ -2195,8 +2259,8 @@ backend/
 - [ ] Endpoints:
   - `GET /api/portfolio` → Current state
   - `GET /api/positions` → Open positions
-  - `GET /api/recommendations` → Pending recommendations
-  - `POST /api/recommendations/{id}/approve` → Manual approval
+  - `GET /api/opportunities` → Evaluated opportunities (with recommendations)
+  - `POST /api/opportunities/{id}/approve` → Manual approval
   - `GET /api/alerts` → Recent alerts
 - [ ] Simple static HTML dashboard
 
@@ -2287,9 +2351,9 @@ python -m coliseum.agents.scout.test.run_test
 python -m coliseum.agents.scout.test.run_test --scan-type quick --max-opportunities 3
 python -m coliseum.agents.scout.test.run_test --max-close-hours 24
 
-# Analyst agent test
+# Analyst agent test (runs Researcher + Recommender)
 python -m coliseum.agents.analyst.test.run_test
-python -m coliseum.agents.analyst.test.run_test --market-ticker "TICKER-ABC-123"
+python -m coliseum.agents.analyst.test.run_test --opportunity-id "opp_abc123"
 python -m coliseum.agents.analyst.test.run_test --research-depth deep
 
 # Guardian agent test
@@ -2298,7 +2362,7 @@ python -m coliseum.agents.guardian.test.run_test --position-id "pos_abc123"
 
 # Trader agent test (always paper mode)
 python -m coliseum.agents.trader.test.run_test
-python -m coliseum.agents.trader.test.run_test --recommendation-id "rec_abc123"
+python -m coliseum.agents.trader.test.run_test --opportunity-id "opp_abc123"
 ```
 
 ### Test Output
@@ -2433,11 +2497,9 @@ scout_agent = Agent(
     - Markets with reasonable spreads
     - Events closing within 72 hours
     - Diverse categories (avoid concentration)
-    
-    Rate each opportunity as high/medium/low priority based on:
-    - Information asymmetry potential
-    - Market inefficiency signals
-    - News catalyst potential
+    - Focus on information asymmetry potential
+    - Look for market inefficiency signals
+    - Consider news catalyst potential
     """,
 )
 
