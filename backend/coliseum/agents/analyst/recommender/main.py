@@ -1,6 +1,7 @@
 """Recommender Agent: Trade decision making based on research."""
 
 import logging
+import os
 import time
 from datetime import datetime, timezone
 from pydantic_ai import Agent, RunContext
@@ -15,7 +16,7 @@ from coliseum.agents.calculations import (
     calculate_expected_value,
     calculate_position_size_pct,
 )
-from coliseum.config import Settings
+from coliseum.config import Settings, get_settings
 from coliseum.llm_providers import FireworksModel, get_model_string
 from coliseum.storage.files import (
     OpportunitySignal,
@@ -34,6 +35,9 @@ _agent: Agent[RecommenderDependencies, RecommenderOutput] | None = None
 def get_agent() -> Agent[RecommenderDependencies, RecommenderOutput]:
     global _agent
     if _agent is None:
+        settings = get_settings()
+        if settings.fireworks_api_key:
+            os.environ["FIREWORKS_API_KEY"] = settings.fireworks_api_key
         _agent = _create_agent()
     return _agent
 
@@ -191,7 +195,7 @@ async def run_recommender(
         "recommendation_completed_at": completed_at.isoformat(),
         "action": None,  # No action field in output
         "recommendation_status": "pending",
-        "status": "evaluated",
+        "status": "recommended",
     }
 
     # Append to opportunity file
@@ -204,7 +208,7 @@ async def run_recommender(
         )
 
         # Update state.yaml status
-        update_market_status(opportunity.market_ticker, "evaluated")
+        update_market_status(opportunity.market_ticker, "recommended")
 
     logger.info(
         f"Recommender completed in {duration:.1f}s - "

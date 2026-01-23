@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 # Status type alias for opportunity lifecycle
 OpportunityStatus = Literal[
-    "pending", "researching", "evaluated", "traded", "expired", "skipped"
+    "pending", "researching", "recommended", "traded", "expired", "skipped"
 ]
 
 
@@ -71,10 +71,10 @@ class OpportunitySignal(BaseModel):
         description="Timestamp when Scout discovered this (ISO 8601 format, current time)"
     )
     status: Literal[
-        "pending", "researching", "evaluated", "traded", "expired", "skipped"
+        "pending", "researching", "recommended", "traded", "expired", "skipped"
     ] = Field(
         default="pending",
-        description="Opportunity lifecycle status. 'pending' → 'researching' → 'evaluated' → 'traded'"
+        description="Opportunity lifecycle status. 'pending' → 'researching' → 'recommended' → 'traded'"
     )
 
     # Research fields (null initially, populated by Researcher)
@@ -296,36 +296,8 @@ def append_to_opportunity(
     return file_path
 
 
-def load_opportunity_with_all_stages(market_ticker: str, lookback_days: int = 7) -> OpportunitySignal:
-    """Load opportunity file with all stages (scout + research + recommendation).
-
-    Args:
-        market_ticker: Market ticker to identify the file
-        lookback_days: How many days back to search for file
-
-    Returns:
-        Complete OpportunitySignal with all stages populated
-
-    Raises:
-        FileNotFoundError: If opportunity file not found
-        ValueError: If file format is invalid
-    """
-    file_path = find_opportunity_file(market_ticker, lookback_days)
-    if not file_path:
-        raise FileNotFoundError(f"Opportunity file not found: {market_ticker}")
-
-    content = file_path.read_text(encoding="utf-8")
-
-    if not content.startswith("---"):
-        raise ValueError(f"Invalid frontmatter in {file_path}")
-
-    parts = content.split("---", 2)
-    if len(parts) < 3:
-        raise ValueError(f"Could not parse frontmatter in {file_path}")
-
-    frontmatter = yaml.safe_load(parts[1])
-    body = parts[2]
-
+def _parse_opportunity_from_parts(frontmatter: dict, body: str) -> OpportunitySignal:
+    """Build OpportunitySignal from frontmatter and body content."""
     # Extract title, subtitle, rationale from body
     lines = body.strip().split("\n")
     title = ""
@@ -348,6 +320,84 @@ def load_opportunity_with_all_stages(market_ticker: str, lookback_days: int = 7)
     }
 
     return OpportunitySignal(**data)
+
+
+def load_opportunity_from_file(file_path: Path) -> OpportunitySignal:
+    """Load opportunity data from a markdown file path."""
+    content = file_path.read_text(encoding="utf-8")
+
+    if not content.startswith("---"):
+        raise ValueError(f"Invalid frontmatter in {file_path}")
+
+    parts = content.split("---", 2)
+    if len(parts) < 3:
+        raise ValueError(f"Could not parse frontmatter in {file_path}")
+
+    frontmatter = yaml.safe_load(parts[1]) or {}
+    body = parts[2]
+
+    return _parse_opportunity_from_parts(frontmatter, body)
+
+
+def find_opportunity_file_by_id(
+    opportunity_id: str, lookback_days: int = 7
+) -> Path | None:
+    """Find opportunity file by searching for ID in YAML frontmatter."""
+    data_dir = get_data_dir()
+    opps_dir = data_dir / "opportunities"
+
+    if not opps_dir.exists():
+        return None
+
+    date_dirs = sorted(
+        [d for d in opps_dir.iterdir() if d.is_dir()],
+        key=lambda d: d.name,
+        reverse=True,
+    )
+    for date_dir in date_dirs[:lookback_days + 1]:
+        for file_path in date_dir.glob("*.md"):
+            try:
+                content = file_path.read_text(encoding="utf-8")
+
+                if not content.startswith("---"):
+                    continue
+
+                parts = content.split("---", 2)
+                if len(parts) < 3:
+                    continue
+
+                frontmatter = yaml.safe_load(parts[1])
+                if frontmatter and frontmatter.get("id") == opportunity_id:
+                    return file_path
+
+            except Exception as e:
+                logger.warning(f"Error reading {file_path}: {e}")
+                continue
+
+    return None
+
+
+def load_opportunity_with_all_stages(
+    market_ticker: str, lookback_days: int = 7
+) -> OpportunitySignal:
+    """Load opportunity file with all stages (scout + research + recommendation).
+
+    Args:
+        market_ticker: Market ticker to identify the file
+        lookback_days: How many days back to search for file
+
+    Returns:
+        Complete OpportunitySignal with all stages populated
+
+    Raises:
+        FileNotFoundError: If opportunity file not found
+        ValueError: If file format is invalid
+    """
+    file_path = find_opportunity_file(market_ticker, lookback_days)
+    if not file_path:
+        raise FileNotFoundError(f"Opportunity file not found: {market_ticker}")
+
+    return load_opportunity_from_file(file_path)
 
 
 def extract_research_from_opportunity(file_path: Path) -> dict:

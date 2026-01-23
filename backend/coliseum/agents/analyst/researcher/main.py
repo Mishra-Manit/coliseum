@@ -1,6 +1,7 @@
 """Researcher Agent: Deep research and synthesis without trading decisions."""
 
 import logging
+import os
 import time
 from datetime import datetime, timezone
 from pydantic_ai import Agent, RunContext
@@ -10,7 +11,7 @@ from coliseum.agents.analyst.researcher.models import (
     ResearcherOutput,
 )
 from coliseum.agents.analyst.researcher.prompts import RESEARCHER_SYSTEM_PROMPT
-from coliseum.config import Settings
+from coliseum.config import Settings, get_settings
 from coliseum.llm_providers import FireworksModel, get_model_string
 from coliseum.services.exa.client import ExaClient
 from coliseum.storage.files import (
@@ -30,6 +31,9 @@ _agent: Agent[ResearcherDependencies, ResearcherOutput] | None = None
 def get_agent() -> Agent[ResearcherDependencies, ResearcherOutput]:
     global _agent
     if _agent is None:
+        settings = get_settings()
+        if settings.fireworks_api_key:
+            os.environ["FIREWORKS_API_KEY"] = settings.fireworks_api_key
         _agent = _create_agent()
     return _agent
 
