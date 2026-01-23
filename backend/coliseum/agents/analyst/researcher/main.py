@@ -17,10 +17,8 @@ from coliseum.config import Settings
 from coliseum.llm_providers import FireworksModel, get_model_string
 from coliseum.services.exa.client import ExaClient
 from coliseum.storage.files import (
-    AnalysisDraft,
     OpportunitySignal,
-    generate_analysis_id,
-    save_analysis_draft,
+    append_to_opportunity,
     update_opportunity_status,
 )
 from coliseum.storage.state import update_market_status
@@ -71,7 +69,6 @@ def _register_tools(agent: Agent[ResearcherDependencies, ResearcherOutput]) -> N
             "yes_price": opportunity.yes_price,
             "no_price": opportunity.no_price,
             "close_time": opportunity.close_time.isoformat(),
-            "priority": opportunity.priority,
             "rationale": opportunity.rationale,
             "status": opportunity.status,
             "discovered_at": opportunity.discovered_at.isoformat(),
@@ -117,22 +114,23 @@ async def run_researcher(
     settings: Settings,
     dry_run: bool = False,
 ) -> ResearcherOutput:
-    """Run Researcher agent on opportunity: gather facts and synthesize research."""
+    """Run Researcher agent - appends research to opportunity file."""
     start_time = time.time()
-    logger.info(f"Starting Researcher run for opportunity: {opportunity_id}")
+    logger.info(f"Starting Researcher for opportunity: {opportunity_id}")
 
+    # Find opportunity file
     opp_file = _find_opportunity_file_by_id(opportunity_id)
     if not opp_file:
         raise FileNotFoundError(f"Opportunity file not found: {opportunity_id}")
 
     opportunity = _parse_opportunity_file(opp_file)
 
+    # Update status to "researching"
     if not dry_run:
         update_opportunity_status(opportunity.market_ticker, "researching")
         update_market_status(opportunity.market_ticker, "researching")
 
-    analysis_id = generate_analysis_id()
-
+    # Run research
     async with ExaClient(api_key=settings.exa_api_key) as exa_client:
         deps = ResearcherDependencies(
             exa_client=exa_client,
@@ -142,43 +140,55 @@ async def run_researcher(
         prompt = _build_research_prompt(opportunity, settings)
 
         agent = get_agent()
-        logger.info("Running Researcher agent...")
         result = await agent.run(prompt, deps=deps)
         output = result.output
 
-        duration = time.time() - start_time
-        created_at = datetime.now(timezone.utc)
-        sources = output.sources
-        draft = AnalysisDraft(
-            id=analysis_id,
-            opportunity_id=opportunity.id,
-            event_ticker=opportunity.event_ticker,
+    duration = time.time() - start_time
+    completed_at = datetime.now(timezone.utc)
+
+    # Prepare research section for append
+    sources_md = "\n".join(
+        f"{i+1}. [{src}]({src})" for i, src in enumerate(output.sources)
+    )
+
+    research_section = f"""---
+
+## Research Synthesis
+
+{output.synthesis}
+
+### Sources
+
+{sources_md}"""
+
+    # Prepare frontmatter updates
+    frontmatter_updates = {
+        "research_completed_at": completed_at.isoformat(),
+        "research_sources_count": len(output.sources),
+        "research_duration_seconds": int(duration),
+    }
+
+    # Append to opportunity file
+    if not dry_run:
+        append_to_opportunity(
             market_ticker=opportunity.market_ticker,
-            synthesis=output.synthesis,
-            sources=sources,
-            created_at=created_at,
-            research_depth=settings.analyst.research_depth,
-            model_used=get_model_string(FireworksModel.DEEPSEEK_V3_2),
-            research_duration_seconds=int(duration),
-        )
-        if result.usage():
-            draft.tokens_used = result.usage().total_tokens
-
-        logger.info(
-            f"Researcher completed in {duration:.1f}s - "
-            f"Sources: {output.sources_count}"
+            frontmatter_updates=frontmatter_updates,
+            body_section=research_section,
+            section_header="## Research Synthesis",
         )
 
-        if not dry_run:
-            save_analysis_draft(draft)
+    logger.info(
+        f"Researcher completed in {duration:.1f}s - "
+        f"Appended to {opportunity.market_ticker}"
+    )
 
-        return ResearcherOutput(
-            analysis_id=analysis_id,
-            synthesis=output.synthesis,
-            sources=output.sources,
-            summary=output.summary,
-            sources_count=len(output.sources),
-        )
+    # Return simplified output (no analysis_id)
+    return ResearcherOutput(
+        synthesis=output.synthesis,
+        sources=output.sources,
+        summary=output.summary,
+        sources_count=len(output.sources),
+    )
 
 
 def _find_opportunity_file_by_id(opportunity_id: str) -> Path | None:
@@ -276,7 +286,6 @@ def _build_research_prompt(opportunity: OpportunitySignal, settings: Settings) -
 {subtitle_info}**Current YES Price**: {opportunity.yes_price:.2f} ({opportunity.yes_price * 100:.1f}¢)
 **Current NO Price**: {opportunity.no_price:.2f} ({opportunity.no_price * 100:.1f}¢)
 **Market Closes**: {opportunity.close_time.isoformat()}
-**Priority**: {opportunity.priority}
 
 **Scout's Rationale**: {opportunity.rationale}
 

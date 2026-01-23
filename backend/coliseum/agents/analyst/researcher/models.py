@@ -19,7 +19,6 @@ class ResearcherDependencies(BaseModel):
 class ResearcherOutput(BaseModel):
     """Output from Researcher agent run."""
 
-    analysis_id: str
     synthesis: str
     sources: list[str]
     summary: str  # 1-2 sentence summary of research
