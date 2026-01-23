@@ -1,12 +1,14 @@
-"""File I/O operations for opportunities, recommendations, and trades.
+"""File I/O operations for opportunities and trades.
 
-This module handles saving opportunities, research briefs, recommendations to markdown files
+This module handles saving opportunities to markdown files
 with YAML frontmatter, and logging trades to JSONL format. All files use date-based
 directory organization for easy browsing.
 """
 
 import json
 import logging
+import shutil
+import tempfile
 from datetime import datetime
 from pathlib import Path
 from typing import Literal
@@ -15,18 +17,14 @@ from uuid import uuid4
 import yaml
 from pydantic import BaseModel, Field
 
-from coliseum.llm_providers import (
-    AnthropicModel,
-    FireworksModel,
-    get_model_string,
-)
+from coliseum.llm_providers import FireworksModel
 from coliseum.storage.state import get_data_dir
 
 logger = logging.getLogger(__name__)
 
 # Status type alias for opportunity lifecycle
 OpportunityStatus = Literal[
-    "pending", "researching", "recommended", "traded", "expired", "skipped"
+    "pending", "researching", "evaluated", "traded", "expired", "skipped"
 ]
 
 
@@ -36,8 +34,9 @@ OpportunityStatus = Literal[
 
 
 class OpportunitySignal(BaseModel):
-    """Scout-discovered opportunity - matches DESIGN.md spec."""
+    """Scout-discovered opportunity with progressive enrichment through pipeline stages."""
 
+    # Scout fields (created at discovery)
     id: str = Field(
         description="Unique opportunity ID with 'opp_' prefix (e.g., 'opp_a1b2c3d4'). Use generate_opportunity_id_tool() to create."
     )
@@ -65,9 +64,6 @@ class OpportunitySignal(BaseModel):
     close_time: datetime = Field(
         description="Market close timestamp in ISO 8601 format from market data 'close_time' field"
     )
-    priority: Literal["high", "medium", "low"] = Field(
-        description="Scout's priority: 'high' for tight spreads + strong edge, 'medium' for moderate, 'low' for marginal"
-    )
     rationale: str = Field(
         description="Explanation for selecting this opportunity. MUST reference only market data (spread, volume, implied probability). Do NOT fabricate external facts."
     )
@@ -75,61 +71,26 @@ class OpportunitySignal(BaseModel):
         description="Timestamp when Scout discovered this (ISO 8601 format, current time)"
     )
     status: Literal[
-        "pending", "researching", "recommended", "traded", "expired", "skipped"
+        "pending", "researching", "evaluated", "traded", "expired", "skipped"
     ] = Field(
         default="pending",
-        description="Opportunity lifecycle status. Always 'pending' for newly discovered opportunities."
+        description="Opportunity lifecycle status. 'pending' → 'researching' → 'evaluated' → 'traded'"
     )
 
-
-class ResearchBrief(BaseModel):
-    """Analyst research output - freeform synthesis with structured hooks."""
-
-    id: str
-    opportunity_id: str
-    event_ticker: str
-    market_ticker: str
-
-    # Freeform synthesis - agent organizes findings however it sees fit
-    synthesis: str  # Markdown-formatted research output
-
-    # Structured fields for downstream agent consumption
-    sources: list[str]  # URLs with citations
-    confidence_level: Literal["high", "medium", "low"]
-    sentiment: Literal["bullish", "bearish", "neutral"]
-    key_uncertainties: list[str]  # What could invalidate this analysis?
-
-    # Metadata
-    created_at: datetime
-    research_depth: Literal["quick", "standard", "deep"] = "standard"
-    model_used: str = FireworksModel.LLAMA_3_3_70B_INSTRUCT
-    tokens_used: int | None = None
+    # Research fields (null initially, populated by Researcher)
+    research_completed_at: datetime | None = None
+    research_sources_count: int = 0
     research_duration_seconds: int | None = None
 
-
-class TradeRecommendation(BaseModel):
-    """Analyst trade recommendation - matches DESIGN.md spec."""
-
-    id: str
-    opportunity_id: str
-    research_brief_id: str
-    event_ticker: str
-    market_ticker: str
-    action: Literal["BUY_YES", "BUY_NO", "ABSTAIN"]
-    status: Literal["pending", "approved", "executed", "rejected", "expired"] = (
-        "pending"
-    )
-    confidence: float = Field(ge=0, le=1)
-    estimated_true_probability: float = Field(ge=0, le=1)
-    current_market_price: float = Field(ge=0, le=1)
-    expected_value: float
-    edge: float
-    suggested_position_pct: float = Field(ge=0, le=0.10)
-    reasoning: str
-    key_risks: list[str]
-    created_at: datetime
-    executed_at: datetime | None = None
-    model_used: str = FireworksModel.LLAMA_3_3_70B_INSTRUCT
+    # Recommendation fields (null initially, populated by Recommender)
+    estimated_true_probability: float | None = None
+    current_market_price: float | None = None
+    expected_value: float | None = None
+    edge: float | None = None
+    suggested_position_pct: float | None = None
+    recommendation_completed_at: datetime | None = None
+    action: Literal["BUY_YES", "BUY_NO", "ABSTAIN"] | None = None
+    recommendation_status: Literal["pending", "approved", "executed", "rejected", "expired"] | None = None
 
 
 class TradeExecution(BaseModel):
@@ -137,7 +98,7 @@ class TradeExecution(BaseModel):
 
     id: str
     position_id: str | None
-    recommendation_id: str
+    opportunity_id: str
     market_ticker: str
     side: Literal["YES", "NO"]
     action: Literal["BUY", "SELL"]
@@ -225,13 +186,11 @@ def save_opportunity(opportunity: OpportunitySignal) -> Path:
     )
 
     # Prepare markdown body
-    subtitle_section = f"\n**Outcome**: {opportunity.subtitle}\n" if opportunity.subtitle else ""
+    subtitle_section = f"\\n**Outcome**: {opportunity.subtitle}\\n" if opportunity.subtitle else ""
 
     body = f"""# {opportunity.title}
 {subtitle_section}
 ## Scout Assessment
-
-**Priority**: {opportunity.priority.title()}
 
 **Rationale**: {opportunity.rationale}
 
@@ -252,113 +211,194 @@ def save_opportunity(opportunity: OpportunitySignal) -> Path:
     return file_path
 
 
-def save_research_brief(brief: ResearchBrief) -> Path:
-    """Save research brief to markdown file in data/research/{date}/{ticker}.md."""
-    data_dir = get_data_dir()
-    research_dir = data_dir / "research"
-    date_dir = _ensure_date_dir(research_dir, brief.created_at)
+def append_to_opportunity(
+    market_ticker: str,
+    frontmatter_updates: dict,
+    body_section: str,
+    section_header: str,
+    lookback_days: int = 7,
+) -> Path:
+    """Safely append research or recommendation data to existing opportunity file.
 
-    filename = f"{brief.market_ticker}.md"
-    file_path = date_dir / filename
+    Uses atomic read-modify-write pattern to prevent corruption.
 
-    # Frontmatter contains metadata, excludes long-form content
-    frontmatter = brief.model_dump(
-        mode="json",
-        exclude={"synthesis", "sources", "key_uncertainties"},
+    Args:
+        market_ticker: Market ticker to identify the file
+        frontmatter_updates: Dict of fields to update in YAML frontmatter
+        body_section: Markdown content to append (complete section with header)
+        section_header: Section marker (e.g., "## Research Synthesis") for duplicate detection
+        lookback_days: How many days back to search for file
+
+    Returns:
+        Path to updated file
+
+    Raises:
+        FileNotFoundError: If opportunity file not found
+        ValueError: If section already exists (prevents double-append)
+    """
+    # 1. Find the file
+    file_path = find_opportunity_file(market_ticker, lookback_days)
+    if not file_path:
+        raise FileNotFoundError(f"Opportunity file not found: {market_ticker}")
+
+    # 2. Read current content
+    content = file_path.read_text(encoding="utf-8")
+
+    # 3. Parse frontmatter and body
+    if not content.startswith("---"):
+        raise ValueError(f"Invalid frontmatter in {file_path}")
+
+    parts = content.split("---", 2)
+    if len(parts) < 3:
+        raise ValueError(f"Could not parse frontmatter in {file_path}")
+
+    frontmatter_raw = parts[1]
+    body = parts[2]
+
+    # 4. Parse and update frontmatter
+    frontmatter = yaml.safe_load(frontmatter_raw) or {}
+
+    # Check if section already exists (prevent double-append)
+    if section_header in body:
+        logger.warning(f"Section '{section_header}' already exists in {file_path}")
+        raise ValueError(f"Section '{section_header}' already exists")
+
+    # Update frontmatter fields
+    frontmatter.update(frontmatter_updates)
+
+    # 5. Append body section
+    new_body = body.rstrip() + "\n\n" + body_section
+
+    # 6. Reconstruct file
+    new_frontmatter_raw = yaml.dump(
+        frontmatter,
+        default_flow_style=False,
+        allow_unicode=True,
+        sort_keys=False,
     )
+    new_content = f"---\n{new_frontmatter_raw}---{new_body}"
 
-    # Format sources and uncertainties
-    sources_md = "\n".join(
-        f"{i+1}. [{src}]({src})" for i, src in enumerate(brief.sources)
-    )
-    uncertainties_md = "\n".join(
-        f"- {uncertainty}" for uncertainty in brief.key_uncertainties
-    )
+    # 7. Atomic write (prevent corruption)
+    with tempfile.NamedTemporaryFile(
+        mode='w',
+        delete=False,
+        suffix='.md',
+        dir=file_path.parent,
+        encoding='utf-8'
+    ) as f:
+        f.write(new_content)
+        temp_path = Path(f.name)
 
-    body = f"""# Research: {brief.event_ticker}
+    # Atomic rename (overwrites destination)
+    shutil.move(str(temp_path), str(file_path))
 
-## Synthesis
-
-{brief.synthesis}
-
-## Key Uncertainties
-
-{uncertainties_md}
-
-## Sources
-
-{sources_md}
-
-## Assessment
-
-- **Confidence Level**: {brief.confidence_level.title()}
-- **Sentiment**: {brief.sentiment.title()}
-"""
-
-    # Write markdown file
-    content = _format_markdown_with_frontmatter(frontmatter, body)
-    file_path.write_text(content, encoding="utf-8")
-
-    logger.info(f"Saved research brief to {file_path}")
+    logger.info(f"Appended section '{section_header}' to {file_path}")
     return file_path
 
 
-def save_recommendation(recommendation: TradeRecommendation) -> Path:
-    """Save trade recommendation to markdown file in data/recommendations/{date}/{ticker}.md."""
-    data_dir = get_data_dir()
-    recs_dir = data_dir / "recommendations"
-    date_dir = _ensure_date_dir(recs_dir, recommendation.created_at)
+def load_opportunity_with_all_stages(market_ticker: str, lookback_days: int = 7) -> OpportunitySignal:
+    """Load opportunity file with all stages (scout + research + recommendation).
 
-    # Generate filename from market ticker
-    filename = f"{recommendation.market_ticker}.md"
-    file_path = date_dir / filename
+    Args:
+        market_ticker: Market ticker to identify the file
+        lookback_days: How many days back to search for file
 
-    # Prepare frontmatter
-    frontmatter = recommendation.model_dump(
-        mode="json", exclude={"reasoning", "key_risks"}
-    )
+    Returns:
+        Complete OpportunitySignal with all stages populated
 
-    # Prepare markdown body
-    risks_md = "\n".join(
-        f"{i+1}. **{risk.split(':')[0] if ':' in risk else 'Risk'}**: {risk}"
-        for i, risk in enumerate(recommendation.key_risks)
-    )
+    Raises:
+        FileNotFoundError: If opportunity file not found
+        ValueError: If file format is invalid
+    """
+    file_path = find_opportunity_file(market_ticker, lookback_days)
+    if not file_path:
+        raise FileNotFoundError(f"Opportunity file not found: {market_ticker}")
 
-    body = f"""# Trade Recommendation: {recommendation.action} on {recommendation.market_ticker}
+    content = file_path.read_text(encoding="utf-8")
 
-## Summary
+    if not content.startswith("---"):
+        raise ValueError(f"Invalid frontmatter in {file_path}")
 
-| Metric | Value |
-|--------|-------|
-| **Action** | {recommendation.action} |
-| **Confidence** | {recommendation.confidence:.0%} |
-| **Edge** | {recommendation.edge:+.0%} |
-| **Expected Value** | {recommendation.expected_value:+.0%} |
-| **Suggested Size** | {recommendation.suggested_position_pct:.1%} of portfolio |
-| **Status** | {recommendation.status.title()} |
+    parts = content.split("---", 2)
+    if len(parts) < 3:
+        raise ValueError(f"Could not parse frontmatter in {file_path}")
 
-## Reasoning
+    frontmatter = yaml.safe_load(parts[1])
+    body = parts[2]
 
-{recommendation.reasoning}
+    # Extract title, subtitle, rationale from body
+    lines = body.strip().split("\n")
+    title = ""
+    subtitle = ""
+    rationale = ""
 
-## Key Risks
+    for line in lines:
+        if line.startswith("# "):
+            title = line[2:].strip()
+        elif line.startswith("**Outcome**:"):
+            subtitle = line.split(":", 1)[1].strip()
+        elif line.startswith("**Rationale**:"):
+            rationale = line.split(":", 1)[1].strip()
 
-{risks_md}
+    data = {
+        **frontmatter,
+        "title": title,
+        "subtitle": subtitle or "",
+        "rationale": rationale,
+    }
 
-## Trade Details
+    return OpportunitySignal(**data)
 
-- **Estimated True Probability**: {recommendation.estimated_true_probability:.0%}
-- **Current Market Price**: {recommendation.current_market_price * 100:.0f}¢ (${recommendation.current_market_price:.2f})
-- **Model Used**: {recommendation.model_used}
-- **Created**: {recommendation.created_at.strftime('%Y-%m-%d %I:%M %p UTC')}
-"""
 
-    # Write markdown file
-    content = _format_markdown_with_frontmatter(frontmatter, body)
-    file_path.write_text(content, encoding="utf-8")
+def extract_research_from_opportunity(file_path: Path) -> dict:
+    """Extract research synthesis and sources from opportunity file.
 
-    logger.info(f"Saved recommendation to {file_path}")
-    return file_path
+    Args:
+        file_path: Path to opportunity markdown file
+
+    Returns:
+        Dict with 'synthesis' and 'sources' keys
+    """
+    content = file_path.read_text(encoding="utf-8")
+    parts = content.split("---", 2)
+    body = parts[2]
+
+    lines = body.strip().split("\n")
+    synthesis_lines: list[str] = []
+    sources: list[str] = []
+
+    in_synthesis = False
+    in_sources = False
+
+    for line in lines:
+        if line.startswith("## Research Synthesis"):
+            in_synthesis = True
+            in_sources = False
+            continue
+        if line.startswith("### Sources"):
+            in_synthesis = False
+            in_sources = True
+            continue
+        if line.startswith("## Trade Evaluation") or line.startswith("---"):
+            in_synthesis = False
+            in_sources = False
+            continue
+
+        if in_synthesis and line.strip():
+            synthesis_lines.append(line)
+        elif in_sources and line.strip():
+            if "](" in line and ")" in line:
+                url_start = line.index("](") + 2
+                url_end = line.index(")", url_start)
+                url = line[url_start:url_end]
+                sources.append(url)
+
+    synthesis = "\n".join(synthesis_lines).strip()
+
+    return {
+        "synthesis": synthesis,
+        "sources": sources,
+    }
 
 
 def log_trade(trade: TradeExecution) -> None:
@@ -377,7 +417,7 @@ def log_trade(trade: TradeExecution) -> None:
     ledger_path = trades_dir / f"{date_str}.jsonl"
 
     # Serialize trade to JSON (one line)
-    trade_json = trade.model_dump_json() + "\n"
+    trade_json = trade.model_dump_json() + "\\n"
 
     # Atomic append
     try:
@@ -394,16 +434,6 @@ def log_trade(trade: TradeExecution) -> None:
 def generate_opportunity_id() -> str:
     """Generate unique opportunity ID with opp_ prefix."""
     return f"opp_{uuid4().hex[:8]}"
-
-
-def generate_research_id() -> str:
-    """Generate unique research brief ID with research_ prefix."""
-    return f"research_{uuid4().hex[:8]}"
-
-
-def generate_recommendation_id() -> str:
-    """Generate unique recommendation ID with rec_ prefix."""
-    return f"rec_{uuid4().hex[:8]}"
 
 
 def generate_trade_id() -> str:

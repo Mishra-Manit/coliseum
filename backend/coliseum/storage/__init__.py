@@ -1,9 +1,8 @@
-"""Storage layer for Coliseum - file-based persistence and queuing.
+"""Storage layer for Coliseum - file-based persistence.
 
 This package provides:
 - State management (load/save portfolio state from data/state.yaml)
-- File operations (save opportunities, recommendations, trades to markdown/JSONL)
-- Queue management (file-based job queue for agent communication)
+- File operations (save opportunities, trades to markdown/JSONL)
 
 All operations use Pydantic models for type safety and atomic writes to prevent corruption.
 """
@@ -23,28 +22,16 @@ from .state import (
 # File operations
 from .files import (
     OpportunitySignal,
-    ResearchBrief,
-    TradeRecommendation,
     TradeExecution,
     save_opportunity,
-    save_research_brief,
-    save_recommendation,
+    append_to_opportunity,
+    load_opportunity_with_all_stages,
+    extract_research_from_opportunity,
     log_trade,
     generate_opportunity_id,
-    generate_research_id,
-    generate_recommendation_id,
     generate_trade_id,
 )
 
-# Queue operations
-from .queue import (
-    QueueItem,
-    queue_for_analyst,
-    queue_for_trader,
-    get_pending,
-    dequeue,
-    clear_queue,
-)
 
 __all__ = [
     # State management
@@ -58,22 +45,12 @@ __all__ = [
     "get_data_dir",
     # File operations
     "OpportunitySignal",
-    "ResearchBrief",
-    "TradeRecommendation",
     "TradeExecution",
     "save_opportunity",
-    "save_research_brief",
-    "save_recommendation",
+    "append_to_opportunity",
+    "load_opportunity_with_all_stages",
+    "extract_research_from_opportunity",
     "log_trade",
     "generate_opportunity_id",
-    "generate_research_id",
-    "generate_recommendation_id",
     "generate_trade_id",
-    # Queue operations
-    "QueueItem",
-    "queue_for_analyst",
-    "queue_for_trader",
-    "get_pending",
-    "dequeue",
-    "clear_queue",
 ]

@@ -58,8 +58,6 @@ class ScoutConfig(BaseModel):
 class AnalystConfig(BaseModel):
     """Analyst agent research parameters."""
 
-    research_depth: Literal["quick", "standard", "deep"] = "standard"
-    min_confidence_threshold: float = 0.6
     max_research_time_seconds: int = 300
     required_sources: int = 3
 
