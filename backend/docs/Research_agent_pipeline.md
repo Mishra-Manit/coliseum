@@ -29,14 +29,14 @@ Refactor the Analyst phase into two specialized agents: **Researcher** and **Rec
 
 **Goal**: Gather facts, verify truth, and synthesize information without the pressure of making a trading decision.
 
-- **Trigger**: New `OpportunitySignal`.
+- **Trigger**: New `OpportunitySignal` from Scout.
 - **Primary Tool**: `ExaClient` (Search/Answer).
 - **Process**:
-    1. Receives Opportunity.
+    1. Loads the opportunity file for the market.
     2. Generates research questions.
-    3. Executes searches.
-    4. Writes the research section to the unified analysis file.
-- **Output Artifact**: `data/analysis/{date}/{ticker}.md`
+    3. Executes Exa queries for grounded answers.
+    4. Appends the research section to the opportunity file.
+- **Output Artifact**: `data/opportunities/{date}/{ticker}.md`
     - Contains: **Research Synthesis**, **Sources**.
     - *Missing*: Trade fields (Action, Edge, EV) are left empty/pending.
 
@@ -44,18 +44,20 @@ Refactor the Analyst phase into two specialized agents: **Researcher** and **Rec
 
 **Goal**: Evaluate the research and make a disciplined, mathematically sound trading decision.
 
-- **Trigger**: Completion of Research.
+- **Trigger**: Completion of Research (opportunity file updated).
 - **Primary Tools**: `calculate_edge`, `calculate_ev`, `check_risk_limits`.
 - **Process**:
-    1. Reads the analysis draft (file created by Researcher).
+    1. Reads the opportunity file (updated by Researcher).
     2. Evaluates the evidence quality.
     3. Estimates `true_probability`.
     4. Computes `Edge` and `EV`.
     5. Applies Risk Management rules.
-- **Output Artifact**: Updates `data/analysis/{date}/{ticker}.md`
+- **Output Artifact**: Updates `data/opportunities/{date}/{ticker}.md`
     - Appends/Fills: **Action**, **Confidence**, **Edge**, **EV**, **Suggested Position**, **Reasoning**.
 
 ### Benefits
 - **Separation of Concerns**: Creativity vs. Logic.
 - **Checkpointing**: If the Recommender fails (e.g., JSON error), the expensive Research is saved.
-- **Enhanced Accuracy**: The Recommender can "read" the full research text as input, allowing for better "Chain of Thought" reasoning before outputting numbers.
+- **Enhanced Accuracy**: The Recommender can read the full research text as input before outputting numbers.
+- **Single-file audit trail**: All stages live in one opportunity file.
+- **Direct trader handoff**: Final recommendation is handed directly to Trader (no queue).

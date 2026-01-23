@@ -80,29 +80,23 @@ backend/
 │   │
 │   ├── storage/              # File-based persistence
 │   │   ├── state.py          # Portfolio state (state.yaml)
-│   │   ├── files.py          # Atomic file operations
-│   │   └── queue.py          # File-based job queue
+│   │   └── files.py          # Atomic file operations
 │   │
 │   └── services/             # External API clients
 │       ├── kalshi.py         # Kalshi API (public + trading)
-│       ├── exa/              # Exa AI research (answer endpoint)
-│       │   ├── client.py     # Async ExaClient wrapper
-│       │   ├── models.py     # ExaAnswerResponse, ExaCitation
-│       │   ├── config.py     # ExaConfig with defaults
-│       │   └── exceptions.py # Error handling
-│       └── telegram.py       # Telegram alerts
+│       └── exa/              # Exa AI research (answer endpoint)
+│           ├── client.py     # Async ExaClient wrapper
+│           ├── models.py     # ExaAnswerResponse, ExaCitation
+│           ├── config.py     # ExaConfig with defaults
+│           └── exceptions.py # Error handling
 │
 ├── data/                     # Runtime data (git-ignored portions)
 │   ├── config.yaml           # System configuration
 │   ├── state.yaml            # Portfolio state (source of truth)
-│   ├── opportunities/        # Scout discoveries
-│   ├── research/             # Analyst briefs
-│   ├── recommendations/      # Trade recommendations
+│   ├── opportunities/        # Opportunity files (progressive enrichment)
 │   ├── positions/open/       # Active positions
 │   ├── positions/closed/     # Historical positions
-│   ├── trades/               # JSONL trade ledger
-│   ├── alerts/               # Alert logs
-│   └── queue/                # File-based job queues
+│   └── trades/               # JSONL trade ledger
 │
 ├── mess_around/              # Exploration scripts (preserved)
 │   └── explore_kalshi_api.py
@@ -182,8 +176,8 @@ Guardian ◀──(OpenPosition)────┘
 | Agent | Mission | Schedule |
 |-------|---------|----------|
 | **Scout** 🔍 | Discover high-quality opportunities from Kalshi | Every 15-60 min |
-| **Analyst** 📊 | Research opportunities, generate trade recommendations | On-demand (queued) |
-| **Trader** 💰 | Execute trades with risk management | On-demand (queued) |
+| **Analyst** 📊 | Research opportunities, generate trade recommendations | On-demand |
+| **Trader** 💰 | Execute trades with risk management | On-demand |
 | **Guardian** 🛡️ | Monitor positions, trigger exits | Every 15-30 min |
 
 ### PydanticAI Agent Pattern
@@ -306,28 +300,6 @@ config = load_config()  # From data/config.yaml
 state = load_state()    # From data/state.yaml
 ```
 
-### Queuing Work for Agents
-
-```python
-from coliseum.storage.queue import queue_for_analyst, queue_for_trader
-
-# Scout queues for Analyst
-queue_for_analyst(opportunity_id="opp_123")
-
-# Analyst queues for Trader
-queue_for_trader(recommendation_id="rec_456")
-```
-
-### Sending Telegram Alerts
-
-```python
-from coliseum.services.telegram import TelegramNotifier
-
-notifier = TelegramNotifier(bot_token, chat_id)
-await notifier.send_trade_executed(trade)
-await notifier.send_circuit_breaker("Daily loss limit reached", daily_pnl)
-```
-
 ---
 
 ## Warnings & Gotchas
@@ -377,6 +349,5 @@ Before implementing features that interact with external libraries or APIs:
 
 Before going live:
 - [ ] Paper trading profitable for 2+ weeks
-- [ ] All Telegram alerts verified
 - [ ] Risk limits tested with edge cases
 - [ ] Manual override tested

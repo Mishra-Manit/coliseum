@@ -59,7 +59,6 @@ All scheduled jobs automatically create traces:
 - Scout scans (every 60 minutes)
 - Guardian position checks (every 15 minutes)
 - Guardian news scans (every 30 minutes)
-- Daily portfolio snapshots (4 PM EST)
 
 ## Configuration
 
