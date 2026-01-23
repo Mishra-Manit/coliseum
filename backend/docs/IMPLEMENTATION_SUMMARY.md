@@ -31,7 +31,7 @@ Added research and recommendation fields to `OpportunitySignal`:
 - `recommendation_status: Literal[...] | None`
 
 **Status Updated:**
-- Changed from `"recommended"` to `"evaluated"` in lifecycle
+- Confirmed `"recommended"` status in lifecycle
 
 ---
 
@@ -174,7 +174,7 @@ data/
 # Scout fields
 id: opp_a1b2c3d4
 market_ticker: TICKER-2024
-status: evaluated
+status: recommended
 
 # Research fields (appended by Researcher)
 research_completed_at: 2026-01-22T10:00:00Z

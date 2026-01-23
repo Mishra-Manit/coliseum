@@ -1,4 +1,4 @@
-last_updated: '2026-01-23T21:03:55.122605'
+last_updated: '2026-01-23T21:56:31.815231'
 portfolio:
   total_value: 10000.0
   cash_balance: 10000.0
@@ -19,7 +19,7 @@ seen_markets:
     opportunity_id: opp_028f5f6f
     discovered_at: '2026-01-23T21:03:55.115724Z'
     close_time: '2026-01-26T04:59:00Z'
-    status: pending
+    status: recommended
   KXETHD-26JAN2317-T2939.99:
     opportunity_id: opp_f328cd7e
     discovered_at: '2026-01-23T21:03:55.115724Z'
@@ -29,7 +29,7 @@ seen_markets:
     opportunity_id: opp_692f0518
     discovered_at: '2026-01-23T21:03:55.115724Z'
     close_time: '2026-01-23T22:00:00Z'
-    status: pending
+    status: recommended
   KXHIGHLAX-26JAN23-B63.5:
     opportunity_id: opp_48e5dfbf
     discovered_at: '2026-01-23T21:03:55.115724Z'
