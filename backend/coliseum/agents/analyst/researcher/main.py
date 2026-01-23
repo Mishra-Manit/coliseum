@@ -3,9 +3,6 @@
 import logging
 import time
 from datetime import datetime, timezone
-from pathlib import Path
-
-import yaml
 from pydantic_ai import Agent, RunContext
 
 from coliseum.agents.analyst.researcher.models import (
@@ -19,6 +16,8 @@ from coliseum.services.exa.client import ExaClient
 from coliseum.storage.files import (
     OpportunitySignal,
     append_to_opportunity,
+    find_opportunity_file_by_id,
+    load_opportunity_from_file,
     update_opportunity_status,
 )
 from coliseum.storage.state import update_market_status
@@ -53,13 +52,13 @@ def _register_tools(agent: Agent[ResearcherDependencies, ResearcherOutput]) -> N
     ) -> dict:
         """Fetch opportunity details from file (market info, prices, close time, Scout's rationale)."""
         opportunity_id = ctx.deps.opportunity_id
-        file_path = _find_opportunity_file_by_id(opportunity_id)
+        file_path = find_opportunity_file_by_id(opportunity_id)
         if not file_path:
             raise FileNotFoundError(
                 f"Opportunity file not found for ID: {opportunity_id}"
             )
 
-        opportunity = _parse_opportunity_file(file_path)
+        opportunity = load_opportunity_from_file(file_path)
         return {
             "id": opportunity.id,
             "event_ticker": opportunity.event_ticker,
@@ -119,11 +118,11 @@ async def run_researcher(
     logger.info(f"Starting Researcher for opportunity: {opportunity_id}")
 
     # Find opportunity file
-    opp_file = _find_opportunity_file_by_id(opportunity_id)
+    opp_file = find_opportunity_file_by_id(opportunity_id)
     if not opp_file:
         raise FileNotFoundError(f"Opportunity file not found: {opportunity_id}")
 
-    opportunity = _parse_opportunity_file(opp_file)
+    opportunity = load_opportunity_from_file(opp_file)
 
     # Update status to "researching"
     if not dry_run:
@@ -189,85 +188,6 @@ async def run_researcher(
         summary=output.summary,
         sources_count=len(output.sources),
     )
-
-
-def _find_opportunity_file_by_id(opportunity_id: str) -> Path | None:
-    """Find opportunity file by searching for ID in YAML frontmatter."""
-    from coliseum.storage.files import get_data_dir
-
-    data_dir = get_data_dir()
-    opps_dir = data_dir / "opportunities"
-
-    if not opps_dir.exists():
-        return None
-
-    date_dirs = sorted(opps_dir.iterdir(), reverse=True)
-    for date_dir in date_dirs:
-        if not date_dir.is_dir():
-            continue
-
-        for file_path in date_dir.glob("*.md"):
-            try:
-                content = file_path.read_text(encoding="utf-8")
-
-                if not content.startswith("---"):
-                    continue
-
-                parts = content.split("---", 2)
-                if len(parts) < 3:
-                    continue
-
-                frontmatter = yaml.safe_load(parts[1])
-                if frontmatter and frontmatter.get("id") == opportunity_id:
-                    return file_path
-
-            except Exception as e:
-                logger.warning(f"Error reading {file_path}: {e}")
-                continue
-
-    return None
-
-
-def _parse_opportunity_file(file_path: Path) -> OpportunitySignal:
-    """Parse opportunity markdown file into OpportunitySignal model."""
-    content = file_path.read_text(encoding="utf-8")
-
-    if not content.startswith("---"):
-        raise ValueError(f"Invalid frontmatter format in {file_path}")
-
-    parts = content.split("---", 2)
-    if len(parts) < 3:
-        raise ValueError(f"Could not parse frontmatter in {file_path}")
-
-    frontmatter_raw = parts[1]
-    body = parts[2]
-
-    frontmatter = yaml.safe_load(frontmatter_raw)
-    if frontmatter is None:
-        raise ValueError(f"Empty frontmatter in {file_path}")
-
-    lines = body.strip().split("\n")
-
-    title = ""
-    subtitle = ""
-    rationale = ""
-
-    for i, line in enumerate(lines):
-        if line.startswith("# "):
-            title = line[2:].strip()
-        elif line.startswith("**Outcome**:"):
-            subtitle = line.split(":", 1)[1].strip()
-        elif line.startswith("**Rationale**:"):
-            rationale = line.split(":", 1)[1].strip()
-
-    data = {
-        **frontmatter,
-        "title": title,
-        "subtitle": subtitle or "",
-        "rationale": rationale,
-    }
-
-    return OpportunitySignal(**data)
 
 
 def _build_research_prompt(opportunity: OpportunitySignal, settings: Settings) -> str:

@@ -8,12 +8,12 @@ Evaluate analysis drafts and produce disciplined, mathematically sound trade met
 
 ## Decision Process
 
-1. **Read Research**: Load the analysis draft from the Researcher agent using `read_analysis_draft`
+1. **Read Research**: Load the analysis draft from the Researcher agent using `read_opportunity_research`
 2. **Evaluate Evidence**: Assess the quality and reliability of the research
 3. **Estimate Probability**: Based on the evidence, estimate the true probability of YES outcome
 4. **Calculate Math**: Compute edge and expected value using the calculation tool
 5. **Apply Thresholds**: Check if the opportunity meets minimum standards
-6. **Summarize**: Provide a concise summary of the evaluation
+6. **Summarize**: Provide concise evaluation reasoning (~100 words)
 
 ## Evaluation Criteria
 
@@ -45,8 +45,7 @@ You must produce a `RecommenderOutput` with:
 - **expected_value**: EV from calculations
 - **edge**: Edge from calculations
 - **suggested_position_pct**: Position size (0.0 to 0.10)
-- **reasoning**: Clear explanation of your decision (200-400 words)
-- **decision_summary**: A 1-2 sentence summary of your evaluation
+- **reasoning**: Concise evaluation reasoning (~100 words)
 
 ## Evaluation Guidance
 

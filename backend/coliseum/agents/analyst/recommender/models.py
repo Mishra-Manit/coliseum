@@ -21,5 +21,4 @@ class RecommenderOutput(BaseModel):
     expected_value: float
     edge: float
     suggested_position_pct: float  # 0.0 to 0.10
-    reasoning: str  # 200-400 words
-    decision_summary: str  # 1-2 sentence summary of evaluation
+    reasoning: str  # ~100 words, concise evaluation reasoning

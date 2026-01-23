@@ -3,9 +3,6 @@
 import logging
 import time
 from datetime import datetime, timezone
-from pathlib import Path
-
-import yaml
 from pydantic_ai import Agent, RunContext
 
 from coliseum.agents.analyst.recommender.models import (
@@ -24,7 +21,8 @@ from coliseum.storage.files import (
     OpportunitySignal,
     append_to_opportunity,
     extract_research_from_opportunity,
-    load_opportunity_with_all_stages,
+    find_opportunity_file_by_id,
+    load_opportunity_from_file,
 )
 from coliseum.storage.state import update_market_status
 
@@ -58,17 +56,10 @@ def _register_tools(agent: Agent[RecommenderDependencies, RecommenderOutput]) ->
     ) -> dict:
         """Load opportunity with research data (synthesis, sources)."""
         opportunity_id = ctx.deps.opportunity_id
-        opp_file = _find_opportunity_file_by_id(opportunity_id)
+        opp_file = find_opportunity_file_by_id(opportunity_id)
         if not opp_file:
             raise FileNotFoundError(f"Opportunity file not found: {opportunity_id}")
-
-        # Extract market_ticker from frontmatter to load opportunity
-        content = opp_file.read_text(encoding="utf-8")
-        parts = content.split("---", 2)
-        frontmatter = yaml.safe_load(parts[1])
-        market_ticker = frontmatter["market_ticker"]
-
-        opportunity = load_opportunity_with_all_stages(market_ticker)
+        opportunity = load_opportunity_from_file(opp_file)
         research_data = extract_research_from_opportunity(opp_file)
 
         return {
@@ -146,17 +137,10 @@ async def run_recommender(
     logger.info(f"Starting Recommender for opportunity: {opportunity_id}")
 
     # Find opportunity file
-    opp_file = _find_opportunity_file_by_id(opportunity_id)
+    opp_file = find_opportunity_file_by_id(opportunity_id)
     if not opp_file:
         raise FileNotFoundError(f"Opportunity file not found: {opportunity_id}")
-
-    # Get market_ticker from frontmatter first
-    content = opp_file.read_text(encoding="utf-8")
-    parts = content.split("---", 2)
-    frontmatter = yaml.safe_load(parts[1])
-    market_ticker = frontmatter["market_ticker"]
-
-    opportunity = load_opportunity_with_all_stages(market_ticker)
+    opportunity = load_opportunity_from_file(opp_file)
 
     # Verify research exists
     if not opportunity.research_completed_at:
@@ -228,45 +212,8 @@ async def run_recommender(
     )
 
     # Return updated opportunity
-    updated_opp = load_opportunity_with_all_stages(opportunity.market_ticker)
+    updated_opp = load_opportunity_from_file(opp_file)
     return output, updated_opp
-
-
-def _find_opportunity_file_by_id(opportunity_id: str) -> Path | None:
-    """Find opportunity file by searching for ID in YAML frontmatter."""
-    from coliseum.storage.files import get_data_dir
-
-    data_dir = get_data_dir()
-    opps_dir = data_dir / "opportunities"
-
-    if not opps_dir.exists():
-        return None
-
-    date_dirs = sorted(opps_dir.iterdir(), reverse=True)
-    for date_dir in date_dirs:
-        if not date_dir.is_dir():
-            continue
-
-        for file_path in date_dir.glob("*.md"):
-            try:
-                content = file_path.read_text(encoding="utf-8")
-
-                if not content.startswith("---"):
-                    continue
-
-                parts = content.split("---", 2)
-                if len(parts) < 3:
-                    continue
-
-                frontmatter = yaml.safe_load(parts[1])
-                if frontmatter and frontmatter.get("id") == opportunity_id:
-                    return file_path
-
-            except Exception as e:
-                logger.warning(f"Error reading {file_path}: {e}")
-                continue
-
-    return None
 
 
 def _build_decision_prompt(opportunity: OpportunitySignal, research_data: dict) -> str:
