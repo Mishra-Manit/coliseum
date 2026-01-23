@@ -84,6 +84,8 @@ Each OpportunitySignal requires ALL 11 fields:
 
 4. **Extreme probabilities**: Markets >95% or <5% are already filtered by tool
 
+5. **Crypto coin prices**: NEVER select markets about cryptocurrency prices (Bitcoin, Ethereum, etc.). These are too volatile and unpredictable for reliable research-based trading.
+
 ### Market Diversity Rule
 
 Enforce diversity to avoid correlation risk:
