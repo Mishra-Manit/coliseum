@@ -50,9 +50,7 @@ async def run_analyst(
         dry_run=dry_run,
     )
 
-    logger.info(
-        f"Research complete - Sources: {research_output.sources_count}"
-    )
+    logger.info("Research complete")
 
     # Phase 2: Recommendation
     logger.info("Phase 2: Running Recommender...")

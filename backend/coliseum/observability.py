@@ -19,6 +19,7 @@ def initialize_logfire(settings: Settings) -> None:
 
     This function configures Logfire cloud tracking and instruments:
     - PydanticAI agents (Scout, Analyst, Trader, Guardian)
+    - OpenAI SDK (GPT models, WebSearchTool, token usage)
     - HTTPX clients (Kalshi API, Exa API)
     - Python logging (bridges to Logfire)
     - System metrics (CPU, memory, disk)
@@ -45,16 +46,19 @@ def initialize_logfire(settings: Settings) -> None:
         # 2. Instrument PydanticAI agents (Scout, Analyst, Trader, Guardian)
         logfire.instrument_pydantic_ai()
 
-        # 3. Instrument HTTPX (Kalshi API, Exa API)
+        # 3. Instrument OpenAI SDK (GPT models, WebSearchTool)
+        logfire.instrument_openai()
+
+        # 4. Instrument HTTPX (Kalshi API, Exa API)
         logfire.instrument_httpx()
 
-        # 4. Bridge Python logging to Logfire
+        # 5. Bridge Python logging to Logfire
         # Add LogfireLoggingHandler to root logger
         root_logger = logging.getLogger()
         logfire_handler = logfire.LogfireLoggingHandler()
         root_logger.addHandler(logfire_handler)
 
-        # 5. Collect system metrics (CPU, memory, disk) - optional
+        # 6. Collect system metrics (CPU, memory, disk) - optional
         try:
             logfire.instrument_system_metrics()
         except Exception as metrics_error:

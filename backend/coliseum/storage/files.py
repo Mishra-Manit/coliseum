@@ -79,7 +79,6 @@ class OpportunitySignal(BaseModel):
 
     # Research fields (null initially, populated by Researcher)
     research_completed_at: datetime | None = None
-    research_sources_count: int = 0
     research_duration_seconds: int | None = None
 
     # Recommendation fields (null initially, populated by Recommender)
@@ -186,7 +185,7 @@ def save_opportunity(opportunity: OpportunitySignal) -> Path:
     )
 
     # Prepare markdown body
-    subtitle_section = f"\\n**Outcome**: {opportunity.subtitle}\\n" if opportunity.subtitle else ""
+    subtitle_section = f"\n**Outcome**: {opportunity.subtitle}\n" if opportunity.subtitle else ""
 
     body = f"""# {opportunity.title}
 {subtitle_section}
@@ -305,6 +304,9 @@ def _parse_opportunity_from_parts(frontmatter: dict, body: str) -> OpportunitySi
     rationale = ""
 
     for line in lines:
+        # Strip whitespace AND replace literal \n characters from old broken files
+        line = line.strip().replace("\\n", "")
+
         if line.startswith("# "):
             title = line[2:].strip()
         elif line.startswith("**Outcome**:"):

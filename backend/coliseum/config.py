@@ -16,7 +16,7 @@ class TradingConfig(BaseModel):
     """Trading operational parameters."""
 
     paper_mode: bool = True
-    initial_bankroll: float = 10000.0
+    initial_bankroll: float = 100.0
 
 
 class RiskConfig(BaseModel):
@@ -92,8 +92,10 @@ class Settings(BaseSettings):
     rsa_private_key: str = ""
     rsa_private_key_path: str = ""  # Alternative: path to PEM file
     exa_api_key: str = ""
+    openai_api_key: str = ""
     openrouter_api_key: str = ""
     fireworks_api_key: str = ""
+    anthropic_api_key: str = ""
     logfire_token: str = ""
 
     # Nested configuration sections
@@ -128,9 +130,12 @@ class Settings(BaseSettings):
         # If path is provided, read from file
         if self.rsa_private_key_path:
             key_path = Path(self.rsa_private_key_path)
-            if key_path.exists():
+            if key_path.is_file():
                 return key_path.read_text()
-            logger.warning(f"RSA key file not found: {key_path}")
+            if key_path.exists():
+                logger.warning(f"RSA key path is not a file: {key_path}")
+            else:
+                logger.warning(f"RSA key file not found: {key_path}")
 
         return ""
 

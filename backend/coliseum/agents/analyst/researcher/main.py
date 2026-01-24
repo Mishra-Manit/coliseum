@@ -4,7 +4,7 @@ import logging
 import os
 import time
 from datetime import datetime, timezone
-from pydantic_ai import Agent, RunContext
+from pydantic_ai import Agent, RunContext, WebSearchTool
 
 from coliseum.agents.analyst.researcher.models import (
     ResearcherDependencies,
@@ -12,8 +12,7 @@ from coliseum.agents.analyst.researcher.models import (
 )
 from coliseum.agents.analyst.researcher.prompts import RESEARCHER_SYSTEM_PROMPT
 from coliseum.config import Settings, get_settings
-from coliseum.llm_providers import FireworksModel, get_model_string
-from coliseum.services.exa.client import ExaClient
+from coliseum.llm_providers import OpenAIModel, get_model_string
 from coliseum.storage.files import (
     OpportunitySignal,
     append_to_opportunity,
@@ -32,18 +31,19 @@ def get_agent() -> Agent[ResearcherDependencies, ResearcherOutput]:
     global _agent
     if _agent is None:
         settings = get_settings()
-        if settings.fireworks_api_key:
-            os.environ["FIREWORKS_API_KEY"] = settings.fireworks_api_key
+        if settings.openai_api_key:
+            os.environ["OPENAI_API_KEY"] = settings.openai_api_key
         _agent = _create_agent()
     return _agent
 
 
 def _create_agent() -> Agent[ResearcherDependencies, ResearcherOutput]:
     agent = Agent(
-        model=get_model_string(FireworksModel.DEEPSEEK_V3_2),
+        model=get_model_string(OpenAIModel.GPT_5_MINI),
         output_type=ResearcherOutput,
         deps_type=ResearcherDependencies,
         system_prompt=RESEARCHER_SYSTEM_PROMPT,
+        builtin_tools=[WebSearchTool()],
     )
     _register_tools(agent)
     return agent
@@ -77,41 +77,6 @@ def _register_tools(agent: Agent[ResearcherDependencies, ResearcherOutput]) -> N
             "discovered_at": opportunity.discovered_at.isoformat(),
         }
 
-    @agent.tool
-    async def exa_answer(
-        ctx: RunContext[ResearcherDependencies],
-        question: str,
-    ) -> dict:
-        """Ask research question using Exa AI. Returns answer with citations from credible sources."""
-        exa_client = ctx.deps.exa_client
-
-        logger.info(f"Exa research query: {question}")
-
-        try:
-            response = await exa_client.answer(
-                question=question,
-                include_text=True,
-            )
-
-            citations = [
-                {
-                    "url": citation.url,
-                    "title": citation.title,
-                    "text": citation.text[:500] if citation.text else "",
-                }
-                for citation in response.citations
-            ]
-
-            return {
-                "answer": response.answer,
-                "citations": citations,
-                "query": response.query,
-            }
-
-        except Exception as e:
-            logger.error(f"Exa API error: {e}")
-            raise
-
 async def run_researcher(
     opportunity_id: str,
     settings: Settings,
@@ -134,40 +99,29 @@ async def run_researcher(
         update_market_status(opportunity.market_ticker, "researching")
 
     # Run research
-    async with ExaClient(api_key=settings.exa_api_key) as exa_client:
-        deps = ResearcherDependencies(
-            exa_client=exa_client,
-            opportunity_id=opportunity_id,
-            config=settings.analyst,
-        )
-        prompt = _build_research_prompt(opportunity, settings)
+    deps = ResearcherDependencies(
+        opportunity_id=opportunity_id,
+        config=settings.analyst,
+    )
+    prompt = _build_research_prompt(opportunity, settings)
 
-        agent = get_agent()
-        result = await agent.run(prompt, deps=deps)
-        output = result.output
+    agent = get_agent()
+    result = await agent.run(prompt, deps=deps)
+    output = result.output
 
     duration = time.time() - start_time
     completed_at = datetime.now(timezone.utc)
 
-    # Prepare research section for append
-    sources_md = "\n".join(
-        f"{i+1}. [{src}]({src})" for i, src in enumerate(output.sources)
-    )
-
+    # Prepare research section for append (synthesis now includes embedded sources)
     research_section = f"""---
 
 ## Research Synthesis
 
-{output.synthesis}
-
-### Sources
-
-{sources_md}"""
+{output.synthesis}"""
 
     # Prepare frontmatter updates
     frontmatter_updates = {
         "research_completed_at": completed_at.isoformat(),
-        "research_sources_count": len(output.sources),
         "research_duration_seconds": int(duration),
     }
 
@@ -185,13 +139,8 @@ async def run_researcher(
         f"Appended to {opportunity.market_ticker}"
     )
 
-    # Return simplified output (no analysis_id)
-    return ResearcherOutput(
-        synthesis=output.synthesis,
-        sources=output.sources,
-        summary=output.summary,
-        sources_count=len(output.sources),
-    )
+    # Return output (sources are now embedded in synthesis)
+    return output
 
 
 def _build_research_prompt(opportunity: OpportunitySignal, settings: Settings) -> str:
@@ -217,13 +166,13 @@ def _build_research_prompt(opportunity: OpportunitySignal, settings: Settings) -
 
 1. Use `fetch_opportunity_details` to get full opportunity data
 2. Formulate 2-4 specific research questions about this event
-3. Use `exa_answer` tool for each question to gather grounded information
+3. Use web search for each question to gather grounded information
 4. Synthesize findings into a coherent analysis draft (minimum {settings.analyst.required_sources} sources)
 
 ## Research Standards
 
 - **Objectivity**: Consider both bullish and bearish evidence
-- **Grounding**: Only cite facts from Exa AI responses (no hallucination)
+- **Grounding**: Only cite facts from web search results (no hallucination)
 - **Base rates**: Start with historical precedents, then adjust for specifics
 
 ## Important
