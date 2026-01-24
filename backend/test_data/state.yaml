@@ -1,11 +1,11 @@
-last_updated: '2026-01-23T21:56:31.815231'
+last_updated: '2026-01-24T06:30:29.657889'
 portfolio:
-  total_value: 10000.0
-  cash_balance: 10000.0
+  total_value: 100.0
+  cash_balance: 100.0
   positions_value: 0.0
 daily_stats:
   date: null
-  starting_value: 10000.0
+  starting_value: 100.0
   current_pnl: 0.0
   current_pnl_pct: 0.0
   trades_today: 0
@@ -20,16 +20,6 @@ seen_markets:
     discovered_at: '2026-01-23T21:03:55.115724Z'
     close_time: '2026-01-26T04:59:00Z'
     status: recommended
-  KXETHD-26JAN2317-T2939.99:
-    opportunity_id: opp_f328cd7e
-    discovered_at: '2026-01-23T21:03:55.115724Z'
-    close_time: '2026-01-23T22:00:00Z'
-    status: pending
-  KXBTCD-26JAN2317-T89999.99:
-    opportunity_id: opp_692f0518
-    discovered_at: '2026-01-23T21:03:55.115724Z'
-    close_time: '2026-01-23T22:00:00Z'
-    status: recommended
   KXHIGHLAX-26JAN23-B63.5:
     opportunity_id: opp_48e5dfbf
     discovered_at: '2026-01-23T21:03:55.115724Z'
@@ -40,3 +30,28 @@ seen_markets:
     discovered_at: '2026-01-23T21:03:55.115724Z'
     close_time: '2026-01-24T04:59:00Z'
     status: pending
+  KXNYCSNOWM-26JAN-15.0:
+    opportunity_id: opp_8ad38694
+    discovered_at: '2026-01-24T03:44:59.264575Z'
+    close_time: '2026-02-01T18:58:59Z'
+    status: recommended
+  KXKHAMENEIOUT-AKHA-26FEB01:
+    opportunity_id: opp_6ab229ae
+    discovered_at: '2026-01-24T03:44:59.264575Z'
+    close_time: '2026-02-01T15:00:00Z'
+    status: recommended
+  KXTOPMODEL-26JAN-GEMI:
+    opportunity_id: opp_333d8e68
+    discovered_at: '2026-01-24T03:44:59.264575Z'
+    close_time: '2026-01-31T15:00:00Z'
+    status: pending
+  KXNBAGAME-26JAN23SACCLE-CLE:
+    opportunity_id: opp_7c08f3a2
+    discovered_at: '2026-01-24T03:44:59.264575Z'
+    close_time: '2026-02-07T00:30:00Z'
+    status: recommended
+  KXGDP-26JAN30-T3.0:
+    opportunity_id: opp_bf45191a
+    discovered_at: '2026-01-24T03:44:59.264575Z'
+    close_time: '2026-01-30T13:29:00Z'
+    status: recommended

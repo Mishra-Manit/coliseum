@@ -1,7 +1,7 @@
 # Test configuration
 trading:
-  paper_mode: false
-  initial_bankroll: 10000.0
+  paper_mode: true
+  initial_bankroll: 100.0
 
 scout:
   max_opportunities_per_scan: 5
