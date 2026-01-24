@@ -101,7 +101,7 @@ Guardian ◀──(OpenPosition)────────────────
 | **Primary LLM** | Anthropic (Claude Sonnet 4) | Agent reasoning, analysis |
 | **Fast LLM** | Anthropic (Claude Haiku 4) | Quick decisions, monitoring |
 | **Deep Reasoning** | Anthropic (Claude Opus 4) | Complex analysis (optional) |
-| **Research Answers** | Exa AI | Comprehensive answers with citations |
+| **Research** | OpenAI (GPT-5-Mini with WebSearchTool) | Market research with web search |
 | **Real-time Search** | Perplexity API | Breaking news, current events |
 
 ### External APIs
@@ -110,7 +110,7 @@ Guardian ◀──(OpenPosition)────────────────
 |-----|---------|----------------|
 | **Kalshi Markets** | Read market data | API Key (public endpoints) |
 | **Kalshi Trading** | Execute trades | API Key + RSA Private Key |
-| **Exa AI** | Question answering with cited sources | API Key |
+| **OpenAI** | Research with web search (GPT-5-Mini) | API Key |
 | **Perplexity** | Real-time information | API Key |
 
 ---
@@ -163,8 +163,8 @@ The Analyst agent is split into two specialized sub-agents that work sequentiall
 ##### Responsibilities
 - Fetch opportunity details from the stored opportunity file
 - Formulate specific research questions for the market
-- Use Exa AI to gather grounded answers with citations
-- Synthesize research into a structured markdown report
+- Use OpenAI's WebSearchTool to gather information from the web
+- Synthesize research into a structured markdown report with embedded sources
 - Append research section and update frontmatter metadata
 
 ##### Tools Available
@@ -172,13 +172,12 @@ The Analyst agent is split into two specialized sub-agents that work sequentiall
 | Tool | Purpose | Implementation |
 |------|---------|----------------|
 | `fetch_opportunity_details` | Load opportunity data (market info, prices, rationale) | `agents/analyst/researcher/main.py` |
-| `exa_answer` | Get answers with citations from Exa AI | `services/exa/client.py` |
+| `WebSearchTool()` | Native web search via OpenAI (built-in PydanticAI tool) | PydanticAI framework |
 
 ##### Output Format
 Appends to opportunity file:
-- Research synthesis section (markdown)
-- Sources list (URLs)
-- Frontmatter updates: `research_completed_at`, `research_sources_count`, `research_duration_seconds`
+- Research synthesis section (markdown with embedded Sources section)
+- Frontmatter updates: `research_completed_at`, `research_duration_seconds`
 
 ---
 
@@ -601,13 +600,13 @@ Configuration: Set `LOGFIRE_TOKEN` in `.env`
 
 **Goal**: Analyst pipeline produces high-quality analysis reports backed by research.
 
-#### 2.1 Exa AI Integration (`coliseum/services/exa/`)
-- [x] Create `ExaClient` async wrapper for `exa-py` SDK
-- [x] Implement `answer(question, include_text, system_prompt)` → `ExaAnswerResponse` with citations
-- [x] Add error handling with retry logic (exponential backoff for 429/5xx errors)
-- [x] Define Pydantic models: `ExaAnswerResponse`, `ExaCitation`, `ExaConfig`
+#### 2.1 OpenAI Web Search Integration
+- [x] Use PydanticAI's built-in `WebSearchTool()` for web research
+- [x] Configure GPT-5-Mini model for cost-effective research
+- [x] Implement research synthesis with embedded sources
+- [x] Add error handling for web search failures
 
-**Note**: Uses only the Exa `answer` endpoint for comprehensive research responses with built-in citations, eliminating need for separate search/synthesis steps.
+**Note**: Uses OpenAI's native web search capability integrated into GPT-5-Mini, providing direct search results without external research APIs.
 
 #### 2.2 Analyst Pipeline (`coliseum/agents/analyst/`)
 - [ ] Create Pydantic models:
@@ -617,7 +616,7 @@ Configuration: Set `LOGFIRE_TOKEN` in `.env`
 - [ ] Implement Researcher agent (`coliseum/agents/analyst/researcher/main.py`)
 - [ ] Implement Recommender agent (`coliseum/agents/analyst/recommender/main.py`)
 - [ ] Add tools:
-  - Researcher: `exa_answer(question)` → Comprehensive answers with citations
+  - Researcher: `WebSearchTool()` → Native web search via OpenAI
   - Recommender: `read_opportunity_research()` → Extract research from opportunity file
   - Recommender: `calculate_edge_ev(probability, market_price)` → Edge and EV
 - [ ] Implement append-based workflow:
@@ -648,7 +647,7 @@ Configuration: Set `LOGFIRE_TOKEN` in `.env`
 #### 2.6 Phase 2 Verification
 | Test | Method |
 |------|--------|
-| Exa answer endpoint | Unit test: verify comprehensive answers with citations are returned |
+| Web search integration | Unit test: verify WebSearchTool returns search results |
 | Research brief quality | Manual: inspect generated briefs for source quality and citation accuracy |
 | Edge/EV calculations | Unit test: verify math against known examples |
 | Full pipeline | Integration: opportunity → research → recommendation |
@@ -925,7 +924,6 @@ See [`IMPLEMENTATION_SUMMARY.md`](./IMPLEMENTATION_SUMMARY.md) for detailed mile
 | Risk management | `coliseum/agents/risk.py` |
 | Calculations | `coliseum/agents/calculations.py` |
 | Kalshi API client | `coliseum/services/kalshi.py` |
-| Exa AI client | `coliseum/services/exa/` |
 | Storage | `coliseum/storage/` |
 | CLI entry point | `coliseum/__main__.py` |
 
@@ -940,7 +938,7 @@ KALSHI_PRIVATE_KEY_PATH=/path/to/private_key.pem
 
 # AI Services (required)
 ANTHROPIC_API_KEY=your_api_key
-EXA_API_KEY=your_api_key
+OPENAI_API_KEY=your_api_key
 
 # Observability (optional)
 LOGFIRE_TOKEN=your_token

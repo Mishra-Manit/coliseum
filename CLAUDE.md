@@ -21,7 +21,7 @@ This file provides project-specific context for AI coding assistants working wit
 | Principle | Description |
 |-----------|-------------|
 | **Autonomous Operation** | Agents run 24/7 with minimal human oversight |
-| **Research-Driven** | Every trade backed by deep, grounded research (Exa AI) |
+| **Research-Driven** | Every trade backed by deep, grounded research (OpenAI WebSearchTool) |
 | **Risk-First** | Hard limits and circuit breakers prevent catastrophic losses |
 | **Transparent** | Full audit trail of every decision and trade |
 | **File-Based Storage** | Human-readable YAML/Markdown, git-friendly, no database |
@@ -47,7 +47,7 @@ This file provides project-specific context for AI coding assistants working wit
 |---------|----------|----------|
 | **Primary LLM** | Anthropic (Claude Sonnet) | Agent reasoning, analysis |
 | **Fast LLM** | Anthropic (Claude Haiku) | Quick decisions, monitoring |
-| **Research Answers** | Exa AI | Comprehensive answers with citations |
+| **Research** | OpenAI (GPT-5-Mini with WebSearchTool) | Market research with web search |
 | **Real-time Search** | Perplexity API | Breaking news, current events |
 
 ### External APIs
@@ -56,7 +56,7 @@ This file provides project-specific context for AI coding assistants working wit
 |-----|---------|
 | **Kalshi Markets** | Read market data (public) |
 | **Kalshi Trading** | Execute trades (API Key + Private Key auth) |
-| **Exa AI** | Question answering with cited sources |
+| **OpenAI** | Research with web search (GPT-5-Mini) |
 | **Telegram Bot** | Real-time alerts and notifications |
 
 ---
@@ -84,11 +84,8 @@ backend/
 │   │
 │   └── services/             # External API clients
 │       ├── kalshi.py         # Kalshi API (public + trading)
-│       └── exa/              # Exa AI research (answer endpoint)
-│           ├── client.py     # Async ExaClient wrapper
-│           ├── models.py     # ExaAnswerResponse, ExaCitation
-│           ├── config.py     # ExaConfig with defaults
-│           └── exceptions.py # Error handling
+│       └── exa/              # Exa AI (deprecated - not currently used)
+│           └── ...           # Legacy code maintained for reference
 │
 ├── data/                     # Runtime data (git-ignored portions)
 │   ├── config.yaml           # System configuration

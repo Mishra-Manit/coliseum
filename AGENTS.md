@@ -1,9 +1,9 @@
-# AGENTS.md
+# CLAUDE.md
 
-> **CRITICAL**: You must ALWAYS activate the virtual environment before running any code in the `backend/` directory. 
+> **CRITICAL**: You must ALWAYS activate the virtual environment before running any code in the `backend/` directory.
 > To do this, run `source venv/bin/activate` from inside the `backend/` directory.
 >
-> Example: 
+> Example:
 > ```bash
 > cd backend
 > source venv/bin/activate
@@ -21,7 +21,7 @@ This file provides project-specific context for AI coding assistants working wit
 | Principle | Description |
 |-----------|-------------|
 | **Autonomous Operation** | Agents run 24/7 with minimal human oversight |
-| **Research-Driven** | Every trade backed by deep, grounded research (Exa AI) |
+| **Research-Driven** | Every trade backed by deep, grounded research (OpenAI WebSearchTool) |
 | **Risk-First** | Hard limits and circuit breakers prevent catastrophic losses |
 | **Transparent** | Full audit trail of every decision and trade |
 | **File-Based Storage** | Human-readable YAML/Markdown, git-friendly, no database |
@@ -47,7 +47,7 @@ This file provides project-specific context for AI coding assistants working wit
 |---------|----------|----------|
 | **Primary LLM** | Anthropic (Claude Sonnet) | Agent reasoning, analysis |
 | **Fast LLM** | Anthropic (Claude Haiku) | Quick decisions, monitoring |
-| **Grounded Search** | Exa AI | Research with citations |
+| **Research** | OpenAI (GPT-5-Mini with WebSearchTool) | Market research with web search |
 | **Real-time Search** | Perplexity API | Breaking news, current events |
 
 ### External APIs
@@ -56,7 +56,7 @@ This file provides project-specific context for AI coding assistants working wit
 |-----|---------|
 | **Kalshi Markets** | Read market data (public) |
 | **Kalshi Trading** | Execute trades (API Key + Private Key auth) |
-| **Exa AI** | Grounded web research |
+| **OpenAI** | Research with web search (GPT-5-Mini) |
 | **Telegram Bot** | Real-time alerts and notifications |
 
 ---
@@ -80,25 +80,20 @@ backend/
 │   │
 │   ├── storage/              # File-based persistence
 │   │   ├── state.py          # Portfolio state (state.yaml)
-│   │   ├── files.py          # Atomic file operations
-│   │   └── queue.py          # File-based job queue
+│   │   └── files.py          # Atomic file operations
 │   │
 │   └── services/             # External API clients
 │       ├── kalshi.py         # Kalshi API (public + trading)
-│       ├── exa.py            # Exa AI research
-│       └── telegram.py       # Telegram alerts
+│       └── exa/              # Exa AI (deprecated - not currently used)
+│           └── ...           # Legacy code maintained for reference
 │
 ├── data/                     # Runtime data (git-ignored portions)
 │   ├── config.yaml           # System configuration
 │   ├── state.yaml            # Portfolio state (source of truth)
-│   ├── opportunities/        # Scout discoveries
-│   ├── research/             # Analyst briefs
-│   ├── recommendations/      # Trade recommendations
+│   ├── opportunities/        # Opportunity files (progressive enrichment)
 │   ├── positions/open/       # Active positions
 │   ├── positions/closed/     # Historical positions
-│   ├── trades/               # JSONL trade ledger
-│   ├── alerts/               # Alert logs
-│   └── queue/                # File-based job queues
+│   └── trades/               # JSONL trade ledger
 │
 ├── mess_around/              # Exploration scripts (preserved)
 │   └── explore_kalshi_api.py
@@ -178,8 +173,8 @@ Guardian ◀──(OpenPosition)────┘
 | Agent | Mission | Schedule |
 |-------|---------|----------|
 | **Scout** 🔍 | Discover high-quality opportunities from Kalshi | Every 15-60 min |
-| **Analyst** 📊 | Research opportunities, generate trade recommendations | On-demand (queued) |
-| **Trader** 💰 | Execute trades with risk management | On-demand (queued) |
+| **Analyst** 📊 | Research opportunities, generate trade recommendations | On-demand |
+| **Trader** 💰 | Execute trades with risk management | On-demand |
 | **Guardian** 🛡️ | Monitor positions, trigger exits | Every 15-30 min |
 
 ### PydanticAI Agent Pattern
@@ -302,28 +297,6 @@ config = load_config()  # From data/config.yaml
 state = load_state()    # From data/state.yaml
 ```
 
-### Queuing Work for Agents
-
-```python
-from coliseum.storage.queue import queue_for_analyst, queue_for_trader
-
-# Scout queues for Analyst
-queue_for_analyst(opportunity_id="opp_123")
-
-# Analyst queues for Trader
-queue_for_trader(recommendation_id="rec_456")
-```
-
-### Sending Telegram Alerts
-
-```python
-from coliseum.services.telegram import TelegramNotifier
-
-notifier = TelegramNotifier(bot_token, chat_id)
-await notifier.send_trade_executed(trade)
-await notifier.send_circuit_breaker("Daily loss limit reached", daily_pnl)
-```
-
 ---
 
 ## Warnings & Gotchas
@@ -373,6 +346,5 @@ Before implementing features that interact with external libraries or APIs:
 
 Before going live:
 - [ ] Paper trading profitable for 2+ weeks
-- [ ] All Telegram alerts verified
 - [ ] Risk limits tested with edge cases
 - [ ] Manual override tested

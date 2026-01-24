@@ -17,7 +17,6 @@ Added research and recommendation fields to `OpportunitySignal`:
 
 **Research Fields (populated by Researcher):**
 - `research_completed_at: datetime | None`
-- `research_sources_count: int`
 - `research_duration_seconds: int | None`
 
 **Recommendation Fields (populated by Recommender):**
@@ -178,7 +177,6 @@ status: recommended
 
 # Research fields (appended by Researcher)
 research_completed_at: 2026-01-22T10:00:00Z
-research_sources_count: 5
 research_duration_seconds: 45
 
 # Recommendation fields (appended by Recommender)
@@ -196,10 +194,7 @@ recommendation_completed_at: 2026-01-22T10:05:00Z
 ---
 
 ## Research Synthesis
-[Research content appended by Researcher]
-
-### Sources
-1. [url](url)
+[Research content with embedded Sources section appended by Researcher]
 
 ---
 
