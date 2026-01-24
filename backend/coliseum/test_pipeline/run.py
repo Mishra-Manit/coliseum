@@ -12,8 +12,8 @@ Usage:
     # Run individual agents:
     python -m coliseum.test_pipeline scout
     python -m coliseum.test_pipeline scout --dry-run  # No file persistence
-    python -m coliseum.test_pipeline analyst --opportunity-id opp_123
-    python -m coliseum.test_pipeline trader --analysis-id analysis_xyz
+    python -m coliseum.test_pipeline analyst --opportunity-id opp_123  # Required (no-op if omitted)
+    python -m coliseum.test_pipeline trader --opportunity-file KXBTCD-26JAN2317-T89999.99.md
     python -m coliseum.test_pipeline guardian
 
     # Run full pipeline:
@@ -61,6 +61,21 @@ logging.getLogger("asyncio").setLevel(logging.WARNING)
 
 
 # =============================================================================
+# Logfire Initialization Helper
+# =============================================================================
+
+def _initialize_test_logfire() -> None:
+    """Initialize Logfire for test pipeline runs."""
+    try:
+        from coliseum.observability import initialize_logfire
+        from coliseum.config import get_settings
+        settings = get_settings()
+        initialize_logfire(settings)
+    except Exception as e:
+        logger.warning(f"Test pipeline Logfire initialization skipped: {e}")
+
+
+# =============================================================================
 # Test Data Directory Management
 # =============================================================================
 
@@ -83,8 +98,8 @@ def init_test_data_structure() -> None:
         config_path.write_text(
             "# Test configuration\n"
             "trading:\n"
-            "  paper_mode: false\n"
-            "  initial_bankroll: 10000.0\n"
+            "  paper_mode: true\n"
+            "  initial_bankroll: 100.0\n"
             "\n"
             "scout:\n"
             "  max_opportunities_per_scan: 5\n",
@@ -97,12 +112,12 @@ def init_test_data_structure() -> None:
         state_path.write_text(
             "last_updated: null\n"
             "portfolio:\n"
-            "  total_value: 10000.0\n"
-            "  cash_balance: 10000.0\n"
+            "  total_value: 100.0\n"
+            "  cash_balance: 100.0\n"
             "  positions_value: 0.0\n"
             "daily_stats:\n"
             "  date: null\n"
-            "  starting_value: 10000.0\n"
+            "  starting_value: 100.0\n"
             "  current_pnl: 0.0\n"
             "  current_pnl_pct: 0.0\n"
             "  trades_today: 0\n"
@@ -172,6 +187,35 @@ def _override_data_dir() -> None:
     logger.info(f"Data directory overridden to: {TEST_DATA_DIR}")
 
 
+def _select_opportunity_file(opportunities_dir: Path, opportunity_file: str | None) -> Path:
+    """Select a test opportunity file by name or newest file in directory."""
+    if opportunity_file:
+        candidate = Path(opportunity_file)
+        if not candidate.is_absolute():
+            candidate = opportunities_dir / opportunity_file
+        if candidate.exists():
+            return candidate
+
+        matches = sorted(
+            opportunities_dir.rglob(Path(opportunity_file).name),
+            key=lambda path: path.stat().st_mtime,
+            reverse=True,
+        )
+        if matches:
+            return matches[0]
+
+        raise FileNotFoundError(f"Opportunity file not found: {candidate}")
+
+    candidates = sorted(
+        opportunities_dir.rglob("*.md"),
+        key=lambda path: path.stat().st_mtime,
+        reverse=True,
+    )
+    if not candidates:
+        raise FileNotFoundError(f"No opportunity files found in {opportunities_dir}")
+    return candidates[0]
+
+
 # =============================================================================
 # Scout Agent Test Runner
 # =============================================================================
@@ -195,6 +239,9 @@ async def run_scout_test(dry_run: bool = False) -> None:
 
     # Override data directory to use test_data/
     _override_data_dir()
+
+    # Initialize Logfire BEFORE agent imports
+    _initialize_test_logfire()
 
     # Now import and run the production Scout agent
     from coliseum.agents.scout import run_scout
@@ -262,6 +309,9 @@ async def run_analyst_test(opportunity_id: str | None = None) -> None:
     # Override data directory to use test_data/
     _override_data_dir()
 
+    # Initialize Logfire BEFORE agent imports
+    _initialize_test_logfire()
+
     if opportunity_id:
         logger.info(f"   Processing specific opportunity: {opportunity_id}")
 
@@ -295,7 +345,6 @@ async def run_analyst_test(opportunity_id: str | None = None) -> None:
     logger.info("=" * 70)
     logger.info(f"   Market: {opportunity.market_ticker}")
     logger.info(f"   Status: {opportunity.status}")
-    logger.info(f"   Research sources: {opportunity.research_sources_count}")
     logger.info(f"   Edge: {opportunity.edge:+.2%}" if opportunity.edge is not None else "   Edge: N/A")
     logger.info(
         f"   Expected Value: {opportunity.expected_value:+.2%}"
@@ -317,17 +366,10 @@ async def run_analyst_test(opportunity_id: str | None = None) -> None:
 # Trader Agent Test Runner
 # =============================================================================
 
-async def run_trader_test(analysis_id: str | None = None) -> None:
-    """Run Trader agent on analysis reports.
-
-    Args:
-        analysis_id: Specific analysis ID to execute. If None, skip processing.
-
-    Note:
-        This test runs in PAPER MODE only. No real trades are executed.
-    """
+async def run_trader_test(opportunity_file: str | None = None, verbose: bool = False) -> None:
+    """Run Trader agent on a specific opportunity file."""
     logger.info("\n" + "=" * 70)
-    logger.info("Trader Agent Test (PAPER MODE)")
+    logger.info("Trader Agent Test (DRY RUN, PAPER MODE)")
     logger.info("=" * 70)
 
     # Initialize test data structure
@@ -336,20 +378,63 @@ async def run_trader_test(analysis_id: str | None = None) -> None:
     # Override data directory to use test_data/
     _override_data_dir()
 
-    if analysis_id:
-        logger.info(f"   Processing specific analysis: {analysis_id}")
-    else:
-        logger.info("   No analysis_id provided (queue removed).")
+    # Initialize Logfire BEFORE agent imports
+    _initialize_test_logfire()
 
     logger.info("-" * 70)
+    opportunities_dir = TEST_DATA_DIR / "opportunities"
+    opp_file = _select_opportunity_file(opportunities_dir, opportunity_file)
+    from coliseum.storage.files import load_opportunity_from_file
 
-    # TODO: Implement actual Trader agent when main.py is ready
-    logger.warning("   Trader agent not yet implemented in main.py")
-    logger.info("   To implement: Create Trader agent with Kalshi trading tools")
-    logger.info("   Expected behavior: Validate risk limits, execute paper trade, log result")
+    opportunity = load_opportunity_from_file(opp_file)
+    logger.info(f"   Selected opportunity: {opportunity.id}")
+    logger.info(f"   Market: {opportunity.market_ticker}")
+
+    from coliseum.agents.trader import run_trader
+    from coliseum.config import get_settings
+
+    settings = get_settings()
+    settings.trading.paper_mode = True
+
+    if settings.trading.paper_mode:
+        logger.info("   Paper mode enabled; skipping Kalshi credential checks.")
+    elif not settings.kalshi_api_key or not settings.get_rsa_private_key():
+        logger.warning("   Missing Kalshi credentials; skipping live market check.")
+        logger.info("   Set KALSHI_API_KEY and KALSHI_PRIVATE_KEY_PATH to run this test.")
+        logger.info("\n" + "=" * 70)
+        logger.info("Trader test complete (skipped)")
+        logger.info("=" * 70 + "\n")
+        return
+
+    if verbose:
+        os.environ["COLISEUM_AGENT_TRACE"] = "1"
+        logger.info("   Verbose agent trace enabled (tool calls/results).")
+    else:
+        os.environ.pop("COLISEUM_AGENT_TRACE", None)
+
+    try:
+        output = await run_trader(
+            opportunity_id=opportunity.id,
+            settings=settings,
+            dry_run=True,
+        )
+    except Exception as e:
+        logger.exception(f"Trader test failed: {e}")
+        raise
 
     logger.info("\n" + "=" * 70)
-    logger.info("Trader test complete (stub implementation)")
+    logger.info("Trader results")
+    logger.info("=" * 70)
+    logger.info(f"   Decision: {output.decision.action}")
+    logger.info(f"   Confidence: {output.decision.confidence:.2%}")
+    logger.info(f"   Execution status: {output.execution_status}")
+    if output.decision.reasoning:
+        logger.info(f"   Reasoning: {output.decision.reasoning}")
+    if output.decision.verification_summary:
+        logger.info(f"   Verification summary: {output.decision.verification_summary}")
+
+    logger.info("\n" + "=" * 70)
+    logger.info("Trader test complete")
     logger.info("=" * 70 + "\n")
 
 
@@ -371,6 +456,9 @@ async def run_guardian_test() -> None:
 
     # Override data directory to use test_data/
     _override_data_dir()
+
+    # Initialize Logfire BEFORE agent imports
+    _initialize_test_logfire()
 
     # Check for open positions
     positions_dir = TEST_DATA_DIR / "positions" / "open"
@@ -408,6 +496,15 @@ async def run_full_pipeline() -> None:
     logger.info("   Running: Scout -> Analyst -> Trader -> Guardian")
     logger.info("=" * 70)
 
+    # Initialize test data structure
+    init_test_data_structure()
+
+    # Override data directory to use test_data/
+    _override_data_dir()
+
+    # Initialize Logfire BEFORE agent imports
+    _initialize_test_logfire()
+
     # Step 1: Scout - Find opportunities
     logger.info("\n" + "=" * 70)
     logger.info("STEP 1/4: Scout")
@@ -436,9 +533,9 @@ async def run_full_pipeline() -> None:
     logger.info("FULL PIPELINE TEST COMPLETE")
     logger.info("=" * 70)
     logger.info("   Scout: Found opportunities and saved to test_data/opportunities/")
-    logger.info("   Analyst: (Not yet implemented)")
-    logger.info("   Trader: (Not yet implemented)")
-    logger.info("   Guardian: (Not yet implemented)")
+    logger.info("   Analyst: Skipped (requires --opportunity-id)")
+    logger.info("   Trader: Skipped (requires --opportunity-file)")
+    logger.info("   Guardian: Completed")
     logger.info("=" * 70 + "\n")
 
 
@@ -459,13 +556,12 @@ Examples:
     # Run Scout agent test without file persistence (debugging)
     python -m coliseum.test_pipeline scout --dry-run
 
-    # Run Analyst agent test
-    python -m coliseum.test_pipeline analyst
+    # Run Analyst agent test (requires opportunity ID)
     python -m coliseum.test_pipeline analyst --opportunity-id opp_abc12345
 
     # Run Trader agent test (paper mode)
     python -m coliseum.test_pipeline trader
-    python -m coliseum.test_pipeline trader --analysis-id analysis_xyz12345
+    python -m coliseum.test_pipeline trader --opportunity-file KXBTCD-26JAN2317-T89999.99.md
 
     # Run Guardian agent test
     python -m coliseum.test_pipeline guardian
@@ -494,16 +590,21 @@ Examples:
         "--opportunity-id",
         type=str,
         default=None,
-        help="Specific opportunity ID to analyze (default: all pending)",
+        help="Specific opportunity ID to analyze (no-op if omitted)",
     )
 
     # Trader command
     trader_parser = subparsers.add_parser("trader", help="Run Trader agent to execute analyses")
     trader_parser.add_argument(
-        "--analysis-id",
+        "--opportunity-file",
         type=str,
         default=None,
-        help="Specific analysis ID to execute (default: all pending)",
+        help="Opportunity file name or path (default: newest in test_data/opportunities/)",
+    )
+    trader_parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Log tool calls and results from the trader agent",
     )
 
     # Guardian command
@@ -536,7 +637,12 @@ Examples:
             sys.exit(0)
 
         elif args.command == "trader":
-            asyncio.run(run_trader_test(analysis_id=args.analysis_id))
+            asyncio.run(
+                run_trader_test(
+                    opportunity_file=args.opportunity_file,
+                    verbose=args.verbose,
+                )
+            )
             sys.exit(0)
 
         elif args.command == "guardian":
