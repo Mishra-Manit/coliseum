@@ -81,6 +81,16 @@ class ExecutionConfig(BaseModel):
     max_order_age_minutes: int = 60
 
 
+class TelegramConfig(BaseModel):
+    """Telegram notification configuration."""
+
+    send_trade_alerts: bool = True
+    send_risk_alerts: bool = True
+    send_position_alerts: bool = True
+    send_opportunity_alerts: bool = True
+    send_system_alerts: bool = False
+
+
 class Settings(BaseSettings):
     """Main configuration class."""
 
@@ -98,6 +108,10 @@ class Settings(BaseSettings):
     anthropic_api_key: str = ""
     logfire_token: str = ""
 
+    # Telegram
+    telegram_bot_token: str = ""
+    telegram_chat_id: str = ""
+
     # Nested configuration sections
     trading: TradingConfig = Field(default_factory=TradingConfig)
     risk: RiskConfig = Field(default_factory=RiskConfig)
@@ -106,6 +120,7 @@ class Settings(BaseSettings):
     analyst: AnalystConfig = Field(default_factory=AnalystConfig)
     guardian: GuardianConfig = Field(default_factory=GuardianConfig)
     execution: ExecutionConfig = Field(default_factory=ExecutionConfig)
+    telegram: TelegramConfig = Field(default_factory=TelegramConfig)
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -166,6 +181,7 @@ class Settings(BaseSettings):
                 "analyst",
                 "guardian",
                 "execution",
+                "telegram",
             ]:
                 if section_name in yaml_config:
                     section = getattr(self, section_name)

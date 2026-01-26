@@ -39,3 +39,10 @@ execution:
   reprice_aggression: 0.02        # Increase limit by 2 cents each reprice
   min_fill_pct_to_keep: 0.25      # Keep partial fill if > 25% filled
   max_order_age_minutes: 60       # Cancel order if open > 1 hour
+
+telegram:
+  send_trade_alerts: true         # Trade execution/rejection alerts
+  send_risk_alerts: true          # Risk limit warnings
+  send_position_alerts: true      # Position updates and closures
+  send_opportunity_alerts: true   # New opportunity discoveries
+  send_system_alerts: false       # System status and errors
