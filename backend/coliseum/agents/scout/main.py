@@ -5,10 +5,10 @@ import logging
 from datetime import datetime, timezone
 from typing import Literal
 
-from pydantic_ai import Agent, RunContext
+from pydantic_ai import Agent, RunContext, WebSearchTool
  
 from coliseum.config import Settings, get_settings
-from coliseum.llm_providers import AnthropicModel, FireworksModel, get_model_string
+from coliseum.llm_providers import AnthropicModel, FireworksModel, OpenAIModel, get_model_string
 from coliseum.services.kalshi.client import KalshiClient
 from coliseum.storage.files import save_opportunity, generate_opportunity_id
 from coliseum.storage.state import (
@@ -27,10 +27,11 @@ logger = logging.getLogger(__name__)
 def _create_scout_agent() -> Agent[ScoutDependencies, ScoutOutput]:
     """Create the Scout agent (called lazily to avoid loading API keys at import time)."""
     return Agent(
-        model=get_model_string(FireworksModel.DEEPSEEK_V3_2),
+        model=get_model_string(OpenAIModel.GPT_5_MINI),
         output_type=ScoutOutput,
         deps_type=ScoutDependencies,
         system_prompt=SCOUT_SYSTEM_PROMPT,
+        builtin_tools=[WebSearchTool()],
     )
 
 def _register_tools(agent: Agent[ScoutDependencies, ScoutOutput]) -> None:
@@ -104,8 +105,8 @@ def get_scout_agent() -> Agent[ScoutDependencies, ScoutOutput]:
     if _scout_agent is None:
         # ensure API key is set for pydantic-ai
         settings = get_settings()
-        if settings.fireworks_api_key:
-            os.environ["FIREWORKS_API_KEY"] = settings.fireworks_api_key
+        if settings.openai_api_key:
+            os.environ["OPENAI_API_KEY"] = settings.openai_api_key
 
         _scout_agent = _create_scout_agent()
         _register_tools(_scout_agent)
@@ -151,9 +152,10 @@ async def run_scout(
         )
         logger.debug(f"Injecting {len(seen_tickers)} seen tickers into prompt context")
 
-    # Create Kalshi client with proper config (respects paper_mode setting)
+    # Scout always reads from production API (market data is public)
+    # Only Trader needs demo mode for paper trading order execution
     from coliseum.services.kalshi.config import KalshiConfig
-    kalshi_config = KalshiConfig(paper_mode=settings.trading.paper_mode)
+    kalshi_config = KalshiConfig(paper_mode=False)
     async with KalshiClient(config=kalshi_config) as client:
         deps = ScoutDependencies(
             kalshi_client=client,
