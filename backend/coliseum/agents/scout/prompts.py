@@ -128,6 +128,8 @@ Each OpportunitySignal requires ALL 11 fields:
 
 5. **Crypto coin prices**: NEVER select markets about cryptocurrency prices (Bitcoin, Ethereum, etc.). These are too volatile and unpredictable for reliable research-based trading.
 
+6. **Pure gambling events**: NEVER select markets that depend on unpredictable word choices or specific statements. Examples include "Will X say [specific phrase] at speech/press conference?" or "Will X use the word [word]?". These are pure gambles—no amount of research can reliably predict the exact words someone will use. Avoid ANY market where the outcome depends on specific phrasing, word selection, or utterances that cannot be researched.
+
 ### Market Diversity Rule
 
 Enforce diversity to avoid correlation risk:

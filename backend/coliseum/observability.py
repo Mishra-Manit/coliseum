@@ -16,19 +16,6 @@ def initialize_logfire(settings: Settings) -> None:
     Initialize Logfire with comprehensive instrumentation.
 
     Must be called ONCE at application startup, BEFORE any agent code runs.
-
-    This function configures Logfire cloud tracking and instruments:
-    - PydanticAI agents (Scout, Analyst, Trader, Guardian)
-    - OpenAI SDK (GPT models, WebSearchTool, token usage)
-    - HTTPX clients (Kalshi API, Exa API)
-    - Python logging (bridges to Logfire)
-    - System metrics (CPU, memory, disk)
-
-    Args:
-        settings: Application settings containing Logfire token
-
-    Returns:
-        None. Logs success or warning messages.
     """
     if not settings.logfire_token:
         logger.warning("Logfire token not set - observability disabled")
