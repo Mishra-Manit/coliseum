@@ -326,7 +326,7 @@ This provides:
 ```markdown
 ---
 ticker: INXD-25JAN31-B4621
-created_at: 2025-01-14T10:30:00Z
+discovered_at: 2025-01-14T10:30:00Z
 status: scout_complete
 event_title: "Will S&P 500 be above 4621 on Jan 31, 2025?"
 close_time: 2025-01-31T21:00:00Z
