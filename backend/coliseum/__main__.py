@@ -60,7 +60,7 @@ def cmd_init(args: argparse.Namespace) -> int:
 
 trading:
   paper_mode: true
-  initial_bankroll: 10000.00
+  initial_bankroll: 100.00
 
 risk:
   max_position_pct: 0.10
@@ -116,13 +116,13 @@ execution:
 last_updated: null
 
 portfolio:
-  total_value: 10000.00
-  cash_balance: 10000.00
+  total_value: 100.00
+  cash_balance: 100.00
   positions_value: 0.00
 
 daily_stats:
   date: null
-  starting_value: 10000.00
+  starting_value: 100.00
   current_pnl: 0.00
   current_pnl_pct: 0.00
   trades_today: 0
@@ -287,6 +287,14 @@ def cmd_scout(args: argparse.Namespace) -> int:
     """Run a manual Scout market scan."""
     import asyncio
 
+    # Initialize Logfire before agent imports
+    try:
+        from coliseum.observability import initialize_logfire
+        settings = get_settings()
+        initialize_logfire(settings)
+    except Exception as e:
+        logger.warning(f"Failed to initialize Logfire: {e}")
+
     try:
         from coliseum.agents.scout import run_scout
 
@@ -321,6 +329,14 @@ def cmd_analyst(args: argparse.Namespace) -> int:
     """Run Analyst pipeline (Researcher + Recommender) manually."""
     import asyncio
 
+    # Initialize Logfire before agent imports
+    try:
+        from coliseum.observability import initialize_logfire
+        settings = get_settings()
+        initialize_logfire(settings)
+    except Exception as e:
+        logger.warning(f"Failed to initialize Logfire: {e}")
+
     try:
         from coliseum.agents.analyst import run_analyst
 
@@ -344,6 +360,53 @@ def cmd_analyst(args: argparse.Namespace) -> int:
     except Exception as e:
         logger.error(f"Analyst failed: {e}", exc_info=True)
         print(f"\n❌ Analyst failed: {e}\n")
+        return 1
+
+
+def cmd_trader(args: argparse.Namespace) -> int:
+    """Run Trader agent to execute or reject a trade recommendation."""
+    import asyncio
+
+    # Initialize Logfire before agent imports
+    try:
+        from coliseum.observability import initialize_logfire
+        settings = get_settings()
+        initialize_logfire(settings)
+    except Exception as e:
+        logger.warning(f"Failed to initialize Logfire: {e}")
+
+    try:
+        from coliseum.agents.trader import run_trader
+
+        opportunity_id = args.opportunity_id
+        print(f"\n=== Trader Agent ===\n")
+        print(f"Opportunity ID: {opportunity_id}\n")
+
+        settings = get_settings()
+        result = asyncio.run(run_trader(opportunity_id, settings))
+
+        print(f"✓ Trader decision complete\n")
+        print(f"Decision: {result.decision.action}")
+        print(f"Confidence: {result.decision.confidence:.0%}")
+        print(f"Execution Status: {result.execution_status}\n")
+        
+        if result.decision.reasoning:
+            print(f"Reasoning:\n{result.decision.reasoning}\n")
+        
+        if result.decision.verification_summary:
+            print(f"Verification Summary:\n{result.decision.verification_summary}\n")
+
+        if result.execution_status in ["filled", "partial"]:
+            print(f"Order ID: {result.order_id}")
+            print(f"Contracts Filled: {result.contracts_filled}")
+            print(f"Fill Price: {result.fill_price:.2%}")
+            print(f"Total Cost: ${result.total_cost_usd:.2f}\n")
+
+        return 0
+
+    except Exception as e:
+        logger.error(f"Trader failed: {e}", exc_info=True)
+        print(f"\n❌ Trader failed: {e}\n")
         return 1
 
 
@@ -432,6 +495,17 @@ def main() -> int:
         help="Opportunity ID to analyze",
     )
     parser_analyst.set_defaults(func=cmd_analyst)
+
+    parser_trader = subparsers.add_parser(
+        "trader",
+        help="Run Trader agent to execute or reject a trade recommendation",
+    )
+    parser_trader.add_argument(
+        "--opportunity-id",
+        required=True,
+        help="Opportunity ID to trade",
+    )
+    parser_trader.set_defaults(func=cmd_trader)
 
     parser_run = subparsers.add_parser(
         "run",
