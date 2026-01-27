@@ -20,11 +20,6 @@ async def main() -> int:
     """Run the Test Agent and return exit code."""
     parser = ArgumentParser(description="Run the Test Agent")
     parser.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="Skip sending Telegram alert (for testing)",
-    )
-    parser.add_argument(
         "--data-dir",
         type=str,
         help="Custom data directory (e.g., 'test_data' for testing)",
@@ -38,19 +33,17 @@ async def main() -> int:
         logger.error("OPENAI_API_KEY not set in environment")
         return 1
 
-    if not args.dry_run:
-        if not settings.telegram_bot_token:
-            logger.error("TELEGRAM_BOT_TOKEN not set in environment")
-            return 1
-        if not settings.telegram_chat_id:
-            logger.error("TELEGRAM_CHAT_ID not set in environment")
-            return 1
+    if not settings.telegram_bot_token:
+        logger.error("TELEGRAM_BOT_TOKEN not set in environment")
+        return 1
+    if not settings.telegram_chat_id:
+        logger.error("TELEGRAM_CHAT_ID not set in environment")
+        return 1
 
     try:
         # Run agent
         result = await run_test_agent(
             settings=settings,
-            dry_run=args.dry_run,
             data_dir=args.data_dir,
         )
 

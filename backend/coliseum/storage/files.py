@@ -94,7 +94,6 @@ class OpportunitySignal(BaseModel):
     suggested_position_pct_no: float | None = None
     recommendation_completed_at: datetime | None = None
     action: Literal["BUY_YES", "BUY_NO", "ABSTAIN"] | None = None
-    recommendation_status: Literal["pending", "approved", "executed", "rejected", "expired"] | None = None
 
 
 class TradeExecution(BaseModel):

@@ -221,7 +221,6 @@ async def run_recommender(
         # Status fields
         "recommendation_completed_at": completed_at.isoformat(),
         "action": None,  # No action field in output
-        "recommendation_status": "pending",
         "status": "recommended",
     }
 

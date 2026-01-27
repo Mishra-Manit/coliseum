@@ -416,7 +416,6 @@ async def run_trader_test(opportunity_file: str | None = None, verbose: bool = F
         output = await run_trader(
             opportunity_id=opportunity.id,
             settings=settings,
-            dry_run=True,
         )
     except Exception as e:
         logger.exception(f"Trader test failed: {e}")
@@ -521,7 +520,7 @@ async def run_full_pipeline() -> None:
     logger.info("\n" + "=" * 70)
     logger.info("STEP 3/4: Trader")
     logger.info("=" * 70)
-    await run_trader_test(analysis_id=None)
+    await run_trader_test(opportunity_file=None)
 
     # Step 4: Guardian - Monitor positions
     logger.info("\n" + "=" * 70)

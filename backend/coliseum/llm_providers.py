@@ -25,14 +25,6 @@ class OpenAIModel(StrEnum):
     GPT_5_MINI = "gpt-5-mini"
     GPT_5_NANO = "gpt-5-nano"
 
-    # Reasoning models (O-series) - for complex reasoning tasks
-    O4_MINI = "o4-mini"
-    O3 = "o3"                  # Released Jan 2025
-    O3_MINI = "o3-mini"        # Released Jan 2025
-    O1 = "o1"
-    O1_MINI = "o1-mini"
-    O1_PREVIEW = "o1-preview"
-
 
 class AnthropicModel(StrEnum):
     """Anthropic Claude models available via API."""
@@ -51,20 +43,8 @@ class FireworksModel(StrEnum):
     LLAMA_3_1_70B_INSTRUCT = "accounts/fireworks/models/llama-v3p1-70b-instruct"
     LLAMA_3_1_8B_INSTRUCT = "accounts/fireworks/models/llama-v3p1-8b-instruct"
 
-    # Mixtral MoE models
-    MIXTRAL_8X22B_INSTRUCT = "accounts/fireworks/models/mixtral-8x22b-instruct"
-    MIXTRAL_8X7B_INSTRUCT = "accounts/fireworks/models/mixtral-8x7b-instruct"
-
-    # Qwen Series
-    QWEN_3_CODER_480B = "accounts/fireworks/models/qwen3-coder-480b-instruct"
-    QWEN_2_5_72B_INSTRUCT = "accounts/fireworks/models/qwen2p5-72b-instruct"
-    QWEN_2_5_CODER_32B = "accounts/fireworks/models/qwen2p5-coder-32b-instruct"
-
     # DeepSeek
     DEEPSEEK_V3_2 = "accounts/fireworks/models/deepseek-v3p2"
-
-    # GPT-OSS
-    GPT_OSS_120B = "accounts/fireworks/models/gpt-oss-120b"
 
 
 # =============================================================================

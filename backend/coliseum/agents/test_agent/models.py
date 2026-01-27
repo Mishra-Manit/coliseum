@@ -14,7 +14,6 @@ class TestAgentDependencies(BaseModel):
     telegram_client: TelegramClient
     config: Settings
     data_dir: str | None = None  # Optional custom data directory (for testing)
-    dry_run: bool = False  # If True, skip actually sending Telegram alerts
 
 
 class InterestSelection(BaseModel):

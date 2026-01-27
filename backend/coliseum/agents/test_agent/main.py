@@ -230,16 +230,6 @@ def _register_tools(agent: Agent[TestAgentDependencies, TestAgentOutput]) -> Non
             Dict with success status and message_id if successful
         """
         try:
-            # Check if in dry-run mode
-            if ctx.deps.dry_run:
-                logger.info(f"[DRY RUN] Would send Telegram: {message}")
-                return {
-                    "success": True,
-                    "message_id": None,
-                    "recipient": "dry_run",
-                    "dry_run": True,
-                }
-
             result = await ctx.deps.telegram_client.send_alert(message)
 
             if result.success:
@@ -264,14 +254,12 @@ def _register_tools(agent: Agent[TestAgentDependencies, TestAgentOutput]) -> Non
 
 async def run_test_agent(
     settings: Settings | None = None,
-    dry_run: bool = False,
     data_dir: str | None = None,
 ) -> TestAgentOutput:
     """Run the Test Agent to select and alert on most interesting opportunity.
 
     Args:
         settings: Optional Settings instance (defaults to get_settings())
-        dry_run: If True, skip sending Telegram alert (for testing)
         data_dir: Optional custom data directory (for testing with test_data)
 
     Returns:
@@ -291,7 +279,6 @@ async def run_test_agent(
             telegram_client=telegram_client,
             config=settings,
             data_dir=data_dir,
-            dry_run=dry_run,
         )
 
         # Build prompt
@@ -318,9 +305,6 @@ Remember: Your interest_reason must be exactly 1 sentence and under 200 characte
         )
         logger.info(f"Reason: {output.selection.interest_reason}")
         logger.info(f"Confidence: {output.selection.confidence:.1%}")
-
-        if dry_run:
-            logger.info("[DRY RUN] Mode - Telegram was not actually sent")
 
         logger.info(f"Telegram sent: {output.telegram_sent}")
         if output.telegram_message_id:
