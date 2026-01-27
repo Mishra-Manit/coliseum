@@ -174,15 +174,12 @@ def _register_tools(agent: Agent[TestAgentDependencies, TestAgentOutput]) -> Non
 
             opp = load_opportunity_from_file(opp_file)
 
-            # Extract research data from file if available
-            research_synthesis = ""
-            research_sources = []
+            # Get full research markdown from file if available
+            research_markdown = ""
             try:
-                from coliseum.storage.files import extract_research_from_opportunity
+                from coliseum.storage.files import get_opportunity_markdown_body
 
-                research_data = extract_research_from_opportunity(opp_file)
-                research_synthesis = research_data.get("synthesis", "")
-                research_sources = research_data.get("sources", [])
+                research_markdown = get_opportunity_markdown_body(opp_file)
             except Exception:
                 pass
 
@@ -209,8 +206,7 @@ def _register_tools(agent: Agent[TestAgentDependencies, TestAgentOutput]) -> Non
                 "status": opp.status,
                 "discovered_at": timestamp,
                 "rationale": opp.rationale,
-                "research_synthesis": research_synthesis,
-                "research_sources": research_sources,
+                "research_markdown": research_markdown,
             }
 
         except Exception as e:

@@ -7,6 +7,7 @@ directory organization for easy browsing.
 
 import json
 import logging
+import re
 import shutil
 import tempfile
 from datetime import datetime
@@ -87,6 +88,10 @@ class OpportunitySignal(BaseModel):
     expected_value: float | None = None
     edge: float | None = None
     suggested_position_pct: float | None = None
+    # NO-side metrics
+    edge_no: float | None = None
+    expected_value_no: float | None = None
+    suggested_position_pct_no: float | None = None
     recommendation_completed_at: datetime | None = None
     action: Literal["BUY_YES", "BUY_NO", "ABSTAIN"] | None = None
     recommendation_status: Literal["pending", "approved", "executed", "rejected", "expired"] | None = None
@@ -402,55 +407,20 @@ def load_opportunity_with_all_stages(
     return load_opportunity_from_file(file_path)
 
 
-def extract_research_from_opportunity(file_path: Path) -> dict:
-    """Extract research synthesis and sources from opportunity file.
+def get_opportunity_markdown_body(file_path: Path) -> str:
+    """Get the markdown body (everything after frontmatter) from an opportunity file.
 
     Args:
         file_path: Path to opportunity markdown file
 
     Returns:
-        Dict with 'synthesis' and 'sources' keys
+        The full markdown body as a string
     """
     content = file_path.read_text(encoding="utf-8")
     parts = content.split("---", 2)
-    body = parts[2]
-
-    lines = body.strip().split("\n")
-    synthesis_lines: list[str] = []
-    sources: list[str] = []
-
-    in_synthesis = False
-    in_sources = False
-
-    for line in lines:
-        if line.startswith("## Research Synthesis"):
-            in_synthesis = True
-            in_sources = False
-            continue
-        if line.startswith("### Sources"):
-            in_synthesis = False
-            in_sources = True
-            continue
-        if line.startswith("## Trade Evaluation") or line.startswith("---"):
-            in_synthesis = False
-            in_sources = False
-            continue
-
-        if in_synthesis and line.strip():
-            synthesis_lines.append(line)
-        elif in_sources and line.strip():
-            if "](" in line and ")" in line:
-                url_start = line.index("](") + 2
-                url_end = line.index(")", url_start)
-                url = line[url_start:url_end]
-                sources.append(url)
-
-    synthesis = "\n".join(synthesis_lines).strip()
-
-    return {
-        "synthesis": synthesis,
-        "sources": sources,
-    }
+    if len(parts) < 3:
+        return ""
+    return parts[2].strip()
 
 
 def log_trade(trade: TradeExecution) -> None:
