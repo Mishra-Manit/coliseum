@@ -1,4 +1,4 @@
-"""Integration test for Kalshi API client with demo credentials.
+"""Integration test for Kalshi API client with production credentials.
 
 This script tests:
 1. Authentication with RSA signature
@@ -28,30 +28,10 @@ from coliseum.services.kalshi import (
 )
 
 
-def load_credentials(use_demo: bool = True) -> tuple[str, str]:
-    """Load Kalshi API credentials from .env and private key file.
-    
-    Args:
-        use_demo: If True, use demo credentials from kalshi_private/demo-coliseum.txt
-    """
+def load_credentials() -> tuple[str, str]:
+    """Load Kalshi API credentials from .env and private key file."""
     # Load .env file
     load_dotenv()
-    
-    # For demo, use demo API key and demo private key
-    if use_demo:
-        api_key = os.getenv("KALSHI_DEMO_API_KEY", "")
-        if not api_key:
-            # Fall back to regular key if demo key not found
-            api_key = os.getenv("KALSHI_API_KEY", "")
-            print("⚠ KALSHI_DEMO_API_KEY not found, using KALSHI_API_KEY")
-        
-        demo_key_path = Path(__file__).parent.parent.parent / "kalshi_private" / "demo.pem"
-        if demo_key_path.exists():
-            private_key = demo_key_path.read_text()
-            print(f"✓ Loaded DEMO private key from: {demo_key_path}")
-            return api_key, private_key
-        else:
-            print(f"⚠ Demo key file not found at: {demo_key_path}")
     
     # Production credentials
     api_key = os.getenv("KALSHI_API_KEY", "")
@@ -194,27 +174,17 @@ async def test_authenticated_endpoints(client: KalshiClient) -> None:
 
 async def main() -> None:
     """Run all Kalshi API integration tests."""
-    import argparse
-    
-    parser = argparse.ArgumentParser(description="Test Kalshi API integration")
-    parser.add_argument("--production", action="store_true", 
-                       help="Test with production credentials (live trading)")
-    args = parser.parse_args()
-    
-    use_demo = not args.production
-    env_name = "Demo" if use_demo else "PRODUCTION"
-    
     print("=" * 60)
-    print(f"Kalshi API Integration Test ({env_name} Environment)")
+    print("Kalshi API Integration Test")
     print("=" * 60)
     
     try:
         # Load credentials
-        api_key, private_key = load_credentials(use_demo=use_demo)
+        api_key, private_key = load_credentials()
         print(f"✓ Loaded API key: {api_key[:8]}...")
         
-        # Create client (paper_mode=True for demo, False for production)
-        config = KalshiConfig(paper_mode=use_demo)
+        # Create client
+        config = KalshiConfig()
         print(f"✓ Using base URL: {config.base_url}")
         
         async with KalshiClient(config, api_key, private_key) as client:
@@ -225,7 +195,7 @@ async def main() -> None:
             await test_authenticated_endpoints(client)
         
         print("\n" + "=" * 60)
-        print(f"✅ ALL KALSHI API TESTS PASSED ({env_name})")
+        print("✅ ALL KALSHI API TESTS PASSED")
         print("=" * 60)
         print("\nKalshi API client is ready for trading operations!\n")
         

@@ -259,7 +259,7 @@ async def main() -> None:
 
     # Determine mode
     paper_mode = settings.trading.paper_mode
-    print(f"\nMode: {'📝 Paper (Demo)' if paper_mode else '💰 Production'}")
+    print(f"\nMode: {'📝 Paper' if paper_mode else '💰 Production'}")
     print(f"Auth: {'🔑 Enabled' if has_credentials else '🔓 Disabled (public only)'}")
 
     # Test model parsing (no API calls)
