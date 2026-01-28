@@ -220,13 +220,16 @@ def _select_opportunity_file(opportunities_dir: Path, opportunity_file: str | No
 # Scout Agent Test Runner
 # =============================================================================
 
-async def run_scout_test(dry_run: bool = False) -> None:
+async def run_scout_test(dry_run: bool = False) -> "ScoutOutput | None":
     """Run Scout agent using production code.
 
     Args:
         dry_run: If True, skip file persistence.
                  The agent runs and returns results, but nothing is saved to disk.
                  If False, saves to test_data/ directory (isolated from production).
+    
+    Returns:
+        ScoutOutput with discovered opportunities, or None on failure.
     """
     mode_label = "[DRY RUN] " if dry_run else ""
     
@@ -283,10 +286,12 @@ async def run_scout_test(dry_run: bool = False) -> None:
         else:
             logger.info(f"Scout test complete - {len(output.opportunities)} opportunities saved to test_data/")
         logger.info("=" * 70 + "\n")
+        
+        return output
 
     except Exception as e:
         logger.exception(f"Scout test failed: {e}")
-        raise
+        return None
 
 
 # =============================================================================
@@ -485,14 +490,15 @@ async def run_guardian_test() -> None:
 # =============================================================================
 
 async def run_full_pipeline() -> None:
-    """Run complete pipeline: Scout -> Analyst -> Trader -> Guardian.
+    """Run complete pipeline: Scout -> (Analyst -> Trader) per opportunity.
 
     This demonstrates the full autonomous trading flow in test mode.
+    For each opportunity discovered by Scout, runs Analyst then Trader sequentially.
     """
     logger.info("\n" + "=" * 70)
     logger.info("FULL PIPELINE TEST")
     logger.info("=" * 70)
-    logger.info("   Running: Scout -> Analyst -> Trader -> Guardian")
+    logger.info("   Running: Scout -> (Analyst -> Trader) for each opportunity")
     logger.info("=" * 70)
 
     # Initialize test data structure
@@ -506,35 +512,69 @@ async def run_full_pipeline() -> None:
 
     # Step 1: Scout - Find opportunities
     logger.info("\n" + "=" * 70)
-    logger.info("STEP 1/4: Scout")
+    logger.info("STEP 1: Scout - Discovering opportunities")
     logger.info("=" * 70)
-    await run_scout_test()
-
-    # Step 2: Analyst - Research opportunities
-    logger.info("\n" + "=" * 70)
-    logger.info("STEP 2/4: Analyst")
-    logger.info("=" * 70)
-    await run_analyst_test(opportunity_id=None)
-
-    # Step 3: Trader - Execute analysis reports
-    logger.info("\n" + "=" * 70)
-    logger.info("STEP 3/4: Trader")
-    logger.info("=" * 70)
-    await run_trader_test(opportunity_file=None)
-
-    # Step 4: Guardian - Monitor positions
-    logger.info("\n" + "=" * 70)
-    logger.info("STEP 4/4: Guardian")
-    logger.info("=" * 70)
-    await run_guardian_test()
+    
+    from coliseum.agents.scout import run_scout
+    from coliseum.agents.analyst import run_analyst
+    from coliseum.agents.trader import run_trader
+    from coliseum.config import get_settings
+    
+    scout_output = await run_scout(dry_run=False)
+    
+    if not scout_output or not scout_output.opportunities:
+        logger.warning("Scout found no opportunities. Pipeline complete.")
+        return
+    
+    opportunities = scout_output.opportunities
+    total_opps = len(opportunities)
+    logger.info(f"Scout found {total_opps} opportunities")
+    
+    settings = get_settings()
+    settings.trading.paper_mode = True
+    
+    # Process each opportunity sequentially: Analyst -> Trader
+    for i, opp in enumerate(opportunities, 1):
+        logger.info("\n" + "=" * 70)
+        logger.info(f"PROCESSING OPPORTUNITY {i}/{total_opps}: {opp.market_ticker}")
+        logger.info("=" * 70)
+        
+        # Step 2: Analyst - Research this opportunity
+        logger.info(f"\n--- Analyst Agent ({i}/{total_opps}) ---")
+        try:
+            analyzed_opp = await run_analyst(
+                opportunity_id=opp.id,
+                settings=settings,
+                dry_run=False,
+            )
+            logger.info(f"   Status: {analyzed_opp.status}")
+            logger.info(f"   Edge: {analyzed_opp.edge:+.2%}" if analyzed_opp.edge else "   Edge: N/A")
+            logger.info(f"   EV: {analyzed_opp.expected_value:+.2%}" if analyzed_opp.expected_value else "   EV: N/A")
+        except Exception as e:
+            logger.error(f"   Analyst failed for {opp.id}: {e}")
+            continue
+        
+        # Step 3: Trader - Execute trade decision for this opportunity
+        logger.info(f"\n--- Trader Agent ({i}/{total_opps}) ---")
+        try:
+            trader_output = await run_trader(
+                opportunity_id=opp.id,
+                settings=settings,
+            )
+            logger.info(f"   Decision: {trader_output.decision.action}")
+            logger.info(f"   Confidence: {trader_output.decision.confidence:.2%}")
+            logger.info(f"   Execution: {trader_output.execution_status}")
+        except Exception as e:
+            logger.error(f"   Trader failed for {opp.id}: {e}")
+            continue
+        
+        logger.info(f"\nCompleted opportunity {i}/{total_opps}")
 
     logger.info("\n" + "=" * 70)
     logger.info("FULL PIPELINE TEST COMPLETE")
     logger.info("=" * 70)
-    logger.info("   Scout: Found opportunities and saved to test_data/opportunities/")
-    logger.info("   Analyst: Skipped (requires --opportunity-id)")
-    logger.info("   Trader: Skipped (requires --opportunity-file)")
-    logger.info("   Guardian: Completed")
+    logger.info(f"   Processed {total_opps} opportunities sequentially")
+    logger.info("   Flow: Scout -> (Analyst -> Trader) for each")
     logger.info("=" * 70 + "\n")
 
 
