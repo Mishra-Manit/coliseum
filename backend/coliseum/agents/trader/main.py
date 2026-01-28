@@ -1,1 +1,629 @@
-"""Trader Agent."""
+"""Trader Agent: Final decision-maker and trade executor."""
+
+import asyncio
+import json
+import logging
+import os
+from collections.abc import Sequence
+from datetime import datetime, timezone
+from typing import Literal
+from uuid import uuid4
+
+from pydantic_ai import Agent, RunContext, WebSearchTool
+from pydantic_ai.messages import ModelMessage
+
+from coliseum.agents.calculations import calculate_edge, calculate_expected_value
+from coliseum.agents.trader.models import (
+    OrderResult,
+    TraderDependencies,
+    TraderOutput,
+)
+from coliseum.agents.trader.prompts import TRADER_SYSTEM_PROMPT, _build_trader_prompt
+from coliseum.config import Settings, get_settings
+from coliseum.llm_providers import OpenAIModel, get_model_string
+from coliseum.services.kalshi.client import KalshiClient
+from coliseum.services.telegram import create_telegram_client
+from coliseum.storage.files import (
+    TradeExecution,
+    get_opportunity_markdown_body,
+    find_opportunity_file_by_id,
+    generate_trade_id,
+    load_opportunity_from_file,
+    log_trade,
+    update_opportunity_status,
+)
+from coliseum.storage.state import (
+    Position,
+    load_state,
+    save_state,
+    update_market_status,
+)
+
+logger = logging.getLogger(__name__)
+
+_agent: Agent[TraderDependencies, TraderOutput] | None = None
+
+
+async def simulate_limit_order(
+    ticker: str,
+    side: Literal["yes", "no"],
+    contracts: int,
+    price_cents: int,
+) -> dict:
+    """Simulate a limit order by logging intent to console."""
+    message = (
+        f"[SIMULATED TRADE] {contracts} {side.upper()} contracts "
+        f"for {ticker} @ {price_cents}¢"
+    )
+    print(message)
+    logger.info(message)
+
+    return {
+        "order_id": f"sim_{uuid4().hex[:8]}",
+        "status": "simulated",
+        "remaining_count": contracts,
+        "fill_count": 0,
+    }
+
+
+def get_agent() -> Agent[TraderDependencies, TraderOutput]:
+    """Get the singleton Trader agent instance."""
+    global _agent
+    if _agent is None:
+        # PydanticAI will read OPENAI_API_KEY from environment automatically
+        # Ensure it's set if available in settings
+        settings = get_settings()
+        if settings.openai_api_key:
+            os.environ["OPENAI_API_KEY"] = settings.openai_api_key
+
+        _agent = _create_agent()
+        _register_tools(_agent)
+    return _agent
+
+
+def _create_agent() -> Agent[TraderDependencies, TraderOutput]:
+    """Create the Trader agent with OpenAI GPT-5."""
+    return Agent(
+        model=get_model_string(OpenAIModel.GPT_5),
+        output_type=TraderOutput,
+        deps_type=TraderDependencies,
+        system_prompt=TRADER_SYSTEM_PROMPT,
+        builtin_tools=[WebSearchTool()],  # Native web search for verification
+    )
+
+
+def _register_tools(agent: Agent[TraderDependencies, TraderOutput]) -> None:
+    """Register tools with the Trader agent."""
+
+    @agent.tool
+    async def load_recommendation(
+        ctx: RunContext[TraderDependencies],
+    ) -> dict:
+        """Fetch complete opportunity data with full research markdown and analyst metrics."""
+        opportunity_id = ctx.deps.opportunity_id
+        opp_file = find_opportunity_file_by_id(opportunity_id)
+        if not opp_file:
+            raise FileNotFoundError(f"Opportunity file not found: {opportunity_id}")
+
+        opportunity = load_opportunity_from_file(opp_file)
+        markdown_body = get_opportunity_markdown_body(opp_file)
+
+        return {
+            "id": opportunity.id,
+            "market_ticker": opportunity.market_ticker,
+            "event_ticker": opportunity.event_ticker,
+            "title": opportunity.title,
+            "subtitle": opportunity.subtitle,
+            "yes_price": opportunity.yes_price,
+            "no_price": opportunity.no_price,
+            "close_time": opportunity.close_time.isoformat() if opportunity.close_time else None,
+            "research_markdown": markdown_body,
+            "estimated_true_probability": opportunity.estimated_true_probability,
+            "current_market_price": opportunity.current_market_price,
+            # YES-side metrics
+            "edge": opportunity.edge,
+            "expected_value": opportunity.expected_value,
+            "suggested_position_pct": opportunity.suggested_position_pct,
+            # NO-side metrics
+            "edge_no": opportunity.edge_no,
+            "expected_value_no": opportunity.expected_value_no,
+            "suggested_position_pct_no": opportunity.suggested_position_pct_no,
+        }
+
+    @agent.tool
+    async def check_portfolio_state(
+        ctx: RunContext[TraderDependencies],
+    ) -> dict:
+        """Get portfolio cash, positions, and risk flags for trade validation."""
+        state = load_state()
+        return {
+            "cash_balance": state.portfolio.cash_balance,
+            "total_value": state.portfolio.total_value,
+            "positions_value": state.portfolio.positions_value,
+            "open_positions_count": len(state.open_positions),
+            "daily_loss_limit_hit": state.risk_status.daily_loss_limit_hit,
+            "trading_halted": state.risk_status.trading_halted,
+            "capital_at_risk_pct": state.risk_status.capital_at_risk_pct,
+            "daily_pnl": state.daily_stats.current_pnl,
+            "daily_pnl_pct": state.daily_stats.current_pnl_pct,
+        }
+
+    @agent.tool
+    async def get_current_market_price(
+        ctx: RunContext[TraderDependencies],
+        ticker: str,
+    ) -> dict:
+        """Fetch live Kalshi orderbook prices (bid/ask for yes/no in cents)."""
+        client = ctx.deps.kalshi_client
+        market = await client.get_market(ticker)
+        return {
+            "ticker": ticker,
+            "yes_bid": market.yes_bid,
+            "yes_ask": market.yes_ask,
+            "no_bid": market.no_bid,
+            "no_ask": market.no_ask,
+            "yes_price_decimal": market.yes_ask / 100 if market.yes_ask else None,
+            "no_price_decimal": market.no_ask / 100 if market.no_ask else None,
+        }
+
+    @agent.tool
+    async def calculate_slippage(
+        ctx: RunContext[TraderDependencies],
+        recommendation_price: float,
+        current_price: float,
+    ) -> dict:
+        """Compute price movement since recommendation was generated (both prices 0.0-1.0)."""
+        slippage = abs(current_price - recommendation_price)
+        slippage_pct = slippage / recommendation_price if recommendation_price > 0 else 0.0
+        return {
+            "slippage_absolute": slippage,
+            "slippage_pct": slippage_pct,
+            "price_moved_up": current_price > recommendation_price,
+        }
+
+    @agent.tool
+    async def place_limit_order(
+        ctx: RunContext[TraderDependencies],
+        ticker: str,
+        side: Literal["yes", "no"],
+        contracts: int,
+        price_cents: int,
+    ) -> dict:
+        """Simulate limit order without calling Kalshi (logs to console, returns fake order_id)."""
+        return await simulate_limit_order(
+            ticker=ticker,
+            side=side,
+            contracts=contracts,
+            price_cents=price_cents,
+        )
+
+    @agent.tool
+    async def get_order_status(
+        ctx: RunContext[TraderDependencies],
+        order_id: str,
+    ) -> dict:
+        """Poll order status from Kalshi (filled/partial/pending with fill counts)."""
+        client = ctx.deps.kalshi_client
+        order = await client.get_order_status(order_id)
+        return {
+            "order_id": order.order_id,
+            "status": order.status,
+            "fill_count": order.fill_count,
+            "remaining_count": order.remaining_count,
+            "is_filled": order.is_filled,
+            "is_partial": order.is_partial,
+            "taker_fill_count": order.taker_fill_count,
+            "maker_fill_count": order.maker_fill_count,
+            "taker_fill_cost": order.taker_fill_cost,
+            "maker_fill_cost": order.maker_fill_cost,
+        }
+
+    @agent.tool
+    async def cancel_order(
+        ctx: RunContext[TraderDependencies],
+        order_id: str,
+    ) -> dict:
+        """Cancel unfilled or partially filled order on Kalshi."""
+        client = ctx.deps.kalshi_client
+        order = await client.cancel_order(order_id)
+        return {
+            "order_id": order.order_id,
+            "status": order.status,
+            "fill_count": order.fill_count,
+        }
+
+    @agent.tool
+    async def amend_order(
+        ctx: RunContext[TraderDependencies],
+        order_id: str,
+        new_price_cents: int,
+    ) -> dict:
+        """Reprice existing order to increase aggression (walk up the orderbook)."""
+        client = ctx.deps.kalshi_client
+        order = await client.amend_order(order_id, price=new_price_cents)
+        return {
+            "order_id": order.order_id,
+            "status": order.status,
+            "remaining_count": order.remaining_count,
+            "fill_count": order.fill_count,
+        }
+
+    @agent.tool
+    async def send_telegram_alert(
+        ctx: RunContext[TraderDependencies],
+        event_title: str,
+        event_subtitle: str | None,
+        decision: str,
+        reason: str,
+    ) -> dict:
+        """Send a Telegram alert about the trading decision."""
+        try:
+            # Build concise message
+            subtitle_part = f"\n{event_subtitle}" if event_subtitle else ""
+            message = f"🎯 {event_title}{subtitle_part}\n\n{decision}: {reason}"
+
+            result = await ctx.deps.telegram_client.send_alert(message)
+
+            if result.success:
+                return {
+                    "success": True,
+                    "message_id": result.message_id,
+                    "recipient": result.recipient,
+                }
+            else:
+                return {
+                    "success": False,
+                    "error": result.error or "Unknown error",
+                }
+
+        except Exception as e:
+            logger.error(f"Error sending Telegram alert: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+            }
+
+
+async def execute_working_order(
+    client: KalshiClient,
+    ticker: str,
+    side: Literal["yes", "no"],
+    contracts: int,
+    initial_price_cents: int,
+    config: Settings,
+) -> OrderResult:
+    """Execute limit order with place → wait → reprice → cancel strategy to avoid market orders."""
+    client_order_id = f"trader_{uuid4().hex[:8]}"
+    current_price = initial_price_cents
+    max_attempts = config.execution.max_reprice_attempts + 1  # +1 for initial placement
+    check_interval = config.execution.order_check_interval_seconds
+    reprice_aggression_cents = int(config.execution.reprice_aggression * 100)
+
+    order_id: str | None = None
+
+    for attempt in range(max_attempts):
+        try:
+            # Place or reprice order
+            if attempt == 0:
+                # Initial placement
+                if side == "yes":
+                    order = await client.place_order(
+                        ticker=ticker,
+                        side="yes",
+                        action="buy",
+                        count=contracts,
+                        yes_price=current_price,
+                        client_order_id=client_order_id,
+                    )
+                else:
+                    order = await client.place_order(
+                        ticker=ticker,
+                        side="no",
+                        action="buy",
+                        count=contracts,
+                        no_price=current_price,
+                        client_order_id=client_order_id,
+                    )
+                order_id = order.order_id
+                logger.info(
+                    f"Placed order {order_id}: {contracts} {side} @ {current_price}¢"
+                )
+            else:
+                # Reprice existing order
+                order = await client.amend_order(order_id, price=current_price)
+                logger.info(f"Repriced order {order_id} to {current_price}¢ (attempt {attempt})")
+
+            # Wait for fill
+            await asyncio.sleep(check_interval)
+
+            # Check status
+            order = await client.get_order_status(order_id)
+
+            if order.is_filled:
+                # Fully filled
+                fill_price_decimal = (
+                    (order.taker_fill_cost + order.maker_fill_cost)
+                    / (order.fill_count * 100)
+                    if order.fill_count > 0
+                    else current_price / 100
+                )
+                total_cost = (order.taker_fill_cost + order.maker_fill_cost) / 100
+
+                return OrderResult(
+                    order_id=order_id,
+                    fill_price=fill_price_decimal,
+                    contracts_filled=order.fill_count,
+                    total_cost_usd=total_cost,
+                    status="filled",
+                )
+
+            # Check if partial fill is worth keeping
+            fill_pct = order.fill_count / contracts if contracts > 0 else 0.0
+            if fill_pct >= config.execution.min_fill_pct_to_keep:
+                # Keep partial fill
+                fill_price_decimal = (
+                    (order.taker_fill_cost + order.maker_fill_cost)
+                    / (order.fill_count * 100)
+                    if order.fill_count > 0
+                    else current_price / 100
+                )
+                total_cost = (order.taker_fill_cost + order.maker_fill_cost) / 100
+
+                await client.cancel_order(order_id)
+                logger.info(f"Keeping partial fill: {order.fill_count}/{contracts}")
+
+                return OrderResult(
+                    order_id=order_id,
+                    fill_price=fill_price_decimal,
+                    contracts_filled=order.fill_count,
+                    total_cost_usd=total_cost,
+                    status="partial",
+                )
+
+            # Not filled yet, reprice if we have attempts left
+            if attempt < max_attempts - 1:
+                # Increase price by aggression amount
+                current_price = min(99, current_price + reprice_aggression_cents)
+                logger.info(f"Repricing to {current_price}¢ for next attempt")
+            else:
+                # Out of attempts, cancel
+                await client.cancel_order(order_id)
+                logger.info(f"Cancelled order {order_id} after {max_attempts} attempts")
+
+                # Return partial fill if any
+                if order.fill_count > 0:
+                    fill_price_decimal = (
+                        (order.taker_fill_cost + order.maker_fill_cost)
+                        / (order.fill_count * 100)
+                    )
+                    total_cost = (order.taker_fill_cost + order.maker_fill_cost) / 100
+                    return OrderResult(
+                        order_id=order_id,
+                        fill_price=fill_price_decimal,
+                        contracts_filled=order.fill_count,
+                        total_cost_usd=total_cost,
+                        status="partial",
+                    )
+
+                return OrderResult(
+                    order_id=order_id,
+                    status="cancelled",
+                )
+
+        except Exception as e:
+            logger.error(f"Error in working order execution: {e}")
+            if order_id:
+                try:
+                    await client.cancel_order(order_id)
+                except Exception:
+                    pass
+            return OrderResult(
+                order_id=order_id,
+                status="error",
+                error_message=str(e),
+            )
+
+    # Should not reach here
+    return OrderResult(status="error", error_message="Unexpected end of loop")
+
+
+async def run_trader(
+    opportunity_id: str,
+    settings: Settings | None = None,
+) -> TraderOutput:
+    """Execute or reject trade after validating recommendation, checking slippage, and verifying risk limits."""
+    if settings is None:
+        settings = get_settings()
+
+    logger.info(f"Starting Trader for opportunity: {opportunity_id}")
+
+    # Load opportunity file
+    opp_file = find_opportunity_file_by_id(opportunity_id)
+    if not opp_file:
+        raise FileNotFoundError(f"Opportunity file not found: {opportunity_id}")
+
+    opportunity = load_opportunity_from_file(opp_file)
+
+    # Verify recommendation exists
+    if not opportunity.recommendation_completed_at:
+        raise ValueError(f"Recommendation not completed for {opportunity_id}")
+
+    if opportunity.edge is None or opportunity.expected_value is None:
+        raise ValueError(f"Missing edge/EV data for {opportunity_id}")
+
+    # Create Kalshi client
+    from coliseum.services.kalshi.config import KalshiConfig
+
+    kalshi_config = KalshiConfig(paper_mode=settings.trading.paper_mode)
+    private_key_pem = "" if settings.trading.paper_mode else settings.get_rsa_private_key()
+    async with KalshiClient(
+        config=kalshi_config,
+        api_key=settings.kalshi_api_key,
+        private_key_pem=private_key_pem,
+    ) as client, create_telegram_client(
+        bot_token=settings.telegram_bot_token,
+        chat_id=settings.telegram_chat_id,
+    ) as telegram_client:
+        deps = TraderDependencies(
+            kalshi_client=client,
+            telegram_client=telegram_client,
+            opportunity_id=opportunity_id,
+            config=settings,
+        )
+
+        # Build prompt
+        markdown_body = get_opportunity_markdown_body(opp_file)
+        prompt = _build_trader_prompt(opportunity, markdown_body)
+
+        # Run agent
+        agent = get_agent()
+        result = await agent.run(prompt, deps=deps)
+        output: TraderOutput = result.output
+
+        # Handle execution based on decision
+        if output.decision.action == "REJECT":
+            logger.info(f"Trader REJECTED trade: {output.decision.reasoning}")
+            update_opportunity_status(opportunity.market_ticker, "skipped")
+            update_market_status(opportunity.market_ticker, "skipped")
+            return output
+
+        # Determine side and get corresponding metrics
+        if output.decision.action == "EXECUTE_BUY_YES":
+            side = "yes"
+            target_price = opportunity.yes_price
+            edge = opportunity.edge
+            ev = opportunity.expected_value
+            position_pct = opportunity.suggested_position_pct or 0.0
+        else:  # EXECUTE_BUY_NO
+            side = "no"
+            target_price = opportunity.no_price
+            edge = opportunity.edge_no
+            ev = opportunity.expected_value_no
+            position_pct = opportunity.suggested_position_pct_no or 0.0
+
+        # Calculate position size
+        portfolio_state = load_state()
+        trade_size_usd = portfolio_state.portfolio.total_value * position_pct
+        contracts = int(trade_size_usd / target_price) if target_price > 0 else 0
+
+        # Get current market price and calculate slippage
+        market = await client.get_market(opportunity.market_ticker)
+        current_price_decimal = (
+            market.yes_ask / 100 if side == "yes" else market.no_ask / 100
+        )
+        slippage_pct = abs(current_price_decimal - target_price) / target_price if target_price > 0 else 0.0
+
+        # Final risk check - verify slippage is acceptable
+        max_slippage = settings.execution.max_slippage_pct
+        if slippage_pct > max_slippage:
+            logger.warning(f"Slippage too high: {slippage_pct:.1%} > {max_slippage:.0%}")
+            output.execution_status = "rejected"
+            update_opportunity_status(opportunity.market_ticker, "skipped")
+            update_market_status(opportunity.market_ticker, "skipped")
+            return output
+
+        initial_price_cents = int(current_price_decimal * 100)
+        order_result = await execute_working_order(
+            client=client,
+            ticker=opportunity.market_ticker,
+            side=side,
+            contracts=contracts,
+            initial_price_cents=initial_price_cents,
+            config=settings,
+        )
+
+        # Update output with execution results
+        output.order_id = order_result.order_id
+        output.fill_price = order_result.fill_price
+        output.contracts_filled = order_result.contracts_filled
+        output.total_cost_usd = order_result.total_cost_usd
+        output.execution_status = order_result.status
+
+        # Update state and log trade if filled
+        if order_result.contracts_filled > 0:
+            _update_state_after_trade(
+                opportunity=opportunity,
+                side=side.upper(),
+                contracts=order_result.contracts_filled,
+                fill_price=order_result.fill_price or current_price_decimal,
+                total_cost=order_result.total_cost_usd,
+                config=settings,
+            )
+
+            # Log trade (use metrics for chosen side)
+            trade = TradeExecution(
+                id=generate_trade_id(),
+                position_id=f"pos_{uuid4().hex[:8]}",
+                opportunity_id=opportunity.id,
+                market_ticker=opportunity.market_ticker,
+                side=side.upper(),
+                action="BUY",
+                contracts=order_result.contracts_filled,
+                price=order_result.fill_price or current_price_decimal,
+                total=order_result.total_cost_usd,
+                portfolio_pct=position_pct,
+                edge=edge,
+                ev=ev,
+                paper=settings.trading.paper_mode,
+                executed_at=datetime.now(timezone.utc),
+            )
+            log_trade(trade)
+
+            # Update opportunity status
+            update_opportunity_status(opportunity.market_ticker, "traded")
+            update_market_status(opportunity.market_ticker, "traded")
+
+            logger.info(
+                f"Trade executed: {order_result.contracts_filled} {side} contracts @ "
+                f"{order_result.fill_price:.2%} (${order_result.total_cost_usd:.2f})"
+            )
+
+        return output
+
+
+def _update_state_after_trade(
+    opportunity,
+    side: Literal["YES", "NO"],
+    contracts: int,
+    fill_price: float,
+    total_cost: float,
+    config: Settings,
+) -> None:
+    """Update state.yaml with new position, adjust cash balance, and recalculate risk metrics."""
+    state = load_state()
+
+    # Update cash balance
+    state.portfolio.cash_balance -= total_cost
+    state.portfolio.positions_value += total_cost
+    state.portfolio.total_value = (
+        state.portfolio.cash_balance + state.portfolio.positions_value
+    )
+
+    # Create position
+    position_id = f"pos_{uuid4().hex[:8]}"
+    position = Position(
+        id=position_id,
+        market_ticker=opportunity.market_ticker,
+        side=side,
+        contracts=contracts,
+        average_entry=fill_price,
+        current_price=fill_price,  # Will be updated by Guardian
+        unrealized_pnl=0.0,  # Will be calculated by Guardian
+    )
+    state.open_positions.append(position)
+
+    # Update daily stats
+    state.daily_stats.trades_today += 1
+
+    # Recalculate capital at risk
+    total_at_risk = sum(
+        pos.contracts * pos.average_entry for pos in state.open_positions
+    )
+    state.risk_status.capital_at_risk_pct = (
+        total_at_risk / state.portfolio.total_value
+        if state.portfolio.total_value > 0
+        else 0.0
+    )
+
+    save_state(state)
+    logger.info(f"Updated state: cash=${state.portfolio.cash_balance:.2f}, positions={len(state.open_positions)}")
