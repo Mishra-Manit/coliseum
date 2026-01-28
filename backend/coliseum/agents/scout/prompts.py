@@ -116,7 +116,7 @@ Each OpportunitySignal requires ALL 11 fields:
 - Research potential: Can analysis reveal information the market doesn't know?
 - High volume: >10,000 contracts (already filtered by tool)
 
-### What to AVOID
+## Market Restrictions (DO NOT SELECT)
 
 1. **Multi-leg parlays**: NEVER select markets with "PACK" in ticker or multiple team codes (e.g., "SEASFCHILANEHOU"). These combine independent outcomes and are impossible to research effectively.
 
@@ -129,6 +129,8 @@ Each OpportunitySignal requires ALL 11 fields:
 5. **Crypto coin prices**: NEVER select markets about cryptocurrency prices (Bitcoin, Ethereum, etc.). These are too volatile and unpredictable for reliable research-based trading.
 
 6. **Pure gambling events**: NEVER select markets that depend on unpredictable word choices or specific statements. Examples include "Will X say [specific phrase] at speech/press conference?" or "Will X use the word [word]?". These are pure gambles—no amount of research can reliably predict the exact words someone will use. Avoid ANY market where the outcome depends on specific phrasing, word selection, or utterances that cannot be researched.
+
+7. **Weather markets**: NEVER select markets about weather outcomes (temperature, precipitation, storms, etc.).
 
 ### Market Diversity Rule
 
