@@ -25,7 +25,7 @@ class RiskConfig(BaseModel):
     max_position_pct: float = 0.10
     max_daily_loss_pct: float = 0.05
     max_open_positions: int = 10
-    max_single_trade_usd: float = 1000.0
+    max_single_trade_usd: float = 10.0
     min_edge_threshold: float = 0.05
     min_ev_threshold: float = 0.10
     kelly_fraction: float = 0.25

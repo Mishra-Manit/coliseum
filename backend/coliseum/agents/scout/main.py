@@ -56,9 +56,8 @@ def _register_tools(agent: Agent[ScoutDependencies, ScoutOutput]) -> None:
         min_volume = 10000
         markets = [m for m in markets if m.volume >= min_volume]
 
-        # Filter out extreme probability markets (no actionable edge)
-        # Markets >95% or <5% implied probability have little research value
-        markets = [m for m in markets if 5 <= (m.yes_ask or 50) <= 95]
+        # Markets >90% or <10% implied probability have little research value
+        markets = [m for m in markets if 10 <= (m.yes_ask or 50) <= 90]
 
         # Convert to JSON-serializable format for LLM with spread calculations
         return [
@@ -82,11 +81,7 @@ def _register_tools(agent: Agent[ScoutDependencies, ScoutOutput]) -> None:
 
     @agent.tool
     def generate_opportunity_id_tool(ctx: RunContext[ScoutDependencies]) -> str:
-        """Generate a unique opportunity ID with opp_ prefix.
-
-        Returns:
-            Unique ID string (e.g., "opp_a1b2c3d4")
-        """
+        """Generate a unique opportunity ID with opp_ prefix."""
         return generate_opportunity_id()
 
     @agent.tool
@@ -117,16 +112,7 @@ async def run_scout(
     settings: Settings | None = None,
     dry_run: bool = False,
 ) -> ScoutOutput:
-    """Execute a Scout scan and optionally save opportunities.
-
-    Args:
-        settings: Optional Settings override. Defaults to get_settings().
-        dry_run: If True, skip file persistence.
-                 Useful for testing agent logic without side effects.
-
-    Returns:
-        ScoutOutput with discovered opportunities and scan summary.
-    """
+    """Execute a Scout scan and optionally save opportunities."""
     if settings is None:
         settings = get_settings()
 
@@ -153,7 +139,6 @@ async def run_scout(
         logger.debug(f"Injecting {len(seen_tickers)} seen tickers into prompt context")
 
     # Scout always reads from production API (market data is public)
-    # Only Trader needs demo mode for paper trading order execution
     from coliseum.services.kalshi.config import KalshiConfig
     kalshi_config = KalshiConfig(paper_mode=False)
     async with KalshiClient(config=kalshi_config) as client:

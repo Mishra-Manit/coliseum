@@ -8,12 +8,12 @@ trading:
 
 risk:
   max_position_pct: 0.10          # Max 10% of portfolio per position
-  max_daily_loss_pct: 0.05        # Stop trading if down 5% in a day
+  max_daily_loss_pct: 0.10        # Stop trading if down 10% in a day
   max_open_positions: 10          # Maximum concurrent positions
-  max_single_trade_usd: 1000.00   # Hard cap per trade
+  max_single_trade_usd: 10.00     # Hard cap per trade
   min_edge_threshold: 0.05        # Only trade if edge > 5%
-  min_ev_threshold: 0.10          # Only trade if EV > 10%
-  kelly_fraction: 0.25            # Use 1/4 Kelly for position sizing
+  min_ev_threshold: 0.05          # Only trade if EV > 5%
+  kelly_fraction: 0.75            # Use 3/4 Kelly for position sizing
 
 scheduler:
   scout_full_scan_minutes: 60     # Full market scan every hour
