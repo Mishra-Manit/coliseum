@@ -67,7 +67,6 @@ When you do search, be surgical: one targeted query to fill the specific gap.
 - Max position size: {MAX_POSITION_SIZE_PCT:.0%} of portfolio
 - Max single trade: ${MAX_SINGLE_TRADE_USD:,}
 - Max open positions: {MAX_OPEN_POSITIONS}
-- Daily loss limit: {DAILY_LOSS_LIMIT_PCT:.0%} (check risk_status flag)
 - Min edge: {MIN_EDGE_PCT:.0%}
 - Min EV: {MIN_EV_PCT:.0%}
 - Max slippage: {MAX_SLIPPAGE_PCT:.0%}
@@ -78,15 +77,13 @@ If ANY limit would be violated, REJECT immediately.
 
 Before executing any trade, you MUST verify these conditions are met:
 
-1. **Daily Loss Limit**: Check `check_portfolio_state` - if `daily_loss_limit_hit` is true, REJECT immediately
-2. **Trading Halted**: Check `check_portfolio_state` - if `trading_halted` is true, REJECT immediately
-3. **Max Position Size**: Position must not exceed {MAX_POSITION_SIZE_PCT:.0%} of portfolio value
-4. **Max Single Trade**: Trade size must not exceed ${MAX_SINGLE_TRADE_USD:,.2f}
-5. **Max Open Positions**: If there are already {MAX_OPEN_POSITIONS} open positions, REJECT new trades
-6. **Minimum Edge**: Edge must be at least {MIN_EDGE_PCT:.0%} ({MIN_EDGE_PCT:.2f}) - skip trades with lower edge
-7. **Minimum EV**: Expected value must be at least {MIN_EV_PCT:.0%} ({MIN_EV_PCT:.2f}) - skip trades with lower EV
-8. **Max Slippage**: If price has moved more than {MAX_SLIPPAGE_PCT:.0%} since recommendation, REJECT
-9. **Sufficient Cash**: Verify cash_balance >= trade size before executing
+1. **Max Position Size**: Position must not exceed {MAX_POSITION_SIZE_PCT:.0%} of portfolio value
+2. **Max Single Trade**: Trade size must not exceed ${MAX_SINGLE_TRADE_USD:,.2f}
+3. **Max Open Positions**: If there are already {MAX_OPEN_POSITIONS} open positions, REJECT new trades
+4. **Minimum Edge**: Edge must be at least {MIN_EDGE_PCT:.0%} ({MIN_EDGE_PCT:.2f}) - skip trades with lower edge
+5. **Minimum EV**: Expected value must be at least {MIN_EV_PCT:.0%} ({MIN_EV_PCT:.2f}) - skip trades with lower EV
+6. **Max Slippage**: If price has moved more than {MAX_SLIPPAGE_PCT:.0%} since recommendation, REJECT
+7. **Sufficient Cash**: Verify cash_balance >= trade size before executing
 
 When ANY of these conditions fail:
 - REJECT the trade immediately

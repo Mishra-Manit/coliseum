@@ -134,18 +134,13 @@ def _register_tools(agent: Agent[TraderDependencies, TraderOutput]) -> None:
     async def check_portfolio_state(
         ctx: RunContext[TraderDependencies],
     ) -> dict:
-        """Get portfolio cash, positions, and risk flags for trade validation."""
+        """Get portfolio cash, positions for trade validation."""
         state = load_state()
         return {
             "cash_balance": state.portfolio.cash_balance,
             "total_value": state.portfolio.total_value,
             "positions_value": state.portfolio.positions_value,
             "open_positions_count": len(state.open_positions),
-            "daily_loss_limit_hit": state.risk_status.daily_loss_limit_hit,
-            "trading_halted": state.risk_status.trading_halted,
-            "capital_at_risk_pct": state.risk_status.capital_at_risk_pct,
-            "daily_pnl": state.daily_stats.current_pnl,
-            "daily_pnl_pct": state.daily_stats.current_pnl_pct,
         }
 
     @agent.tool
@@ -627,19 +622,6 @@ def _update_state_after_trade(
         unrealized_pnl=0.0,  # Will be calculated by Guardian
     )
     state.open_positions.append(position)
-
-    # Update daily stats
-    state.daily_stats.trades_today += 1
-
-    # Recalculate capital at risk
-    total_at_risk = sum(
-        pos.contracts * pos.average_entry for pos in state.open_positions
-    )
-    state.risk_status.capital_at_risk_pct = (
-        total_at_risk / state.portfolio.total_value
-        if state.portfolio.total_value > 0
-        else 0.0
-    )
 
     save_state(state)
     logger.info(f"Updated state: cash=${state.portfolio.cash_balance:.2f}, positions={len(state.open_positions)}")
