@@ -1,11 +1,11 @@
 """Researcher Agent: Deep research and synthesis without trading decisions."""
 
 import logging
-import os
 import time
 from datetime import datetime, timezone
 from pydantic_ai import Agent, RunContext, WebSearchTool
 
+from coliseum.agents.agent_factory import AgentFactory
 from coliseum.agents.analyst.researcher.models import (
     ResearcherDependencies,
     ResearcherOutput,
@@ -23,29 +23,15 @@ from coliseum.storage.files import (
 
 logger = logging.getLogger(__name__)
 
-_agent: Agent[ResearcherDependencies, ResearcherOutput] | None = None
-
-
-def get_agent() -> Agent[ResearcherDependencies, ResearcherOutput]:
-    global _agent
-    if _agent is None:
-        settings = get_settings()
-        if settings.openai_api_key:
-            os.environ["OPENAI_API_KEY"] = settings.openai_api_key
-        _agent = _create_agent()
-    return _agent
-
 
 def _create_agent() -> Agent[ResearcherDependencies, ResearcherOutput]:
-    agent = Agent(
+    return Agent(
         model=get_model_string(OpenAIModel.GPT_5_MINI),
         output_type=ResearcherOutput,
         deps_type=ResearcherDependencies,
         system_prompt=RESEARCHER_SYSTEM_PROMPT,
         builtin_tools=[WebSearchTool()],
     )
-    _register_tools(agent)
-    return agent
 
 
 def _register_tools(agent: Agent[ResearcherDependencies, ResearcherOutput]) -> None:
@@ -75,6 +61,18 @@ def _register_tools(agent: Agent[ResearcherDependencies, ResearcherOutput]) -> N
             "status": opportunity.status,
             "discovered_at": opportunity.discovered_at.isoformat(),
         }
+
+
+_factory = AgentFactory(
+    create_fn=_create_agent,
+    register_tools_fn=_register_tools,
+)
+
+
+def get_agent() -> Agent[ResearcherDependencies, ResearcherOutput]:
+    """Get the singleton Researcher agent instance."""
+    return _factory.get_agent()
+
 
 async def run_researcher(
     opportunity_id: str,

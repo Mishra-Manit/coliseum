@@ -1,11 +1,11 @@
 """Recommender Agent: Trade decision making based on research."""
 
 import logging
-import os
 import time
 from datetime import datetime, timezone
 from pydantic_ai import Agent, RunContext
 
+from coliseum.agents.agent_factory import AgentFactory
 from coliseum.agents.analyst.recommender.models import (
     RecommenderDependencies,
     RecommenderOutput,
@@ -29,28 +29,14 @@ from coliseum.storage.files import (
 
 logger = logging.getLogger(__name__)
 
-_agent: Agent[RecommenderDependencies, RecommenderOutput] | None = None
-
-
-def get_agent() -> Agent[RecommenderDependencies, RecommenderOutput]:
-    global _agent
-    if _agent is None:
-        settings = get_settings()
-        if settings.openai_api_key:
-            os.environ["OPENAI_API_KEY"] = settings.openai_api_key
-        _agent = _create_agent()
-    return _agent
-
 
 def _create_agent() -> Agent[RecommenderDependencies, RecommenderOutput]:
-    agent = Agent(
+    return Agent(
         model=get_model_string(OpenAIModel.GPT_5),
         output_type=RecommenderOutput,
         deps_type=RecommenderDependencies,
         system_prompt=RECOMMENDER_SYSTEM_PROMPT,
     )
-    _register_tools(agent)
-    return agent
 
 
 def _register_tools(agent: Agent[RecommenderDependencies, RecommenderOutput]) -> None:
@@ -119,6 +105,17 @@ def _register_tools(agent: Agent[RecommenderDependencies, RecommenderOutput]) ->
     def get_current_time(ctx: RunContext[RecommenderDependencies]) -> str:
         """Get current UTC time in ISO 8601 format."""
         return datetime.now(timezone.utc).isoformat()
+
+
+_factory = AgentFactory(
+    create_fn=_create_agent,
+    register_tools_fn=_register_tools,
+)
+
+
+def get_agent() -> Agent[RecommenderDependencies, RecommenderOutput]:
+    """Get the singleton Recommender agent instance."""
+    return _factory.get_agent()
 
 
 async def run_recommender(

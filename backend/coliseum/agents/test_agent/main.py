@@ -1,12 +1,12 @@
 """Test Agent: Scans opportunities and sends Telegram alerts."""
 
 import logging
-import os
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from pydantic_ai import Agent, RunContext
 
+from coliseum.agents.agent_factory import AgentFactory
 from coliseum.agents.test_agent.models import (
     InterestSelection,
     TestAgentDependencies,
@@ -20,22 +20,6 @@ from coliseum.storage.files import find_opportunity_file_by_id, load_opportunity
 from coliseum.storage.state import get_data_dir
 
 logger = logging.getLogger(__name__)
-
-_agent: Agent[TestAgentDependencies, TestAgentOutput] | None = None
-
-
-def get_agent() -> Agent[TestAgentDependencies, TestAgentOutput]:
-    """Get the singleton Test agent instance."""
-    global _agent
-    if _agent is None:
-        # Ensure OpenAI API key is set
-        settings = get_settings()
-        if settings.openai_api_key:
-            os.environ["OPENAI_API_KEY"] = settings.openai_api_key
-
-        _agent = _create_agent()
-        _register_tools(_agent)
-    return _agent
 
 
 def _create_agent() -> Agent[TestAgentDependencies, TestAgentOutput]:
@@ -250,6 +234,17 @@ def _register_tools(agent: Agent[TestAgentDependencies, TestAgentOutput]) -> Non
                 "success": False,
                 "error": str(e),
             }
+
+
+_factory = AgentFactory(
+    create_fn=_create_agent,
+    register_tools_fn=_register_tools,
+)
+
+
+def get_agent() -> Agent[TestAgentDependencies, TestAgentOutput]:
+    """Get the singleton Test agent instance."""
+    return _factory.get_agent()
 
 
 async def run_test_agent(

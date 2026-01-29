@@ -1,12 +1,12 @@
 """Scout Agent: Market discovery and opportunity filtering."""
 
-import os
 import logging
 from datetime import datetime, timezone
 from typing import Literal
 
 from pydantic_ai import Agent, RunContext, WebSearchTool
- 
+
+from coliseum.agents.agent_factory import AgentFactory
 from coliseum.config import Settings, get_settings
 from coliseum.llm_providers import AnthropicModel, FireworksModel, OpenAIModel, get_model_string
 from coliseum.services.kalshi.client import KalshiClient
@@ -99,22 +99,15 @@ def _register_tools(agent: Agent[ScoutDependencies, ScoutOutput]) -> None:
         return datetime.now(timezone.utc).isoformat()
 
 
-# Global agent instance (created on first use)
-_scout_agent: Agent[ScoutDependencies, ScoutOutput] | None = None
+_factory = AgentFactory(
+    create_fn=_create_scout_agent,
+    register_tools_fn=_register_tools,
+)
 
 
 def get_scout_agent() -> Agent[ScoutDependencies, ScoutOutput]:
     """Get the singleton Scout agent instance."""
-    global _scout_agent
-    if _scout_agent is None:
-        # ensure API key is set for pydantic-ai
-        settings = get_settings()
-        if settings.openai_api_key:
-            os.environ["OPENAI_API_KEY"] = settings.openai_api_key
-
-        _scout_agent = _create_scout_agent()
-        _register_tools(_scout_agent)
-    return _scout_agent
+    return _factory.get_agent()
 
 
 async def run_scout(
