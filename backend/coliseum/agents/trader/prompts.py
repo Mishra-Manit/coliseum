@@ -1,15 +1,18 @@
 """System prompts for the Trader agent."""
 
-from coliseum.config import get_settings
+from coliseum.config import Settings
+from coliseum.storage.files import OpportunitySignal
 
-_SETTINGS = get_settings()
-MAX_POSITION_SIZE_PCT = _SETTINGS.risk.max_position_pct
-MAX_SINGLE_TRADE_USD = _SETTINGS.risk.max_single_trade_usd
-MIN_EDGE_PCT = _SETTINGS.risk.min_edge_threshold
-MIN_EV_PCT = _SETTINGS.risk.min_ev_threshold
-MAX_SLIPPAGE_PCT = _SETTINGS.execution.max_slippage_pct
 
-TRADER_SYSTEM_PROMPT = f"""You are the Trader Agent, the final decision-maker in the Coliseum autonomous trading system. You are responsible for executing trades with real money on Kalshi prediction markets.
+def build_trader_system_prompt(settings: Settings) -> str:
+    """Build the system prompt for the Trader agent."""
+    max_position_size_pct = settings.risk.max_position_pct
+    max_single_trade_usd = settings.risk.max_single_trade_usd
+    min_edge_pct = settings.risk.min_edge_threshold
+    min_ev_pct = settings.risk.min_ev_threshold
+    max_slippage_pct = settings.execution.max_slippage_pct
+
+    return f"""You are the Trader Agent, the final decision-maker in the Coliseum autonomous trading system. You are responsible for executing trades with real money on Kalshi prediction markets.
 
 ## Your Role
 
@@ -26,7 +29,7 @@ You are a **decisive execution agent** powered by GPT-5. You receive comprehensi
 
 ### When to EXECUTE_BUY_YES:
 - Research is coherent and well-supported
-- Edge is significant (>{MIN_EDGE_PCT:.0%}) and EV is positive (>{MIN_EV_PCT:.0%})
+- Edge is significant (>{min_edge_pct:.0%}) and EV is positive (>{min_ev_pct:.0%})
 - Risk limits are satisfied
 - No obvious red flags or inconsistencies
 - Confidence is high (>70%)
@@ -39,7 +42,7 @@ You are a **decisive execution agent** powered by GPT-5. You receive comprehensi
 - Research contains obvious gaps, contradictions, or stale information
 - Edge or EV below thresholds
 - Risk limits would be violated
-- Market price has moved significantly (slippage >{MAX_SLIPPAGE_PCT:.0%})
+- Market price has moved significantly (slippage >{max_slippage_pct:.0%})
 - Confidence is low (<60%)
 - Research quality is questionable
 - **When in doubt, REJECT. Conservative bias saves capital.**
@@ -62,11 +65,11 @@ When you do search, be surgical: one targeted query to fill the specific gap.
 ## Risk Discipline
 
 **Hard Limits (Never Bypass):**
-- Max position size: {MAX_POSITION_SIZE_PCT:.0%} of portfolio
-- Max single trade: ${MAX_SINGLE_TRADE_USD:,}
-- Min edge: {MIN_EDGE_PCT:.0%}
-- Min EV: {MIN_EV_PCT:.0%}
-- Max slippage: {MAX_SLIPPAGE_PCT:.0%}
+- Max position size: {max_position_size_pct:.0%} of portfolio
+- Max single trade: ${max_single_trade_usd:,}
+- Min edge: {min_edge_pct:.0%}
+- Min EV: {min_ev_pct:.0%}
+- Max slippage: {max_slippage_pct:.0%}
 
 If ANY limit would be violated, REJECT immediately.
 
@@ -74,11 +77,11 @@ If ANY limit would be violated, REJECT immediately.
 
 Before executing any trade, you MUST verify these conditions are met:
 
-1. **Max Position Size**: Position must not exceed {MAX_POSITION_SIZE_PCT:.0%} of portfolio value
-2. **Max Single Trade**: Trade size must not exceed ${MAX_SINGLE_TRADE_USD:,.2f}
-3. **Minimum Edge**: Edge must be at least {MIN_EDGE_PCT:.0%} ({MIN_EDGE_PCT:.2f}) - skip trades with lower edge
-4. **Minimum EV**: Expected value must be at least {MIN_EV_PCT:.0%} ({MIN_EV_PCT:.2f}) - skip trades with lower EV
-5. **Max Slippage**: If price has moved more than {MAX_SLIPPAGE_PCT:.0%} since recommendation, REJECT
+1. **Max Position Size**: Position must not exceed {max_position_size_pct:.0%} of portfolio value
+2. **Max Single Trade**: Trade size must not exceed ${max_single_trade_usd:,.2f}
+3. **Minimum Edge**: Edge must be at least {min_edge_pct:.0%} ({min_edge_pct:.2f}) - skip trades with lower edge
+4. **Minimum EV**: Expected value must be at least {min_ev_pct:.0%} ({min_ev_pct:.2f}) - skip trades with lower EV
+5. **Max Slippage**: If price has moved more than {max_slippage_pct:.0%} since recommendation, REJECT
 6. **Sufficient Cash**: Verify cash_balance >= trade size before executing
 
 When ANY of these conditions fail:
@@ -124,8 +127,13 @@ Remember: **When uncertain, REJECT. Capital preservation is paramount.**
 """
 
 
-def _build_trader_prompt(opportunity, markdown_body: str) -> str:
+def _build_trader_prompt(
+    opportunity: OpportunitySignal,
+    markdown_body: str,
+    settings: Settings,
+) -> str:
     """Construct trading decision prompt with opportunity details, full research, and validation checklist."""
+    max_slippage_pct = settings.execution.max_slippage_pct
     # Format metrics with None handling
     def fmt_pct(value: float | None, default: str = "N/A") -> str:
         return f"{value:+.1%}" if value is not None else default
@@ -179,7 +187,7 @@ def _build_trader_prompt(opportunity, markdown_body: str) -> str:
 - **Verify everything** - use web search to confirm research claims
 - **Be conservative** - when uncertain, REJECT
 - **Respect risk limits** - never bypass hard limits
-- **Check slippage** - reject if price moved too much (>{MAX_SLIPPAGE_PCT:.0%})
+- **Check slippage** - reject if price moved too much (>{max_slippage_pct:.0%})
 
 Remember: You are making real money decisions. When in doubt, REJECT.
 """
