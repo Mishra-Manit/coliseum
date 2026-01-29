@@ -12,7 +12,6 @@ from uuid import uuid4
 from pydantic_ai import Agent, RunContext, WebSearchTool
 from pydantic_ai.messages import ModelMessage
 
-from coliseum.agents.calculations import calculate_edge, calculate_expected_value
 from coliseum.agents.trader.models import (
     OrderResult,
     TraderDependencies,

@@ -1,9 +1,4 @@
-"""File I/O operations for opportunities and trades.
-
-This module handles saving opportunities to markdown files
-with YAML frontmatter, and logging trades to JSONL format. All files use date-based
-directory organization for easy browsing.
-"""
+"""File I/O operations for opportunities and trades."""
 
 import json
 import logging
@@ -23,21 +18,15 @@ from coliseum.storage.state import get_data_dir
 
 logger = logging.getLogger(__name__)
 
-# Status type alias for opportunity lifecycle
 OpportunityStatus = Literal[
     "pending", "researching", "recommended", "traded", "expired", "skipped"
 ]
 
 
-# ============================================================================
-# Pydantic Models
-# ============================================================================
-
-
 class OpportunitySignal(BaseModel):
-    """Scout-discovered opportunity with progressive enrichment through pipeline stages."""
+    """Scout-discovered opportunity."""
 
-    # Scout fields (created at discovery)
+    # Scout fields
     id: str = Field(
         description="Unique opportunity ID with 'opp_' prefix (e.g., 'opp_a1b2c3d4'). Use generate_opportunity_id_tool() to create."
     )
@@ -52,37 +41,37 @@ class OpportunitySignal(BaseModel):
     )
     subtitle: str = Field(
         default="",
-        description="Additional context or specific outcome being bet on (e.g., movie name, player name). Empty string if not applicable."
+        description="Additional context or specific outcome being bet on. Empty string if not applicable."
     )
     yes_price: float = Field(
         ge=0, le=1,
-        description="YES contract price as decimal 0-1. Calculate as yes_ask / 100 (e.g., 45 cents = 0.45)"
+        description="YES contract price as decimal 0-1."
     )
     no_price: float = Field(
         ge=0, le=1,
-        description="NO contract price as decimal 0-1. Calculate as no_ask / 100 (e.g., 56 cents = 0.56)"
+        description="NO contract price as decimal 0-1."
     )
     close_time: datetime = Field(
-        description="Market close timestamp in ISO 8601 format from market data 'close_time' field"
+        description="Market close timestamp in ISO 8601 format"
     )
     rationale: str = Field(
-        description="Explanation for selecting this opportunity. MUST reference only market data (spread, volume, implied probability). Do NOT fabricate external facts."
+        description="Explanation for selecting this opportunity. MUST reference only market data."
     )
     discovered_at: datetime = Field(
-        description="Timestamp when Scout discovered this (ISO 8601 format, current time)"
+        description="Timestamp when Scout discovered this"
     )
     status: Literal[
         "pending", "researching", "recommended", "traded", "expired", "skipped"
     ] = Field(
         default="pending",
-        description="Opportunity lifecycle status. 'pending' → 'researching' → 'recommended' → 'traded'"
+        description="Opportunity lifecycle status."
     )
 
-    # Research fields (null initially, populated by Researcher)
+    # Research fields
     research_completed_at: datetime | None = None
     research_duration_seconds: int | None = None
 
-    # Recommendation fields (null initially, populated by Recommender)
+    # Recommendation fields
     estimated_true_probability: float | None = None
     current_market_price: float | None = None
     expected_value: float | None = None
@@ -97,7 +86,7 @@ class OpportunitySignal(BaseModel):
 
 
 class TradeExecution(BaseModel):
-    """Trade execution record - logged to JSONL."""
+    """Trade execution record."""
 
     id: str
     position_id: str | None
@@ -111,26 +100,13 @@ class TradeExecution(BaseModel):
     portfolio_pct: float
     edge: float
     ev: float
-    paper: bool  # True if paper trading
+    paper: bool
     executed_at: datetime
     strategy: str = "research_driven"
 
 
-# ============================================================================
-# Helper Functions
-# ============================================================================
-
-
 def _ensure_date_dir(base_dir: Path, date: datetime) -> Path:
-    """Ensure date-based subdirectory exists (YYYY-MM-DD format).
-
-    Args:
-        base_dir: Base directory (e.g., data/opportunities/)
-        date: Date for directory name
-
-    Returns:
-        Path to date directory
-    """
+    """Ensure date-based subdirectory exists (YYYY-MM-DD format)."""
     date_str = date.strftime("%Y-%m-%d")
     date_dir = base_dir / date_str
     date_dir.mkdir(parents=True, exist_ok=True)
@@ -140,15 +116,7 @@ def _ensure_date_dir(base_dir: Path, date: datetime) -> Path:
 def _format_markdown_with_frontmatter(
     frontmatter_data: dict, body: str
 ) -> str:
-    """Format markdown with YAML frontmatter.
-
-    Args:
-        frontmatter_data: Dictionary to serialize as YAML frontmatter
-        body: Markdown body content
-
-    Returns:
-        Complete markdown file content
-    """
+    """Format markdown with YAML frontmatter."""
     frontmatter = yaml.dump(
         frontmatter_data,
         default_flow_style=False,
@@ -158,37 +126,19 @@ def _format_markdown_with_frontmatter(
     return f"---\n{frontmatter}---\n\n{body}"
 
 
-# ============================================================================
-# Public API
-# ============================================================================
-
-
 def save_opportunity(opportunity: OpportunitySignal) -> Path:
-    """Save opportunity to markdown file in data/opportunities/{date}/{ticker}.md.
-
-    Args:
-        opportunity: Opportunity signal from Scout
-
-    Returns:
-        Path to created markdown file
-
-    Raises:
-        OSError: If file write fails
-    """
+    """Save opportunity to markdown file."""
     data_dir = get_data_dir()
     opps_dir = data_dir / "opportunities"
     date_dir = _ensure_date_dir(opps_dir, opportunity.discovered_at)
 
-    # Generate filename from market ticker
     filename = f"{opportunity.market_ticker}.md"
     file_path = date_dir / filename
 
-    # Prepare frontmatter (all fields except title, subtitle, and rationale)
     frontmatter = opportunity.model_dump(
         mode="json", exclude={"title", "subtitle", "rationale"}
     )
 
-    # Prepare markdown body
     subtitle_section = f"\n**Outcome**: {opportunity.subtitle}\n" if opportunity.subtitle else ""
 
     body = f"""# {opportunity.title}
@@ -206,7 +156,6 @@ def save_opportunity(opportunity: OpportunitySignal) -> Path:
 | Closes | {opportunity.close_time.strftime('%Y-%m-%d %I:%M %p')} |
 """
 
-    # Write markdown file
     content = _format_markdown_with_frontmatter(frontmatter, body)
     file_path.write_text(content, encoding="utf-8")
 
@@ -221,33 +170,13 @@ def append_to_opportunity(
     section_header: str,
     lookback_days: int = 7,
 ) -> Path:
-    """Safely append research or recommendation data to existing opportunity file.
-
-    Uses atomic read-modify-write pattern to prevent corruption.
-
-    Args:
-        market_ticker: Market ticker to identify the file
-        frontmatter_updates: Dict of fields to update in YAML frontmatter
-        body_section: Markdown content to append (complete section with header)
-        section_header: Section marker (e.g., "## Research Synthesis") for duplicate detection
-        lookback_days: How many days back to search for file
-
-    Returns:
-        Path to updated file
-
-    Raises:
-        FileNotFoundError: If opportunity file not found
-        ValueError: If section already exists (prevents double-append)
-    """
-    # 1. Find the file
+    """Safely append research or recommendation data to an existing opportunity file."""
     file_path = find_opportunity_file(market_ticker, lookback_days)
     if not file_path:
         raise FileNotFoundError(f"Opportunity file not found: {market_ticker}")
 
-    # 2. Read current content
     content = file_path.read_text(encoding="utf-8")
 
-    # 3. Parse frontmatter and body
     if not content.startswith("---"):
         raise ValueError(f"Invalid frontmatter in {file_path}")
 
@@ -258,21 +187,16 @@ def append_to_opportunity(
     frontmatter_raw = parts[1]
     body = parts[2]
 
-    # 4. Parse and update frontmatter
     frontmatter = yaml.safe_load(frontmatter_raw) or {}
 
-    # Check if section already exists (prevent double-append)
     if section_header in body:
         logger.warning(f"Section '{section_header}' already exists in {file_path}")
         raise ValueError(f"Section '{section_header}' already exists")
 
-    # Update frontmatter fields
     frontmatter.update(frontmatter_updates)
 
-    # 5. Append body section
     new_body = body.rstrip() + "\n\n" + body_section
 
-    # 6. Reconstruct file
     new_frontmatter_raw = yaml.dump(
         frontmatter,
         default_flow_style=False,
@@ -281,7 +205,7 @@ def append_to_opportunity(
     )
     new_content = f"---\n{new_frontmatter_raw}---{new_body}"
 
-    # 7. Atomic write (prevent corruption)
+    # Atomic write
     with tempfile.NamedTemporaryFile(
         mode='w',
         delete=False,
@@ -292,7 +216,6 @@ def append_to_opportunity(
         f.write(new_content)
         temp_path = Path(f.name)
 
-    # Atomic rename (overwrites destination)
     shutil.move(str(temp_path), str(file_path))
 
     logger.info(f"Appended section '{section_header}' to {file_path}")
@@ -301,14 +224,12 @@ def append_to_opportunity(
 
 def _parse_opportunity_from_parts(frontmatter: dict, body: str) -> OpportunitySignal:
     """Build OpportunitySignal from frontmatter and body content."""
-    # Extract title, subtitle, rationale from body
     lines = body.strip().split("\n")
     title = ""
     subtitle = ""
     rationale = ""
 
     for line in lines:
-        # Strip whitespace AND replace literal \n characters from old broken files
         line = line.strip().replace("\\n", "")
 
         if line.startswith("# "):
@@ -386,19 +307,7 @@ def find_opportunity_file_by_id(
 def load_opportunity_with_all_stages(
     market_ticker: str, lookback_days: int = 7
 ) -> OpportunitySignal:
-    """Load opportunity file with all stages (scout + research + recommendation).
-
-    Args:
-        market_ticker: Market ticker to identify the file
-        lookback_days: How many days back to search for file
-
-    Returns:
-        Complete OpportunitySignal with all stages populated
-
-    Raises:
-        FileNotFoundError: If opportunity file not found
-        ValueError: If file format is invalid
-    """
+    """Load opportunity file with all stages."""
     file_path = find_opportunity_file(market_ticker, lookback_days)
     if not file_path:
         raise FileNotFoundError(f"Opportunity file not found: {market_ticker}")
@@ -407,14 +316,7 @@ def load_opportunity_with_all_stages(
 
 
 def get_opportunity_markdown_body(file_path: Path) -> str:
-    """Get the markdown body (everything after frontmatter) from an opportunity file.
-
-    Args:
-        file_path: Path to opportunity markdown file
-
-    Returns:
-        The full markdown body as a string
-    """
+    """Get the markdown body from an opportunity file."""
     content = file_path.read_text(encoding="utf-8")
     parts = content.split("---", 2)
     if len(parts) < 3:
@@ -423,24 +325,16 @@ def get_opportunity_markdown_body(file_path: Path) -> str:
 
 
 def log_trade(trade: TradeExecution) -> None:
-    """Append trade execution to JSONL ledger in data/trades/{date}.jsonl.
-
-    Note:
-        Uses atomic append - each trade is a single JSON object on one line.
-        File is created if it doesn't exist.
-    """
+    """Append trade execution to JSONL ledger in data/trades/{date}.jsonl."""
     data_dir = get_data_dir()
     trades_dir = data_dir / "trades"
     trades_dir.mkdir(parents=True, exist_ok=True)
 
-    # Generate filename from execution date
     date_str = trade.executed_at.strftime("%Y-%m-%d")
     ledger_path = trades_dir / f"{date_str}.jsonl"
 
-    # Serialize trade to JSON (one line)
     trade_json = trade.model_dump_json() + "\\n"
 
-    # Atomic append
     try:
         with open(ledger_path, "a", encoding="utf-8") as f:
             f.write(trade_json)
@@ -453,39 +347,34 @@ def log_trade(trade: TradeExecution) -> None:
 
 
 def generate_opportunity_id() -> str:
-    """Generate unique opportunity ID with opp_ prefix."""
+    """Generate unique opportunity ID."""
     return f"opp_{uuid4().hex[:8]}"
 
 
 def generate_trade_id() -> str:
-    """Generate unique trade execution ID with trade_ prefix."""
+    """Generate unique trade execution ID."""
     return f"trade_{uuid4().hex[:8]}"
 
 
 def find_opportunity_file(market_ticker: str, lookback_days: int = 7) -> Path | None:
-    """Find the opportunity markdown file for a given market ticker.
-    
-    Searches all date directories (newest to oldest) within lookback_days.
-    """
+    """Find the opportunity markdown file for a given market ticker."""
     data_dir = get_data_dir()
     opps_dir = data_dir / "opportunities"
-    
+
     if not opps_dir.exists():
         return None
-    
-    # Get all date directories and sort newest first
+
     date_dirs = sorted(
         [d for d in opps_dir.iterdir() if d.is_dir()],
         key=lambda d: d.name,
-        reverse=True  # Newest first
+        reverse=True
     )
-    
-    # Search in each date directory
-    for date_dir in date_dirs[:lookback_days + 1]:  # Limit to lookback_days
+
+    for date_dir in date_dirs[:lookback_days + 1]:
         file_path = date_dir / f"{market_ticker}.md"
         if file_path.exists():
             return file_path
-    
+
     return None
 
 
@@ -494,43 +383,35 @@ def update_opportunity_status(
     new_status: OpportunityStatus,
     lookback_days: int = 7,
 ) -> bool:
-    """Update the status field in an opportunity's markdown frontmatter.
-    
-    This updates the YAML frontmatter and preserves the rest of the file.
-    Note: Memory system is updated separately by the calling agent.
-    """
+    """Update the status field in an opportunity's markdown frontmatter."""
     file_path = find_opportunity_file(market_ticker, lookback_days)
-    
+
     if file_path is None:
         logger.warning(f"Opportunity file not found for {market_ticker}")
         return False
-    
+
     try:
         content = file_path.read_text(encoding="utf-8")
-        
-        # Parse frontmatter and body
+
         if not content.startswith("---"):
             logger.error(f"Invalid frontmatter format in {file_path}")
             return False
-        
-        # Split into frontmatter and body
+
         parts = content.split("---", 2)
         if len(parts) < 3:
             logger.error(f"Could not parse frontmatter in {file_path}")
             return False
-        
+
         frontmatter_raw = parts[1]
         body = parts[2]
-        
-        # Parse YAML frontmatter
+
         frontmatter = yaml.safe_load(frontmatter_raw)
         if frontmatter is None:
             frontmatter = {}
-        
+
         old_status = frontmatter.get("status", "unknown")
         frontmatter["status"] = new_status
-        
-        # Reconstruct file with updated frontmatter
+
         new_frontmatter_raw = yaml.dump(
             frontmatter,
             default_flow_style=False,
@@ -538,16 +419,15 @@ def update_opportunity_status(
             sort_keys=False,
         )
         new_content = f"---\n{new_frontmatter_raw}---{body}"
-        
-        # Write back
+
         file_path.write_text(new_content, encoding="utf-8")
-        
+
         logger.info(
             f"Updated opportunity status: {market_ticker} ({old_status} -> {new_status})"
         )
-        
+
         return True
-        
+
     except Exception as e:
         logger.error(f"Failed to update opportunity status for {market_ticker}: {e}")
         return False

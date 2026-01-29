@@ -45,7 +45,7 @@ python -m coliseum init      # Initialize data directory
 python -m coliseum run       # Start autonomous system
 python -m coliseum scout     # Run market scan
 python -m coliseum status    # Portfolio status
-pytest                       # Run tests
+# No tests are set up in this repository - do not use pytest
 ```
 
 ## Code Patterns

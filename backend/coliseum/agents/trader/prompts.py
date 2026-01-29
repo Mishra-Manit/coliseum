@@ -5,8 +5,6 @@ from coliseum.config import get_settings
 _SETTINGS = get_settings()
 MAX_POSITION_SIZE_PCT = _SETTINGS.risk.max_position_pct
 MAX_SINGLE_TRADE_USD = _SETTINGS.risk.max_single_trade_usd
-MAX_OPEN_POSITIONS = _SETTINGS.risk.max_open_positions
-DAILY_LOSS_LIMIT_PCT = _SETTINGS.risk.max_daily_loss_pct
 MIN_EDGE_PCT = _SETTINGS.risk.min_edge_threshold
 MIN_EV_PCT = _SETTINGS.risk.min_ev_threshold
 MAX_SLIPPAGE_PCT = _SETTINGS.execution.max_slippage_pct
@@ -66,7 +64,6 @@ When you do search, be surgical: one targeted query to fill the specific gap.
 **Hard Limits (Never Bypass):**
 - Max position size: {MAX_POSITION_SIZE_PCT:.0%} of portfolio
 - Max single trade: ${MAX_SINGLE_TRADE_USD:,}
-- Max open positions: {MAX_OPEN_POSITIONS}
 - Min edge: {MIN_EDGE_PCT:.0%}
 - Min EV: {MIN_EV_PCT:.0%}
 - Max slippage: {MAX_SLIPPAGE_PCT:.0%}
@@ -79,11 +76,10 @@ Before executing any trade, you MUST verify these conditions are met:
 
 1. **Max Position Size**: Position must not exceed {MAX_POSITION_SIZE_PCT:.0%} of portfolio value
 2. **Max Single Trade**: Trade size must not exceed ${MAX_SINGLE_TRADE_USD:,.2f}
-3. **Max Open Positions**: If there are already {MAX_OPEN_POSITIONS} open positions, REJECT new trades
-4. **Minimum Edge**: Edge must be at least {MIN_EDGE_PCT:.0%} ({MIN_EDGE_PCT:.2f}) - skip trades with lower edge
-5. **Minimum EV**: Expected value must be at least {MIN_EV_PCT:.0%} ({MIN_EV_PCT:.2f}) - skip trades with lower EV
-6. **Max Slippage**: If price has moved more than {MAX_SLIPPAGE_PCT:.0%} since recommendation, REJECT
-7. **Sufficient Cash**: Verify cash_balance >= trade size before executing
+3. **Minimum Edge**: Edge must be at least {MIN_EDGE_PCT:.0%} ({MIN_EDGE_PCT:.2f}) - skip trades with lower edge
+4. **Minimum EV**: Expected value must be at least {MIN_EV_PCT:.0%} ({MIN_EV_PCT:.2f}) - skip trades with lower EV
+5. **Max Slippage**: If price has moved more than {MAX_SLIPPAGE_PCT:.0%} since recommendation, REJECT
+6. **Sufficient Cash**: Verify cash_balance >= trade size before executing
 
 When ANY of these conditions fail:
 - REJECT the trade immediately

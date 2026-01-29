@@ -11,7 +11,7 @@ from coliseum.agents.analyst.recommender.models import (
     RecommenderOutput,
 )
 from coliseum.agents.analyst.recommender.prompts import RECOMMENDER_SYSTEM_PROMPT
-from coliseum.agents.calculations import (
+from coliseum.agents.analyst.recommender.calculations import (
     calculate_edge,
     calculate_expected_value,
     calculate_position_size_pct,

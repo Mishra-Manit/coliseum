@@ -64,8 +64,6 @@ trading:
 
 risk:
   max_position_pct: 0.10
-  max_daily_loss_pct: 0.05
-  max_open_positions: 10
   max_single_trade_usd: 1000.00
   min_edge_threshold: 0.05
   min_ev_threshold: 0.10
@@ -154,8 +152,6 @@ def cmd_config(args: argparse.Namespace) -> int:
 
         print("Risk Management:")
         print(f"  Max Position: {settings.risk.max_position_pct:.0%}")
-        print(f"  Max Daily Loss: {settings.risk.max_daily_loss_pct:.0%}")
-        print(f"  Max Open Positions: {settings.risk.max_open_positions}")
         print(f"  Max Single Trade: ${settings.risk.max_single_trade_usd:,.2f}")
         print(f"  Min Edge: {settings.risk.min_edge_threshold:.0%}")
         print(f"  Min EV: {settings.risk.min_ev_threshold:.0%}")
