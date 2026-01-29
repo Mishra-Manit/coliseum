@@ -34,16 +34,6 @@ class PortfolioStats(BaseModel):
     positions_value: float
 
 
-class DailyStats(BaseModel):
-    """Daily performance metrics."""
-
-    date: str | None  # ISO date (YYYY-MM-DD)
-    starting_value: float
-    current_pnl: float
-    current_pnl_pct: float
-    trades_today: int
-
-
 class Position(BaseModel):
     """Open position details."""
 
@@ -56,22 +46,12 @@ class Position(BaseModel):
     unrealized_pnl: float
 
 
-class RiskStatus(BaseModel):
-    """Risk management status flags."""
-
-    daily_loss_limit_hit: bool
-    trading_halted: bool
-    capital_at_risk_pct: float
-
-
 class PortfolioState(BaseModel):
     """Complete portfolio state - matches data/state.yaml schema."""
 
     last_updated: datetime | None = None
     portfolio: PortfolioStats
-    daily_stats: DailyStats
     open_positions: list[Position] = Field(default_factory=list)
-    risk_status: RiskStatus
 
 
 # ============================================================================
@@ -110,19 +90,7 @@ def _create_default_state() -> PortfolioState:
             cash_balance=initial_value,
             positions_value=0.0,
         ),
-        daily_stats=DailyStats(
-            date=None,
-            starting_value=initial_value,
-            current_pnl=0.0,
-            current_pnl_pct=0.0,
-            trades_today=0,
-        ),
         open_positions=[],
-        risk_status=RiskStatus(
-            daily_loss_limit_hit=False,
-            trading_halted=False,
-            capital_at_risk_pct=0.0,
-        ),
     )
 
 

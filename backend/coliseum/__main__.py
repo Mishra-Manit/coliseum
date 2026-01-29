@@ -118,19 +118,7 @@ portfolio:
   cash_balance: 100.00
   positions_value: 0.00
 
-daily_stats:
-  date: null
-  starting_value: 100.00
-  current_pnl: 0.00
-  current_pnl_pct: 0.00
-  trades_today: 0
-
 open_positions: []
-
-risk_status:
-  daily_loss_limit_hit: false
-  trading_halted: false
-  capital_at_risk_pct: 0.00
 """
             state_path.write_text(state_template)
             logger.info(f"Created state template: {state_path}")
@@ -243,16 +231,6 @@ def cmd_status(args: argparse.Namespace) -> int:
         print(f"  Cash Balance: ${portfolio.get('cash_balance', 0):,.2f}")
         print(f"  Positions Value: ${portfolio.get('positions_value', 0):,.2f}\n")
 
-        daily = state.get("daily_stats", {})
-        print("Today's Performance:")
-        print(f"  Date: {daily.get('date', 'N/A')}")
-        print(f"  Starting Value: ${daily.get('starting_value', 0):,.2f}")
-        pnl = daily.get("current_pnl", 0)
-        pnl_pct = daily.get("current_pnl_pct", 0)
-        pnl_color = "+" if pnl >= 0 else ""
-        print(f"  P&L: {pnl_color}${pnl:,.2f} ({pnl_color}{pnl_pct:.2%})")
-        print(f"  Trades Today: {daily.get('trades_today', 0)}\n")
-
         positions = state.get("open_positions", [])
         print(f"Open Positions: {len(positions)}")
         if positions:
@@ -263,14 +241,6 @@ def cmd_status(args: argparse.Namespace) -> int:
         else:
             print("  (None)")
         print()
-
-        risk = state.get("risk_status", {})
-        print("Risk Status:")
-        halted = risk.get("trading_halted", False)
-        print(f"  Trading: {'🔴 HALTED' if halted else '🟢 Active'}")
-        if risk.get("daily_loss_limit_hit", False):
-            print("  ⚠️  Daily loss limit hit")
-        print(f"  Capital at Risk: {risk.get('capital_at_risk_pct', 0):.1%}\n")
 
         return 0
 
