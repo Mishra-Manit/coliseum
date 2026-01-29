@@ -24,8 +24,8 @@ from coliseum.storage.files import (
     get_opportunity_markdown_body,
     find_opportunity_file_by_id,
     load_opportunity_from_file,
+    update_opportunity_status,
 )
-from coliseum.storage.state import update_market_status
 
 logger = logging.getLogger(__name__)
 
@@ -233,8 +233,8 @@ async def run_recommender(
             section_header="## Trade Evaluation",
         )
 
-        # Update state.yaml status
-        update_market_status(opportunity.market_ticker, "recommended")
+        # Update opportunity status
+        update_opportunity_status(opportunity.market_ticker, "recommended")
 
     logger.info(
         f"Recommender completed in {duration:.1f}s - "

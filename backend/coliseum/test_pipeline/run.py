@@ -129,6 +129,19 @@ def init_test_data_structure() -> None:
             encoding="utf-8",
         )
 
+    # Create memory.md if it doesn't exist (agent memory system)
+    memory_path = TEST_DATA_DIR / "memory.md"
+    if not memory_path.exists():
+        memory_path.write_text(
+            "# Agent Memory Log\n"
+            "\n"
+            "> This file tracks the agent's trading plans, reasoning, and learnings.\n"
+            "> The Guardian reviews this to ensure the agent is following market strategy correctly.\n"
+            "\n"
+            "---\n",
+            encoding="utf-8",
+        )
+
     logger.info(f"Initialized test data structure at {TEST_DATA_DIR}")
 
 
@@ -153,7 +166,10 @@ def clean_test_data() -> None:
             item.unlink()
 
     logger.info(f"Removed {file_count} files from {TEST_DATA_DIR}")
-    logger.info("Test data directory cleaned successfully")
+    
+    # Reinitialize the directory structure (including memory.md)
+    init_test_data_structure()
+    logger.info("Test data directory cleaned and reinitialized")
 
 
 def _override_data_dir() -> None:

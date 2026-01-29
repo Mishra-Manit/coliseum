@@ -32,11 +32,11 @@ from coliseum.storage.files import (
     log_trade,
     update_opportunity_status,
 )
+from coliseum.storage.memory import TradeDetails, update_memory_entry
 from coliseum.storage.state import (
     Position,
     load_state,
     save_state,
-    update_market_status,
 )
 
 logger = logging.getLogger(__name__)
@@ -484,7 +484,10 @@ async def run_trader(
         if output.decision.action == "REJECT":
             logger.info(f"Trader REJECTED trade: {output.decision.reasoning}")
             update_opportunity_status(opportunity.market_ticker, "skipped")
-            update_market_status(opportunity.market_ticker, "skipped")
+            update_memory_entry(
+                market_ticker=opportunity.market_ticker,
+                status="SKIPPED",
+            )
             return output
 
         # Determine side and get corresponding metrics
@@ -519,7 +522,10 @@ async def run_trader(
             logger.warning(f"Slippage too high: {slippage_pct:.1%} > {max_slippage:.0%}")
             output.execution_status = "rejected"
             update_opportunity_status(opportunity.market_ticker, "skipped")
-            update_market_status(opportunity.market_ticker, "skipped")
+            update_memory_entry(
+                market_ticker=opportunity.market_ticker,
+                status="SKIPPED",
+            )
             return output
 
         initial_price_cents = int(current_price_decimal * 100)
@@ -571,7 +577,17 @@ async def run_trader(
 
             # Update opportunity status
             update_opportunity_status(opportunity.market_ticker, "traded")
-            update_market_status(opportunity.market_ticker, "traded")
+
+            update_memory_entry(
+                market_ticker=opportunity.market_ticker,
+                status="EXECUTED",
+                trade=TradeDetails(
+                    side=side.upper(),  # type: ignore
+                    contracts=order_result.contracts_filled,
+                    entry_price=order_result.fill_price or current_price_decimal,
+                    reasoning=output.decision.reasoning,
+                ),
+            )
 
             logger.info(
                 f"Trade executed: {order_result.contracts_filled} {side} contracts @ "

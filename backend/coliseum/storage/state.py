@@ -64,15 +64,6 @@ class RiskStatus(BaseModel):
     capital_at_risk_pct: float
 
 
-class SeenMarket(BaseModel):
-    """Tracked market to prevent duplicate Scout discovery. Auto-cleaned after close_time."""
-
-    opportunity_id: str
-    discovered_at: datetime
-    close_time: datetime
-    status: OpportunityStatus = "pending"
-
-
 class PortfolioState(BaseModel):
     """Complete portfolio state - matches data/state.yaml schema."""
 
@@ -81,7 +72,6 @@ class PortfolioState(BaseModel):
     daily_stats: DailyStats
     open_positions: list[Position] = Field(default_factory=list)
     risk_status: RiskStatus
-    seen_markets: dict[str, SeenMarket] = Field(default_factory=dict)
 
 
 # ============================================================================
@@ -217,91 +207,3 @@ def save_state(state: PortfolioState) -> None:
             temp_path.unlink(missing_ok=True)
         logger.error(f"Failed to save state: {e}")
         raise
-
-
-# ============================================================================
-# Seen Markets Management
-# ============================================================================
-
-
-def mark_market_seen(
-    market_ticker: str,
-    opportunity_id: str,
-    close_time: datetime,
-    status: OpportunityStatus = "pending",
-) -> None:
-    """Mark a market as seen by Scout to prevent duplicate discovery."""
-    state = load_state()
-    
-    # Only add if not already seen (preserve original discovery)
-    if market_ticker in state.seen_markets:
-        logger.debug(f"Market {market_ticker} already seen, skipping")
-        return
-    
-    state.seen_markets[market_ticker] = SeenMarket(
-        opportunity_id=opportunity_id,
-        discovered_at=datetime.now(timezone.utc),
-        close_time=close_time,
-        status=status,
-    )
-    
-    save_state(state)
-    logger.info(f"Marked market as seen: {market_ticker} (opp: {opportunity_id})")
-
-
-def is_market_seen(market_ticker: str) -> bool:
-    """Check if a market has already been discovered."""
-    state = load_state()
-    return market_ticker in state.seen_markets
-
-
-def get_seen_market(market_ticker: str) -> SeenMarket | None:
-    """Get the SeenMarket entry for a ticker, if it exists."""
-    state = load_state()
-    return state.seen_markets.get(market_ticker)
-
-
-def get_seen_tickers() -> list[str]:
-    """Get list of all currently tracked market tickers."""
-    state = load_state()
-    return list(state.seen_markets.keys())
-
-
-def update_market_status(market_ticker: str, status: OpportunityStatus) -> bool:
-    """Update the status of a seen market. Returns True if updated."""
-    state = load_state()
-    
-    if market_ticker not in state.seen_markets:
-        logger.warning(f"Cannot update status: market {market_ticker} not in seen_markets")
-        return False
-    
-    state.seen_markets[market_ticker].status = status
-    save_state(state)
-    logger.info(f"Updated market {market_ticker} status to: {status}")
-    return True
-
-
-def cleanup_seen_markets() -> int:
-    """Remove expired markets from seen_markets. Returns count removed."""
-    state = load_state()
-    now = datetime.now(timezone.utc)
-    
-    # Find expired tickers
-    expired_tickers = [
-        ticker
-        for ticker, market in state.seen_markets.items()
-        if market.close_time < now
-    ]
-    
-    if not expired_tickers:
-        logger.debug("No expired markets to clean up")
-        return 0
-    
-    # Remove expired entries
-    for ticker in expired_tickers:
-        del state.seen_markets[ticker]
-    
-    save_state(state)
-    logger.info(f"Cleaned up {len(expired_tickers)} expired markets from seen_markets")
-    
-    return len(expired_tickers)

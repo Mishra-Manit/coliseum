@@ -20,7 +20,6 @@ from coliseum.storage.files import (
     load_opportunity_from_file,
     update_opportunity_status,
 )
-from coliseum.storage.state import update_market_status
 
 logger = logging.getLogger(__name__)
 
@@ -96,7 +95,6 @@ async def run_researcher(
     # Update status to "researching"
     if not dry_run:
         update_opportunity_status(opportunity.market_ticker, "researching")
-        update_market_status(opportunity.market_ticker, "researching")
 
     # Run research
     deps = ResearcherDependencies(

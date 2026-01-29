@@ -11,12 +11,11 @@ from coliseum.config import Settings, get_settings
 from coliseum.llm_providers import AnthropicModel, FireworksModel, OpenAIModel, get_model_string
 from coliseum.services.kalshi.client import KalshiClient
 from coliseum.storage.files import save_opportunity, generate_opportunity_id
-from coliseum.storage.state import (
-    SeenMarket,
-    cleanup_seen_markets,
+from coliseum.storage.memory import (
+    MemoryEntry,
+    append_memory_entry,
     get_seen_tickers,
-    load_state,
-    save_state,
+    is_market_seen,
 )
 
 from .models import ScoutDependencies, ScoutOutput
@@ -129,16 +128,7 @@ async def run_scout(
     mode_label = "[DRY RUN] " if dry_run else ""
     logger.info(f"{mode_label}Starting Scout scan...")
 
-    # Cleanup expired markets from seen_markets before scanning
-    if not dry_run:
-        try:
-            cleaned = cleanup_seen_markets()
-            if cleaned > 0:
-                logger.info(f"Cleaned up {cleaned} expired markets from tracking")
-        except Exception as e:
-            logger.warning(f"Failed to cleanup seen_markets: {e}")
-
-    # Get currently tracked markets to inject into prompt context
+    # Get currently tracked markets from memory to inject into prompt context
     seen_tickers = get_seen_tickers()
     seen_context = ""
     if seen_tickers:
@@ -178,49 +168,43 @@ async def run_scout(
             )
             return output
 
-        # Load state once for duplicate checking and batch update
-        state = load_state()
+        # Process opportunities and add to memory
         now = datetime.now(timezone.utc)
-
         skipped_count = 0
         added_count = 0
 
         for opp in output.opportunities:
             try:
-                # Check if already seen (in-memory state check)
-                if opp.market_ticker in state.seen_markets:
+                # Check if already seen (via memory system)
+                if is_market_seen(opp.market_ticker):
                     logger.info(
-                        f"Skipping duplicate: {opp.market_ticker} (already in seen_markets)"
+                        f"Skipping duplicate: {opp.market_ticker} (already in memory)"
                     )
                     skipped_count += 1
                     continue
 
-                # Mark as seen immediately in-memory (before operations that can fail)
-                state.seen_markets[opp.market_ticker] = SeenMarket(
-                    opportunity_id=opp.id,
+                # Save opportunity file first
+                save_opportunity(opp)
+                logger.info(f"Saved opportunity: {opp.market_ticker}")
+
+                # Add stub entry to memory (will be enriched by Trader)
+                memory_entry = MemoryEntry(
+                    market_ticker=opp.market_ticker,
                     discovered_at=now,
                     close_time=opp.close_time,
-                    status="pending",
+                    status="PENDING",
                 )
+                append_memory_entry(memory_entry)
                 added_count += 1
 
-                # Now perform operations that might fail
-                save_opportunity(opp)
-
-                logger.info(f"Saved opportunity: {opp.market_ticker}")
             except Exception as e:
                 logger.error(f"Failed to save opportunity {opp.id}: {e}")
-                # Market is still marked as seen to prevent retry loops
-
-        # Batch update: Write updated state once if any markets were added
-        if added_count > 0:
-            save_state(state)
-            logger.info(f"Batch marked {added_count} markets as seen")
 
         logger.info(
             f"Scout scan complete: "
             f"{output.opportunities_found} opportunities found, "
-            f"{skipped_count} skipped (duplicates)"
+            f"{skipped_count} skipped (duplicates), "
+            f"{added_count} added to memory"
         )
 
         return output

@@ -496,8 +496,8 @@ def update_opportunity_status(
 ) -> bool:
     """Update the status field in an opportunity's markdown frontmatter.
     
-    This updates both the YAML frontmatter and preserves the rest of the file.
-    Also updates the state.yaml seen_markets entry if present.
+    This updates the YAML frontmatter and preserves the rest of the file.
+    Note: Memory system is updated separately by the calling agent.
     """
     file_path = find_opportunity_file(market_ticker, lookback_days)
     
@@ -545,10 +545,6 @@ def update_opportunity_status(
         logger.info(
             f"Updated opportunity status: {market_ticker} ({old_status} -> {new_status})"
         )
-        
-        # Also update state.yaml if this market is tracked
-        from coliseum.storage.state import update_market_status
-        update_market_status(market_ticker, new_status)
         
         return True
         
