@@ -32,7 +32,7 @@ from coliseum.storage.files import (
     log_trade,
     update_opportunity_status,
 )
-from coliseum.storage.memory import TradeDetails, update_memory_entry
+from coliseum.storage.memory import TradeDetails, update_entry
 from coliseum.storage.state import (
     Position,
     load_state,
@@ -484,7 +484,7 @@ async def run_trader(
         if output.decision.action == "REJECT":
             logger.info(f"Trader REJECTED trade: {output.decision.reasoning}")
             update_opportunity_status(opportunity.market_ticker, "skipped")
-            update_memory_entry(
+            update_entry(
                 market_ticker=opportunity.market_ticker,
                 status="SKIPPED",
             )
@@ -522,7 +522,7 @@ async def run_trader(
             logger.warning(f"Slippage too high: {slippage_pct:.1%} > {max_slippage:.0%}")
             output.execution_status = "rejected"
             update_opportunity_status(opportunity.market_ticker, "skipped")
-            update_memory_entry(
+            update_entry(
                 market_ticker=opportunity.market_ticker,
                 status="SKIPPED",
             )
@@ -578,7 +578,7 @@ async def run_trader(
             # Update opportunity status
             update_opportunity_status(opportunity.market_ticker, "traded")
 
-            update_memory_entry(
+            update_entry(
                 market_ticker=opportunity.market_ticker,
                 status="EXECUTED",
                 trade=TradeDetails(

@@ -58,6 +58,10 @@ class TraderOutput(BaseModel):
     decision: TraderDecision = Field(
         description="The final trading decision made by the agent"
     )
+    trader_notes: str | None = Field(
+        default=None,
+        description="Key observations about this trade: critical factors influencing the decision and potential risks to watch.",
+    )
     order_id: str | None = Field(
         default=None,
         description="Kalshi order ID if order was placed (None if REJECTED or skipped)",

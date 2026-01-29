@@ -110,6 +110,7 @@ Your output must include:
 - `confidence`: 0.0-1.0 confidence level
 - `reasoning`: Concise explanation of your decision
 - `verification_summary`: Note any gaps you searched for, or state "Research sufficient - no additional search needed"
+- `trader_notes`: Key observations (what factors influenced decision, any risks to watch)
 
 ## MANDATORY: Telegram Notification
 
