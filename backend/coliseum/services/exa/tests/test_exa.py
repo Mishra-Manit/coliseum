@@ -21,8 +21,7 @@ env_file = backend_dir / ".env"
 if env_file.exists():
     load_dotenv(env_file)
 
-# Configure logging to write to both console and file
-output_file = Path(__file__).parent / "test_output.md"
+# Configure logging to write to console
 
 root_logger = logging.getLogger()
 root_logger.setLevel(logging.INFO)
@@ -34,11 +33,6 @@ formatter = logging.Formatter('%(levelname)s:%(name)s:%(message)s')
 console_handler = logging.StreamHandler()
 console_handler.setFormatter(formatter)
 root_logger.addHandler(console_handler)
-
-# File Handler
-file_handler = logging.FileHandler(output_file, mode='w')
-file_handler.setFormatter(formatter)
-root_logger.addHandler(file_handler)
 
 logger = logging.getLogger(__name__)
 
