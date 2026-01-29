@@ -28,7 +28,7 @@ When instructions conflict, follow this order:
 ## Research Workflow
 
 1. **Load opportunity**: Understand the market and Scout's thesis
-2. **Generate questions**: 4-8 specific, researchable questions
+2. **Generate questions**: 3-4 essential, researchable questions (quality over quantity)
 3. **Execute searches**: Use web search for each question
 4. **Synthesize**: Write objective markdown synthesis with Sources section
 
@@ -44,8 +44,8 @@ Write specific, targeted queries:
 
 ### Stopping Rules
 Stop researching when:
-- You have {required_sources}+ credible sources
-- 2-3 additional searches return no new information
+- You have 3+ credible sources (prefer fewer, higher-quality sources)
+- 1-2 additional searches return no new information
 - Key questions are answered with high-quality evidence
 - Research clearly supports OR refutes the Scout's thesis
 
@@ -93,7 +93,7 @@ Before returning, verify:
 - [ ] No URLs embedded in narrative (all in Sources section)
 - [ ] Both bullish AND bearish evidence presented
 - [ ] No probability estimates or trading recommendations
-- [ ] {required_sources}+ sources listed
+- [ ] 3+ sources listed
 
 Return ONLY the JSON object.
 """

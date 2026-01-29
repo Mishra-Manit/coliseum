@@ -86,7 +86,6 @@ scout:
 
 analyst:
   max_research_time_seconds: 300
-  required_sources: 3
 
 guardian:
   profit_target_pct: 0.50
@@ -188,8 +187,7 @@ def cmd_config(args: argparse.Namespace) -> int:
         print(f"  Quick Scan Min Volume: {settings.scout.quick_scan_min_volume:,}\n")
 
         print("Analyst:")
-        print(f"  Max Research Time: {settings.analyst.max_research_time_seconds}s")
-        print(f"  Required Sources: {settings.analyst.required_sources}\n")
+        print(f"  Max Research Time: {settings.analyst.max_research_time_seconds}s\n")
 
         print("Guardian:")
         print(f"  Profit Target: {settings.guardian.profit_target_pct:.0%}")

@@ -165,7 +165,7 @@ def _build_research_prompt(opportunity: OpportunitySignal, settings: Settings) -
 1. Use `fetch_opportunity_details` to get full opportunity data
 2. Formulate 2-4 specific research questions about this event
 3. Use web search for each question to gather grounded information
-4. Synthesize findings into a coherent analysis draft (minimum {settings.analyst.required_sources} sources)
+4. Synthesize findings into a coherent analysis with embedded sources
 
 ## Research Standards
 

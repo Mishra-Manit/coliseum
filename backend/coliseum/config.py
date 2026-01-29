@@ -57,7 +57,6 @@ class AnalystConfig(BaseModel):
     """Analyst agent research parameters."""
 
     max_research_time_seconds: int = 300
-    required_sources: int = 3
 
 
 class GuardianConfig(BaseModel):
