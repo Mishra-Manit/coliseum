@@ -33,12 +33,3 @@ python -m coliseum.test_pipeline run --full
 2. For opportunity 1: Analyst researches → Trader decides
 3. For opportunity 2: Analyst researches → Trader decides
 
-## Test Agent
-
-The Test Agent scans recent opportunities and sends a Telegram alert about the most interesting one.
-
-```
-python -m coliseum.agents.test_agent.run --dry-run
-python -m coliseum.agents.test_agent.run --dry-run --data-dir test_data
-python -m coliseum.agents.test_agent.run
-```
