@@ -121,6 +121,9 @@ After you have made your decision (EXECUTE_BUY_YES, EXECUTE_BUY_NO, or REJECT), 
 - `decision`: Either "ACCEPTED" (for EXECUTE_BUY_YES or EXECUTE_BUY_NO) or "REJECTED"
 - `reason`: A concise 1-sentence explanation of why you made this decision
 
+**Formatting**: Messages use HTML. Do NOT use < or > symbols (they break parsing).
+Use words instead: "under 5%" not "<5%", "over 10%" not ">10%".
+
 This notification is required for development monitoring. Do not skip this step.
 
 Remember: **When uncertain, REJECT. Capital preservation is paramount.**
