@@ -13,13 +13,18 @@ risk:
   max_single_trade_usd: 10.00     # Hard cap per trade
   min_edge_threshold: 0.05        # Only trade if edge > 5%
   min_ev_threshold: 0.05          # Only trade if EV > 5%
-  kelly_fraction: 0.75            # Use 3/4 Kelly for position sizing
+  kelly_fraction: 0.50            # Use 1/2 Kelly (more aggressive for edge trading)
 
 scheduler:
   scout_full_scan_minutes: 60     # Full market scan every hour
   scout_quick_scan_minutes: 15    # Quick scan every 15 minutes
   guardian_position_check_minutes: 15  # Check positions every 15 min
   guardian_news_scan_minutes: 30  # Scan news every 30 minutes
+
+scout:
+  min_close_hours: 96              # Minimum hours until close (4 days for edge trading)
+  max_close_hours: 240             # Maximum hours until close (10 days for edge trading)
+  max_opportunities_per_scan: 2    # Limit opportunities per scan
 
 analyst:
   research_depth: standard        # Options: quick, standard, deep
@@ -28,8 +33,10 @@ analyst:
   required_sources: 3             # Minimum sources for recommendation
 
 guardian:
-  profit_target_pct: 0.50         # Take profit at 50% gain
-  stop_loss_pct: 0.30             # Cut loss at 30% down
+  profit_target_pct: 0.70         # Take profit at 70% of edge captured
+  stop_loss_pct: 0.10             # Cut loss at 10% down (tighter stop for edge trading)
+  max_hold_days: 5                # Maximum days to hold any position
+  edge_capture_pct: 0.70          # Target: capture 70% of identified edge
 
 execution:
   use_limit_orders_only: true     # NEVER change to false

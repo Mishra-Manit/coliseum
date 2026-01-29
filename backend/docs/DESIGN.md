@@ -1,6 +1,6 @@
 # Coliseum: Autonomous Quant Agent System
 
-## Specification Document v2.1 (Streamlined)
+## Specification Document v2.2 (Edge Trading)
 
 ---
 
@@ -9,7 +9,7 @@
 **Coliseum** is an autonomous quantitative trading system that deploys AI agents to trade on Kalshi prediction markets. The system operates as a fully autonomous pipeline where specialized agents collaborate to research events, identify trading opportunities, execute positions, and continuously monitor the portfolio.
 
 ### Vision Statement
-> *Build a self-sustaining AI trading system that can independently identify high-value prediction market opportunities, execute trades with disciplined risk management, and adapt to changing market conditions—all with minimal human intervention.*
+> *Build a self-sustaining AI trading system that can independently identify market mispricings, capture edge through disciplined entry and exit, and adapt to changing market conditions—all with minimal human intervention.*
 
 ### Core Principles
 
@@ -19,7 +19,51 @@
 | **Research-Driven** | Every trade is backed by deep, grounded research |
 | **Risk-First** | Hard limits and circuit breakers prevent catastrophic losses |
 | **Transparent** | Full audit trail of every decision and trade |
-| **Adaptable** | Agents learn from outcomes and adjust strategies |
+| **Edge Capture** | Exit before resolution—capture mispricings, not outcomes |
+
+---
+
+## Trading Strategy
+
+### Edge Trading vs Resolution Trading
+
+Coliseum uses an **Edge Trading** strategy, which differs fundamentally from traditional resolution-based trading:
+
+| Aspect | Resolution Trading | Edge Trading (Coliseum) |
+|--------|-------------------|-------------------------|
+| **Win Condition** | Correctly predict outcome | Identify market mispricing |
+| **Exit Trigger** | Event resolves | Market corrects toward true probability |
+| **Hold Period** | Until resolution | Maximum 5 days |
+| **Risk Profile** | Binary (win/lose at resolution) | Continuous (P&L from price movement) |
+| **Variance** | High (100% or 0%) | Lower (capture partial edge) |
+
+### Strategy Parameters
+
+| Parameter | Value | Rationale |
+|-----------|-------|-----------|
+| **Min Days to Close** | 4 days | Allows time for market to reprice |
+| **Max Days to Close** | 10 days | Capital efficiency; avoid long-dated positions |
+| **Profit Target** | 70% edge capture | Take profits before full edge realized |
+| **Stop Loss** | 10% of position | Tight stops; cut losses quickly |
+| **Max Hold Days** | 5 days | Force exit regardless of P&L |
+| **Kelly Fraction** | 0.50 (half Kelly) | More aggressive sizing for shorter holds |
+| **Min Edge Threshold** | 5% | Only trade significant mispricings |
+
+### Exit Rules
+
+Guardian agent (when implemented) will enforce these exit rules:
+
+1. **Profit Target**: Exit when 70% of identified edge is captured
+2. **Stop Loss**: Exit if position loses 10% of entry value
+3. **Time Stop**: Exit after 5 days regardless of P&L
+4. **Resolution Warning**: Exit 24 hours before event resolution (never hold to expiry)
+
+### Why Edge Trading?
+
+1. **Reduced Variance**: Don't need to be "right" about outcomes, just about mispricings
+2. **Capital Efficiency**: Shorter hold times = more trades = more edge capture
+3. **Risk Management**: Can cut losses before resolution; not locked into binary outcome
+4. **Research Value**: Focus on "what does the market not know?" not "what will happen?"
 
 ---
 
@@ -119,14 +163,20 @@ Guardian ◀──(OpenPosition)────────────────
 
 ### 1. Scout Agent 🔍 (IMPLEMENTED)
 
-**Mission**: Continuously discover and filter high-quality trading opportunities from Kalshi markets.
+**Mission**: Discover market mispricings—opportunities where research reveals the true probability differs from the market price.
+
+#### Edge Trading Focus
+Scout filters for markets with:
+- **4-10 day time horizon**: Enough time for market to reprice, not too far out
+- **Mispricing potential**: Research can reveal information asymmetry
+- **Repricing catalyst**: Clear reason why market will correct
 
 #### Responsibilities
-- Scan Kalshi API for new/updated events
-- Filter events by liquidity, volume, and close time
-- Categorize events by topic (politics, crypto, sports, etc.)
-- Identify events suitable for research
-- Create opportunity files for Analyst processing
+- Scan Kalshi API for events closing in 4-10 days
+- Filter events by liquidity, volume, and time horizon
+- Conduct deep web research to identify mispricings
+- Create opportunity files with mispricing thesis
+- Identify WHY the market will reprice (not just predict outcome)
 
 #### Execution Schedule
 - **Quick Scan**: Every 15 minutes (checks recent events)
@@ -137,16 +187,17 @@ Guardian ◀──(OpenPosition)────────────────
 
 | Tool | Purpose | Implementation |
 |------|---------|----------------|
-| `get_active_events` | Fetch events from Kalshi API | `services/kalshi.py` |
-| `filter_by_volume` | Apply volume/liquidity filters | Built-in logic |
-| `categorize_event` | Classify by topic | LLM-based classification |
-| `check_close_time` | Filter by time to expiration | Date arithmetic |
+| `fetch_markets_closing_soon` | Fetch events in 4-10 day window | `services/kalshi.py` |
+| `WebSearchTool` | Research markets for information asymmetry | OpenAI built-in |
+| `generate_opportunity_id_tool` | Create unique opportunity IDs | Built-in logic |
+| `get_current_time` | Get current timestamp | Built-in logic |
 
 #### Output Format
 Creates opportunity file at `data/opportunities/{ticker}.md` with:
-- Scout assessment (quality, rationale)
+- Mispricing thesis and repricing catalyst
 - Market snapshot (prices, volume, liquidity)
-- Event metadata (title, close date, category)
+- Research findings with sources
+- Target exit price and expected edge capture
 
 ---
 
@@ -250,24 +301,33 @@ The Trader agent will use limit orders only (never market orders) with slippage 
 
 ### 4. Guardian Agent 🛡️ (NOT YET IMPLEMENTED)
 
-**Mission**: Continuously monitor open positions and trigger exits when conditions warrant.
+**Mission**: Enforce exit discipline for edge trading—capture profits, cut losses, never hold to resolution.
+
+#### Edge Trading Exit Rules
+Guardian enforces these exit conditions:
+
+| Exit Type | Trigger | Action |
+|-----------|---------|--------|
+| **Profit Target** | 70% of identified edge captured | Close position, lock in gains |
+| **Stop Loss** | Position down 10% | Close position, cut losses |
+| **Time Stop** | 5 days since entry | Close position regardless of P&L |
+| **Resolution Warning** | <24 hours to event close | FORCE close (never hold to expiry) |
 
 #### Planned Responsibilities
-- Monitor price movements and market conditions
-- Track time decay on expiring positions
-- Watch for negative news or research invalidation
-- Evaluate exit criteria (target profit, stop loss, time-based)
+- Monitor price movements and calculate edge capture percentage
+- Track hold duration against max_hold_days limit
+- Watch for resolution approaching (time-to-close warnings)
 - Generate exit signals for Trader to execute
 - Update position health metrics
 
 #### Execution Schedule (Planned)
-- **Position Check**: Every 15 minutes
-- **News Scan**: Every 30 minutes
+- **Position Check**: Every 15 minutes (price monitoring, exit triggers)
+- **News Scan**: Every 30 minutes (research invalidation)
 - Triggered on-demand: `python -m coliseum guardian --check-positions`
 
 #### Monitoring (TODO)
 
-Position monitoring and exit signal generation will be implemented in `agents/guardian/`. See placeholder in codebase.
+Position monitoring and exit signal generation will be implemented in `agents/guardian/`. Critical for edge trading strategy—without Guardian, positions could be held to resolution (violating strategy).
 
 ---
 
@@ -457,9 +517,18 @@ These limits are **never bypassed** under any circumstances:
 | **Max Position Size** | 10% of portfolio | Reject trade immediately |
 | **Max Single Trade** | $1,000 | Reject trade immediately |
 | **Max Open Positions** | 10 concurrent | Reject trade until position closes |
-| **Daily Loss Limit** | 5% of portfolio | Halt all trading for 24 hours |
+| **Daily Loss Limit** | 10% of portfolio | Halt all trading for 24 hours |
 | **Min Edge Threshold** | 5% | Skip trade (insufficient edge) |
-| **Min EV Threshold** | 10% | Skip trade (insufficient expected value) |
+| **Min EV Threshold** | 5% | Skip trade (insufficient expected value) |
+
+### Edge Trading Exit Rules
+
+| Rule | Threshold | Rationale |
+|------|-----------|-----------|
+| **Profit Target** | 70% edge capture | Lock in gains before market overshoots |
+| **Stop Loss** | 10% position loss | Tight stops for edge trading |
+| **Max Hold Time** | 5 days | Force exit; capital efficiency |
+| **Resolution Buffer** | Exit 24h before close | NEVER hold to resolution |
 
 ### Position-Level Rules
 
@@ -467,12 +536,12 @@ These limits are **never bypassed** under any circumstances:
 |------|-------|-----------|
 | **Slippage Protection** | Reject if slippage destroys 50%+ of edge | Preserve profitable trades only |
 | **Liquidity Check** | Require 5x position size in open interest | Ensure ability to exit |
-| **Time Decay** | Increase exit urgency as event approaches | Avoid theta decay on losing positions |
-| **Stop Loss** | Exit if loss exceeds 2x expected loss | Protect against catastrophic outcomes |
+| **Time Stop** | Exit after max_hold_days regardless of P&L | Force capital turnover |
+| **Resolution Warning** | Alert at 48h, force exit at 24h | Never hold to binary outcome |
 
 ### Trading Calculations
 
-All position sizing uses Kelly Criterion (1/4 Kelly default). See [`calculations.md`](./calculations.md) for mathematical foundations including:
+All position sizing uses Kelly Criterion (1/2 Kelly for edge trading). See [`calculations.md`](./calculations.md) for mathematical foundations including:
 - Edge calculation
 - Expected value (EV) calculation
 - Kelly Criterion formula

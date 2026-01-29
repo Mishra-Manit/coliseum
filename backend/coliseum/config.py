@@ -28,7 +28,7 @@ class RiskConfig(BaseModel):
     max_single_trade_usd: float = 10.0
     min_edge_threshold: float = 0.05
     min_ev_threshold: float = 0.10
-    kelly_fraction: float = 0.25
+    kelly_fraction: float = 0.50  # 1/2 Kelly for edge trading
 
 
 class SchedulerConfig(BaseModel):
@@ -45,11 +45,9 @@ class ScoutConfig(BaseModel):
 
     min_volume: int = 10000  # Minimum 24h volume (contracts)
     min_liquidity_cents: int = 10  # Minimum bid-ask spread tolerance (cents)
-    max_close_hours: int = 72  # Only scan events closing within N hours
-    max_opportunities_per_scan: int = 20  # Limit opportunities per scan
-
-    # Category filtering (empty = all categories)
-    excluded_categories: list[str] = Field(default_factory=list)
+    min_close_hours: int = 96   # Minimum hours until close (4 days for edge trading)
+    max_close_hours: int = 240  # Maximum hours until close (10 days for edge trading)
+    max_opportunities_per_scan: int = 5  # Limit opportunities per scan
 
     # Quick scan settings (subset of full scan)
     quick_scan_min_volume: int = 50000  # Higher volume threshold for quick scans
@@ -65,8 +63,10 @@ class AnalystConfig(BaseModel):
 class GuardianConfig(BaseModel):
     """Guardian agent monitoring parameters."""
 
-    profit_target_pct: float = 0.50
-    stop_loss_pct: float = 0.30
+    profit_target_pct: float = 0.70    # Take profit at 70% of edge captured
+    stop_loss_pct: float = 0.10        # Cut loss at 10% down (tight stop)
+    max_hold_days: int = 5             # Maximum days to hold any position
+    edge_capture_pct: float = 0.70     # Target: capture 70% of identified edge
 
 
 class ExecutionConfig(BaseModel):
@@ -115,6 +115,7 @@ class Settings(BaseSettings):
     # Nested configuration sections
     trading: TradingConfig = Field(default_factory=TradingConfig)
     risk: RiskConfig = Field(default_factory=RiskConfig)
+
     scheduler: SchedulerConfig = Field(default_factory=SchedulerConfig)
     scout: ScoutConfig = Field(default_factory=ScoutConfig)
     analyst: AnalystConfig = Field(default_factory=AnalystConfig)

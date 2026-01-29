@@ -40,18 +40,28 @@ def _register_tools(agent: Agent[ScoutDependencies, ScoutOutput]) -> None:
     @agent.tool
     async def fetch_markets_closing_soon(
         ctx: RunContext[ScoutDependencies],
-        max_close_hours: int = 72,
     ) -> list[dict]:
-        """Fetch markets closing within the specified time window.
+        """Fetch markets closing within the configured time window (4-10 days for edge trading).
 
         Returns:
             List of market dictionaries with ticker, title, volume, prices, spread, close_time
         """
+        # Use config values for time horizon
+        min_close_hours = ctx.deps.config.min_close_hours
+        max_close_hours = ctx.deps.config.max_close_hours
+        
         markets = await ctx.deps.kalshi_client.get_markets_closing_within_hours(
             hours=max_close_hours,
             limit=4000,
             status="open",
         )
+        
+        # Filter for minimum close time
+        from datetime import datetime, timezone
+        now = datetime.now(timezone.utc)
+        min_close_time = now.timestamp() + (min_close_hours * 3600)
+        markets = [m for m in markets if m.close_time and m.close_time.timestamp() >= min_close_time]
+        
         # Filter for minimum volume of 10,000 contracts (use 'volume' not 'volume_24h')
         min_volume = 10000
         markets = [m for m in markets if m.volume >= min_volume]

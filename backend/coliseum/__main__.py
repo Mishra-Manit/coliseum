@@ -82,7 +82,6 @@ scout:
   min_liquidity_cents: 10
   max_close_hours: 72
   max_opportunities_per_scan: 20
-  excluded_categories: []
   quick_scan_min_volume: 50000
 
 analyst:
