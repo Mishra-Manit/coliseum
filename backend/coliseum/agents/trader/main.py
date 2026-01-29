@@ -3,7 +3,6 @@
 import asyncio
 import json
 import logging
-import os
 from collections.abc import Sequence
 from datetime import datetime, timezone
 from typing import Literal
@@ -12,6 +11,7 @@ from uuid import uuid4
 from pydantic_ai import Agent, RunContext, WebSearchTool
 from pydantic_ai.messages import ModelMessage
 
+from coliseum.agents.agent_factory import AgentFactory
 from coliseum.agents.trader.models import (
     OrderResult,
     TraderDependencies,
@@ -40,8 +40,6 @@ from coliseum.storage.state import (
 
 logger = logging.getLogger(__name__)
 
-_agent: Agent[TraderDependencies, TraderOutput] | None = None
-
 
 async def simulate_limit_order(
     ticker: str,
@@ -65,21 +63,6 @@ async def simulate_limit_order(
     }
 
 
-def get_agent() -> Agent[TraderDependencies, TraderOutput]:
-    """Get the singleton Trader agent instance."""
-    global _agent
-    if _agent is None:
-        # PydanticAI will read OPENAI_API_KEY from environment automatically
-        # Ensure it's set if available in settings
-        settings = get_settings()
-        if settings.openai_api_key:
-            os.environ["OPENAI_API_KEY"] = settings.openai_api_key
-
-        _agent = _create_agent()
-        _register_tools(_agent)
-    return _agent
-
-
 def _create_agent() -> Agent[TraderDependencies, TraderOutput]:
     """Create the Trader agent with OpenAI GPT-5."""
     return Agent(
@@ -87,7 +70,7 @@ def _create_agent() -> Agent[TraderDependencies, TraderOutput]:
         output_type=TraderOutput,
         deps_type=TraderDependencies,
         system_prompt=TRADER_SYSTEM_PROMPT,
-        builtin_tools=[WebSearchTool()],  # Native web search for verification
+        builtin_tools=[WebSearchTool()],
     )
 
 
@@ -419,6 +402,17 @@ async def execute_working_order(
 
     # Should not reach here
     return OrderResult(status="error", error_message="Unexpected end of loop")
+
+
+_factory = AgentFactory(
+    create_fn=_create_agent,
+    register_tools_fn=_register_tools,
+)
+
+
+def get_agent() -> Agent[TraderDependencies, TraderOutput]:
+    """Get the singleton Trader agent instance."""
+    return _factory.get_agent()
 
 
 async def run_trader(
