@@ -115,17 +115,7 @@ def init_test_data_structure() -> None:
             "  total_value: 100.0\n"
             "  cash_balance: 100.0\n"
             "  positions_value: 0.0\n"
-            "daily_stats:\n"
-            "  date: null\n"
-            "  starting_value: 100.0\n"
-            "  current_pnl: 0.0\n"
-            "  current_pnl_pct: 0.0\n"
-            "  trades_today: 0\n"
-            "open_positions: []\n"
-            "risk_status:\n"
-            "  daily_loss_limit_hit: false\n"
-            "  trading_halted: false\n"
-            "  capital_at_risk_pct: 0.0\n",
+            "open_positions: []\n",
             encoding="utf-8",
         )
 
