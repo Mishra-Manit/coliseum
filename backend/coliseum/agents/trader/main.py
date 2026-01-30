@@ -17,7 +17,10 @@ from coliseum.agents.trader.models import (
     TraderDependencies,
     TraderOutput,
 )
-from coliseum.agents.trader.prompts import TRADER_SYSTEM_PROMPT, _build_trader_prompt
+from coliseum.agents.trader.prompts import (
+    build_trader_system_prompt,
+    _build_trader_prompt,
+)
 from coliseum.config import Settings, get_settings
 from coliseum.llm_providers import OpenAIModel, get_model_string
 from coliseum.services.kalshi.client import KalshiClient
@@ -63,13 +66,13 @@ async def simulate_limit_order(
     }
 
 
-def _create_agent() -> Agent[TraderDependencies, TraderOutput]:
+def _create_agent(settings: Settings) -> Agent[TraderDependencies, TraderOutput]:
     """Create the Trader agent with OpenAI GPT-5."""
     return Agent(
         model=get_model_string(OpenAIModel.GPT_5),
         output_type=TraderOutput,
         deps_type=TraderDependencies,
-        system_prompt=TRADER_SYSTEM_PROMPT,
+        system_prompt=build_trader_system_prompt(settings),
         builtin_tools=[WebSearchTool()],
     )
 
@@ -404,14 +407,17 @@ async def execute_working_order(
     return OrderResult(status="error", error_message="Unexpected end of loop")
 
 
-_factory = AgentFactory(
-    create_fn=_create_agent,
-    register_tools_fn=_register_tools,
-)
+_factory: AgentFactory[TraderDependencies, TraderOutput] | None = None
 
 
-def get_agent() -> Agent[TraderDependencies, TraderOutput]:
+def get_agent(settings: Settings) -> Agent[TraderDependencies, TraderOutput]:
     """Get the singleton Trader agent instance."""
+    global _factory
+    if _factory is None:
+        _factory = AgentFactory(
+            create_fn=lambda: _create_agent(settings),
+            register_tools_fn=_register_tools,
+        )
     return _factory.get_agent()
 
 
@@ -461,10 +467,10 @@ async def run_trader(
 
         # Build prompt
         markdown_body = get_opportunity_markdown_body(opp_file)
-        prompt = _build_trader_prompt(opportunity, markdown_body)
+        prompt = _build_trader_prompt(opportunity, markdown_body, settings)
 
         # Run agent
-        agent = get_agent()
+        agent = get_agent(settings)
         result = await agent.run(prompt, deps=deps)
         output: TraderOutput = result.output
 
