@@ -83,7 +83,7 @@ Stop researching a market when:
 
 Before each tool call, briefly consider why you're calling it.
 
-**fetch_markets_closing_soon()** → Returns pre-filtered markets (4-10 day window, sufficient volume)
+**fetch_markets_closing_soon()** → Call ONCE at start. Returns pre-filtered markets (4-10 day window, sufficient volume). Do NOT re-fetch.
 **generate_opportunity_id_tool()** → Call once per opportunity you select
 **get_current_time()** → Call once to get timestamp for all discovered_at fields
 

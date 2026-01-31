@@ -225,19 +225,22 @@ class KalshiClient:
         data = await self._request("GET", f"markets/{ticker}")
         return Market.from_api(data.get("market", data))
 
-    async def get_markets_closing_within_hours(
+    async def get_markets_closing_in_range(
         self,
-        hours: int = 24,
-        limit: int = 1000,
+        min_hours: int = 0,
+        max_hours: int = 24,
+        limit: int = 10000,
         status: str = "open",
     ) -> list[Market]:
+        """Fetch markets closing within a specified hour range from now."""
         current_time = int(time.time())
-        max_close_ts = current_time + (hours * 3600)
+        min_close_ts = current_time + (min_hours * 3600)
+        max_close_ts = current_time + (max_hours * 3600)
 
         params = {
-            "limit": min(limit, 200),
+            "limit": min(limit, 1000),
             "status": status,
-            "min_close_ts": current_time,
+            "min_close_ts": min_close_ts,
             "max_close_ts": max_close_ts,
         }
 

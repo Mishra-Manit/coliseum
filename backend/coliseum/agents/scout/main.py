@@ -46,30 +46,24 @@ def _register_tools(agent: Agent[ScoutDependencies, ScoutOutput]) -> None:
         Returns:
             List of market dictionaries with ticker, title, volume, prices, spread, close_time
         """
-        # Use config values for time horizon
         min_close_hours = ctx.deps.config.min_close_hours
         max_close_hours = ctx.deps.config.max_close_hours
-        
-        markets = await ctx.deps.kalshi_client.get_markets_closing_within_hours(
-            hours=max_close_hours,
-            limit=4000,
+        min_volume = 10000
+
+        markets = await ctx.deps.kalshi_client.get_markets_closing_in_range(
+            min_hours=min_close_hours,
+            max_hours=max_close_hours,
+            limit=10000,
             status="open",
         )
-        
-        # Filter for minimum close time
-        from datetime import datetime, timezone
-        now = datetime.now(timezone.utc)
-        min_close_time = now.timestamp() + (min_close_hours * 3600)
-        markets = [m for m in markets if m.close_time and m.close_time.timestamp() >= min_close_time]
-        
-        # Filter for minimum volume of 10,000 contracts (use 'volume' not 'volume_24h')
-        min_volume = 10000
+        logger.info("Scout fetched %d markets closing in %d-%d hours", len(markets), min_close_hours, max_close_hours)
+
         markets = [m for m in markets if m.volume >= min_volume]
+        logger.info("Scout filtered to %d markets with volume >= %d", len(markets), min_volume)
 
-        # Markets >90% or <10% implied probability have little research value
         markets = [m for m in markets if 10 <= (m.yes_ask or 50) <= 90]
+        logger.info("Scout filtered to %d markets with 10-90%% probability", len(markets))
 
-        # Convert to JSON-serializable format for LLM with spread calculations
         return [
             {
                 "ticker": m.ticker,
