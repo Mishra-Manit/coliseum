@@ -7,6 +7,7 @@ from typing import Literal
 from pydantic_ai import Agent, RunContext, WebSearchTool
 
 from coliseum.agents.agent_factory import AgentFactory
+from coliseum.agents.shared_tools import register_get_current_time
 from coliseum.config import Settings, get_settings
 from coliseum.llm_providers import AnthropicModel, FireworksModel, OpenAIModel, get_model_string
 from coliseum.services.kalshi.client import KalshiClient
@@ -93,10 +94,7 @@ def _register_tools(agent: Agent[ScoutDependencies, ScoutOutput]) -> None:
         """Generate a unique opportunity ID with opp_ prefix."""
         return generate_opportunity_id()
 
-    @agent.tool
-    def get_current_time(ctx: RunContext[ScoutDependencies]) -> str:
-        """Get the current UTC timestamp in ISO 8601 format."""
-        return datetime.now(timezone.utc).isoformat()
+    register_get_current_time(agent)
 
 
 _factory = AgentFactory(

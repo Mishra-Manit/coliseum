@@ -6,6 +6,10 @@ from datetime import datetime, timezone
 from pydantic_ai import Agent, RunContext
 
 from coliseum.agents.agent_factory import AgentFactory
+from coliseum.agents.shared_tools import (
+    register_get_current_time,
+    register_load_opportunity_with_research,
+)
 from coliseum.agents.analyst.recommender.models import (
     RecommenderDependencies,
     RecommenderOutput,
@@ -40,26 +44,7 @@ def _create_agent() -> Agent[RecommenderDependencies, RecommenderOutput]:
 
 
 def _register_tools(agent: Agent[RecommenderDependencies, RecommenderOutput]) -> None:
-    @agent.tool
-    def read_opportunity_research(
-        ctx: RunContext[RecommenderDependencies],
-    ) -> dict:
-        """Load opportunity details and full research markdown."""
-        opportunity_id = ctx.deps.opportunity_id
-        opp_file = find_opportunity_file_by_id(opportunity_id)
-        if not opp_file:
-            raise FileNotFoundError(f"Opportunity file not found: {opportunity_id}")
-        opportunity = load_opportunity_from_file(opp_file)
-        markdown_body = get_opportunity_markdown_body(opp_file)
-
-        return {
-            "id": opportunity.id,
-            "event_ticker": opportunity.event_ticker,
-            "market_ticker": opportunity.market_ticker,
-            "yes_price": opportunity.yes_price,
-            "no_price": opportunity.no_price,
-            "research_markdown": markdown_body,
-        }
+    register_load_opportunity_with_research(agent, include_metrics=False)
 
     @agent.tool
     def calculate_edge_ev(
@@ -101,10 +86,7 @@ def _register_tools(agent: Agent[RecommenderDependencies, RecommenderOutput]) ->
             logger.error(f"Position size calculation error: {e}")
             raise
 
-    @agent.tool
-    def get_current_time(ctx: RunContext[RecommenderDependencies]) -> str:
-        """Get current UTC time in ISO 8601 format."""
-        return datetime.now(timezone.utc).isoformat()
+    register_get_current_time(agent)
 
 
 _factory = AgentFactory(

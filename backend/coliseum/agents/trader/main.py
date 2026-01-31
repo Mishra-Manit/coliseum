@@ -12,6 +12,7 @@ from pydantic_ai import Agent, RunContext, WebSearchTool
 from pydantic_ai.messages import ModelMessage
 
 from coliseum.agents.agent_factory import AgentFactory
+from coliseum.agents.shared_tools import register_load_opportunity_with_research
 from coliseum.agents.trader.models import (
     OrderResult,
     TraderDependencies,
@@ -79,41 +80,7 @@ def _create_agent(settings: Settings) -> Agent[TraderDependencies, TraderOutput]
 
 def _register_tools(agent: Agent[TraderDependencies, TraderOutput]) -> None:
     """Register tools with the Trader agent."""
-
-    @agent.tool
-    async def load_recommendation(
-        ctx: RunContext[TraderDependencies],
-    ) -> dict:
-        """Fetch complete opportunity data with full research markdown and analyst metrics."""
-        opportunity_id = ctx.deps.opportunity_id
-        opp_file = find_opportunity_file_by_id(opportunity_id)
-        if not opp_file:
-            raise FileNotFoundError(f"Opportunity file not found: {opportunity_id}")
-
-        opportunity = load_opportunity_from_file(opp_file)
-        markdown_body = get_opportunity_markdown_body(opp_file)
-
-        return {
-            "id": opportunity.id,
-            "market_ticker": opportunity.market_ticker,
-            "event_ticker": opportunity.event_ticker,
-            "title": opportunity.title,
-            "subtitle": opportunity.subtitle,
-            "yes_price": opportunity.yes_price,
-            "no_price": opportunity.no_price,
-            "close_time": opportunity.close_time.isoformat() if opportunity.close_time else None,
-            "research_markdown": markdown_body,
-            "estimated_true_probability": opportunity.estimated_true_probability,
-            "current_market_price": opportunity.current_market_price,
-            # YES-side metrics
-            "edge": opportunity.edge,
-            "expected_value": opportunity.expected_value,
-            "suggested_position_pct": opportunity.suggested_position_pct,
-            # NO-side metrics
-            "edge_no": opportunity.edge_no,
-            "expected_value_no": opportunity.expected_value_no,
-            "suggested_position_pct_no": opportunity.suggested_position_pct_no,
-        }
+    register_load_opportunity_with_research(agent, include_metrics=True)
 
     @agent.tool
     async def check_portfolio_state(

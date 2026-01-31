@@ -11,6 +11,7 @@ from coliseum.agents.analyst.researcher.models import (
     ResearcherOutput,
 )
 from coliseum.agents.analyst.researcher.prompts import RESEARCHER_SYSTEM_PROMPT
+from coliseum.agents.shared_tools import register_load_opportunity
 from coliseum.config import Settings, get_settings
 from coliseum.llm_providers import OpenAIModel, get_model_string
 from coliseum.storage.files import (
@@ -35,32 +36,7 @@ def _create_agent() -> Agent[ResearcherDependencies, ResearcherOutput]:
 
 
 def _register_tools(agent: Agent[ResearcherDependencies, ResearcherOutput]) -> None:
-    @agent.tool
-    async def fetch_opportunity_details(
-        ctx: RunContext[ResearcherDependencies],
-    ) -> dict:
-        """Fetch opportunity details from file (market info, prices, close time, Scout's rationale)."""
-        opportunity_id = ctx.deps.opportunity_id
-        file_path = find_opportunity_file_by_id(opportunity_id)
-        if not file_path:
-            raise FileNotFoundError(
-                f"Opportunity file not found for ID: {opportunity_id}"
-            )
-
-        opportunity = load_opportunity_from_file(file_path)
-        return {
-            "id": opportunity.id,
-            "event_ticker": opportunity.event_ticker,
-            "market_ticker": opportunity.market_ticker,
-            "title": opportunity.title,
-            "subtitle": opportunity.subtitle,
-            "yes_price": opportunity.yes_price,
-            "no_price": opportunity.no_price,
-            "close_time": opportunity.close_time.isoformat(),
-            "rationale": opportunity.rationale,
-            "status": opportunity.status,
-            "discovered_at": opportunity.discovered_at.isoformat(),
-        }
+    register_load_opportunity(agent)
 
 
 _factory = AgentFactory(
@@ -160,7 +136,7 @@ def _build_research_prompt(opportunity: OpportunitySignal, settings: Settings) -
 
 ## Your Task
 
-1. Use `fetch_opportunity_details` to get full opportunity data
+1. Use `load_opportunity` to get full opportunity data
 2. Formulate 2-4 specific research questions about this event
 3. Use web search for each question to gather grounded information
 4. Synthesize findings into a coherent analysis with embedded sources
