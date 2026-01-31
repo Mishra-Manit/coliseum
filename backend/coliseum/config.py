@@ -71,7 +71,7 @@ class ExecutionConfig(BaseModel):
 
     use_limit_orders_only: bool = True
     max_slippage_pct: float = 0.05
-    order_check_interval_seconds: int = 300
+    order_check_interval_seconds: int = 120
     max_reprice_attempts: int = 3
     reprice_aggression: float = 0.02
     min_fill_pct_to_keep: float = 0.25

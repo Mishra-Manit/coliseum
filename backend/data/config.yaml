@@ -39,7 +39,7 @@ guardian:
 execution:
   use_limit_orders_only: true     # NEVER change to false
   max_slippage_pct: 0.05          # Reject trade if slippage > 5%
-  order_check_interval_seconds: 300  # Check order status every 5 min
+  order_check_interval_seconds: 120  # Check order status every 2 min
   max_reprice_attempts: 3         # Give up after 3 reprice attempts
   reprice_aggression: 0.02        # Increase limit by 2 cents each reprice
   min_fill_pct_to_keep: 0.25      # Keep partial fill if > 25% filled
