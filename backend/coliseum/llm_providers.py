@@ -46,6 +46,9 @@ class FireworksModel(StrEnum):
     # DeepSeek
     DEEPSEEK_V3_2 = "accounts/fireworks/models/deepseek-v3p2"
 
+    # Kimi
+    KIMI_K_2_5 = "accounts/fireworks/models/kimi-k2p5"
+
 
 # =============================================================================
 # Helper Functions

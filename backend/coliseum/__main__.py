@@ -7,7 +7,11 @@ from datetime import datetime
 from pathlib import Path
 
 import yaml
+from dotenv import load_dotenv
 from pydantic import ValidationError
+
+env_file = Path(__file__).parent.parent / ".env"
+load_dotenv(env_file)
 
 from coliseum import __version__
 from coliseum.config import get_settings
@@ -351,8 +355,6 @@ def cmd_trader(args: argparse.Namespace) -> int:
         if result.decision.reasoning:
             print(f"Reasoning:\n{result.decision.reasoning}\n")
         
-        if result.decision.verification_summary:
-            print(f"Verification Summary:\n{result.decision.verification_summary}\n")
 
         if result.execution_status in ["filled", "partial"]:
             print(f"Order ID: {result.order_id}")
