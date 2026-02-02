@@ -72,3 +72,6 @@ test_data/
 # OS
 .DS_Store
 Thumbs.db
+
+# Private Keys
+backend/kalshi_private/kalshi_private_key.pem

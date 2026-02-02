@@ -83,6 +83,7 @@ class OpportunitySignal(BaseModel):
     suggested_position_pct_no: float | None = None
     recommendation_completed_at: datetime | None = None
     action: Literal["BUY_YES", "BUY_NO", "ABSTAIN"] | None = None
+    strategy: Literal["edge", "sure_thing"] = "edge"
 
 
 class TradeExecution(BaseModel):

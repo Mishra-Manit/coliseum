@@ -31,6 +31,11 @@ import shutil
 import sys
 from pathlib import Path
 
+from dotenv import load_dotenv
+
+env_file = Path(__file__).parent.parent.parent / ".env"
+load_dotenv(env_file)
+
 # Ensure backend is in path for direct execution
 backend_path = Path(__file__).parent.parent.parent
 if str(backend_path) not in sys.path:
@@ -254,6 +259,9 @@ async def run_scout_test(dry_run: bool = False) -> "ScoutOutput | None":
 
     # Now import and run the production Scout agent
     from coliseum.agents.scout import run_scout
+    from coliseum.config import get_settings
+    
+    settings = get_settings()
 
     logger.info(f"{mode_label}Running production Scout agent...")
     if dry_run:
@@ -261,7 +269,7 @@ async def run_scout_test(dry_run: bool = False) -> "ScoutOutput | None":
     logger.info("-" * 70)
 
     try:
-        output = await run_scout(dry_run=dry_run)
+        output = await run_scout(dry_run=dry_run, strategy=settings.strategy)
 
         logger.info("\n" + "=" * 70)
         logger.info(f"{mode_label}Results")
@@ -440,8 +448,6 @@ async def run_trader_test(opportunity_file: str | None = None, verbose: bool = F
     logger.info(f"   Execution status: {output.execution_status}")
     if output.decision.reasoning:
         logger.info(f"   Reasoning: {output.decision.reasoning}")
-    if output.decision.verification_summary:
-        logger.info(f"   Verification summary: {output.decision.verification_summary}")
 
     logger.info("\n" + "=" * 70)
     logger.info("Trader test complete")
@@ -526,7 +532,8 @@ async def run_full_pipeline() -> None:
     from coliseum.agents.trader import run_trader
     from coliseum.config import get_settings
     
-    scout_output = await run_scout(dry_run=False)
+    settings = get_settings()
+    scout_output = await run_scout(dry_run=False, strategy=settings.strategy)
     
     if not scout_output or not scout_output.opportunities:
         logger.warning("Scout found no opportunities. Pipeline complete.")
@@ -536,7 +543,6 @@ async def run_full_pipeline() -> None:
     total_opps = len(opportunities)
     logger.info(f"Scout found {total_opps} opportunities")
     
-    settings = get_settings()
     settings.trading.paper_mode = True
     
     # Process each opportunity sequentially: Analyst -> Trader

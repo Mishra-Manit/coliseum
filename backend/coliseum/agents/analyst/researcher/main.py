@@ -10,7 +10,7 @@ from coliseum.agents.analyst.researcher.models import (
     ResearcherDependencies,
     ResearcherOutput,
 )
-from coliseum.agents.analyst.researcher.prompts import RESEARCHER_SYSTEM_PROMPT
+from coliseum.agents.analyst.researcher.prompts import RESEARCHER_SYSTEM_PROMPT, RESEARCHER_SURE_THING_PROMPT
 from coliseum.agents.shared_tools import register_load_opportunity
 from coliseum.config import Settings, get_settings
 from coliseum.llm_providers import OpenAIModel, get_model_string
@@ -25,12 +25,13 @@ from coliseum.storage.files import (
 logger = logging.getLogger(__name__)
 
 
-def _create_agent() -> Agent[ResearcherDependencies, ResearcherOutput]:
+def _create_agent(strategy: str = "edge") -> Agent[ResearcherDependencies, ResearcherOutput]:
+    prompt = RESEARCHER_SURE_THING_PROMPT if strategy == "sure_thing" else RESEARCHER_SYSTEM_PROMPT
     return Agent(
         model=get_model_string(OpenAIModel.GPT_5_MINI),
         output_type=ResearcherOutput,
         deps_type=ResearcherDependencies,
-        system_prompt=RESEARCHER_SYSTEM_PROMPT,
+        system_prompt=prompt,
         builtin_tools=[WebSearchTool()],
     )
 
@@ -39,15 +40,22 @@ def _register_tools(agent: Agent[ResearcherDependencies, ResearcherOutput]) -> N
     register_load_opportunity(agent)
 
 
-_factory = AgentFactory(
-    create_fn=_create_agent,
+_edge_factory = AgentFactory(
+    create_fn=lambda: _create_agent("edge"),
+    register_tools_fn=_register_tools,
+)
+
+_sure_thing_factory = AgentFactory(
+    create_fn=lambda: _create_agent("sure_thing"),
     register_tools_fn=_register_tools,
 )
 
 
-def get_agent() -> Agent[ResearcherDependencies, ResearcherOutput]:
-    """Get the singleton Researcher agent instance."""
-    return _factory.get_agent()
+def get_agent(strategy: str = "edge") -> Agent[ResearcherDependencies, ResearcherOutput]:
+    """Get the singleton Researcher agent instance for the given strategy."""
+    if strategy == "sure_thing":
+        return _sure_thing_factory.get_agent()
+    return _edge_factory.get_agent()
 
 
 async def run_researcher(
@@ -65,6 +73,7 @@ async def run_researcher(
         raise FileNotFoundError(f"Opportunity file not found: {opportunity_id}")
 
     opportunity = load_opportunity_from_file(opp_file)
+    strategy = opportunity.strategy
 
     # Update status to "researching"
     if not dry_run:
@@ -77,7 +86,7 @@ async def run_researcher(
     )
     prompt = _build_research_prompt(opportunity, settings)
 
-    agent = get_agent()
+    agent = get_agent(strategy)
     result = await agent.run(prompt, deps=deps)
     output = result.output
 
