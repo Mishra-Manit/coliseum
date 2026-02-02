@@ -1,8 +1,9 @@
 """Data models for the Scout agent."""
 
 from pydantic import BaseModel, Field
+
+from coliseum.config import Settings
 from coliseum.services.kalshi.client import KalshiClient
-from coliseum.config import ScoutConfig
 from coliseum.storage.files import OpportunitySignal
 
 class ScoutDependencies(BaseModel):
@@ -11,7 +12,7 @@ class ScoutDependencies(BaseModel):
     model_config = {"arbitrary_types_allowed": True}
 
     kalshi_client: KalshiClient
-    config: ScoutConfig
+    settings: Settings
 
 
 class ScoutOutput(BaseModel):
