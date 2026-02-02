@@ -71,7 +71,6 @@ risk:
 
 scheduler:
   scout_full_scan_minutes: 60
-  scout_quick_scan_minutes: 15
   guardian_position_check_minutes: 15
   guardian_news_scan_minutes: 30
 
@@ -80,7 +79,6 @@ scout:
   min_liquidity_cents: 10
   max_close_hours: 72
   max_opportunities_per_scan: 20
-  quick_scan_min_volume: 50000
 
 analyst:
   max_research_time_seconds: 300
@@ -159,7 +157,6 @@ def cmd_config(args: argparse.Namespace) -> int:
 
         print("Scheduler (minutes):")
         print(f"  Scout Full Scan: {settings.scheduler.scout_full_scan_minutes}")
-        print(f"  Scout Quick Scan: {settings.scheduler.scout_quick_scan_minutes}")
         print(f"  Guardian Position Check: {settings.scheduler.guardian_position_check_minutes}")
         print(f"  Guardian News Scan: {settings.scheduler.guardian_news_scan_minutes}\n")
 
@@ -167,8 +164,7 @@ def cmd_config(args: argparse.Namespace) -> int:
         print(f"  Min Volume: {settings.scout.min_volume:,} contracts")
         print(f"  Min Liquidity: {settings.scout.min_liquidity_cents}¢ spread")
         print(f"  Max Close Hours: {settings.scout.max_close_hours}h")
-        print(f"  Max Opportunities/Scan: {settings.scout.max_opportunities_per_scan}")
-        print(f"  Quick Scan Min Volume: {settings.scout.quick_scan_min_volume:,}\n")
+        print(f"  Max Opportunities/Scan: {settings.scout.max_opportunities_per_scan}\n")
 
         print("Analyst:")
         print(f"  Max Research Time: {settings.analyst.max_research_time_seconds}s\n")
@@ -261,12 +257,11 @@ def cmd_scout(args: argparse.Namespace) -> int:
     try:
         from coliseum.agents.scout import run_scout
 
-        scan_type = args.scan_type
-        print(f"\n=== Scout {scan_type.title()} Scan ===\n")
+        print(f"\n=== Scout Scan ===\n")
 
-        result = asyncio.run(run_scout(scan_type=scan_type))
+        result = asyncio.run(run_scout())
 
-        print(f"✓ Scout {scan_type} scan complete\n")
+        print(f"✓ Scout scan complete\n")
         print(f"Markets scanned: {result.markets_scanned}")
         print(f"Opportunities found: {result.opportunities_found}")
         print(f"Filtered out: {result.filtered_out}")
@@ -439,12 +434,6 @@ def main() -> int:
     parser_scout = subparsers.add_parser(
         "scout",
         help="Run Scout market scan manually",
-    )
-    parser_scout.add_argument(
-        "--scan-type",
-        choices=["full", "quick"],
-        default="full",
-        help="Scan type: full (all markets) or quick (high-volume only)",
     )
     parser_scout.set_defaults(func=cmd_scout)
 

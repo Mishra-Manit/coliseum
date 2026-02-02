@@ -179,8 +179,7 @@ Scout filters for markets with:
 - Identify WHY the market will reprice (not just predict outcome)
 
 #### Execution Schedule
-- **Quick Scan**: Every 15 minutes (checks recent events)
-- **Full Scan**: Every 60 minutes (comprehensive market sweep)
+- **Market Scan**: Every 60 minutes (comprehensive market sweep)
 - Triggered on-demand via CLI: `python -m coliseum scout`
 
 #### Tools Available
@@ -567,8 +566,7 @@ All file operations use atomic writes (tempfile + rename) to prevent corruption.
 
 | Job | Frequency | Status |
 |-----|-----------|--------|
-| Scout quick scan | Every 15 min | ✅ Implemented |
-| Scout full scan | Every 60 min | ✅ Implemented |
+| Scout market scan | Every 60 min | ✅ Implemented |
 | Guardian position check | Every 15 min | ❌ Not implemented |
 | Guardian news scan | Every 30 min | ❌ Not implemented |
 
@@ -864,7 +862,7 @@ Configuration: Set `LOGFIRE_TOKEN` in `.env`
   ```bash
   python -m coliseum init                    # Initialize data directory
   python -m coliseum run                     # Start full autonomous system
-  python -m coliseum scout --scan-type full  # Manual scout scan
+  python -m coliseum scout                   # Manual scout scan
   python -m coliseum analyst --opportunity-id OPP123
   python -m coliseum portfolio status        # Show current portfolio
   python -m coliseum positions list          # List open positions
@@ -928,8 +926,7 @@ Configuration: Set `LOGFIRE_TOKEN` in `.env`
 
 #### 6.1 Scheduler Implementation (`coliseum/scheduler.py`)
 - [ ] Create `AsyncIOScheduler` with jobs:
-  - Scout full scan: Every hour at `:00`
-  - Scout quick scan: Every 15 minutes
+  - Scout market scan: Every hour at `:00`
   - Process analyst queue: Every 5 minutes
   - Guardian position check: Every 15 minutes
   - Guardian news scan: Every 30 minutes

@@ -2,9 +2,11 @@
 # This file contains operational parameters for the autonomous trading system.
 # API keys and secrets should be stored in .env file, not here.
 
+strategy: edge  # Options: edge, sure_thing
+
 trading:
-  paper_mode: false  # LIVE TRADING with real money
-  initial_bankroll: 100.00  # Starting with $100 real capital
+  paper_mode: false
+  initial_bankroll: 100.00
 
 risk:
   max_position_pct: 0.10          # Max 10% of portfolio per position
@@ -15,20 +17,15 @@ risk:
 
 scheduler:
   scout_full_scan_minutes: 60     # Full market scan every hour
-  scout_quick_scan_minutes: 15    # Quick scan every 15 minutes
   guardian_position_check_minutes: 15  # Check positions every 15 min
   guardian_news_scan_minutes: 30  # Scan news every 30 minutes
 
 scout:
-  min_close_hours: 96              # Minimum hours until close (4 days for edge trading)
-  max_close_hours: 240             # Maximum hours until close (10 days for edge trading)
-  max_opportunities_per_scan: 2    # Limit opportunities per scan
+  max_opportunities_per_scan: 2
+  market_fetch_limit: 10000
 
 analyst:
-  research_depth: standard        # Options: quick, standard, deep
-  min_confidence_threshold: 0.6   # Don't recommend below 60% confidence
-  max_research_time_seconds: 300  # 5 minute timeout per research
-  required_sources: 3             # Minimum sources for recommendation
+  max_research_time_seconds: 300
 
 guardian:
   profit_target_pct: 0.70         # Take profit at 70% of edge captured
@@ -46,8 +43,8 @@ execution:
   max_order_age_minutes: 60       # Cancel order if open > 1 hour
 
 telegram:
-  send_trade_alerts: true         # Trade execution/rejection alerts
-  send_risk_alerts: true          # Risk limit warnings
-  send_position_alerts: true      # Position updates and closures
-  send_opportunity_alerts: true   # New opportunity discoveries
-  send_system_alerts: false       # System status and errors
+  send_trade_alerts: true
+  send_risk_alerts: true
+  send_position_alerts: true
+  send_opportunity_alerts: true
+  send_system_alerts: false

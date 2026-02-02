@@ -3,6 +3,7 @@
 import logging
 from functools import lru_cache
 from pathlib import Path
+from enum import Enum
 from typing import Literal
 
 import yaml
@@ -33,7 +34,6 @@ class SchedulerConfig(BaseModel):
     """Job scheduling intervals in minutes."""
 
     scout_full_scan_minutes: int = 60
-    scout_quick_scan_minutes: int = 15
     guardian_position_check_minutes: int = 15
     guardian_news_scan_minutes: int = 30
 
@@ -46,9 +46,7 @@ class ScoutConfig(BaseModel):
     min_close_hours: int = 96   # Minimum hours until close (4 days for edge trading)
     max_close_hours: int = 240  # Maximum hours until close (10 days for edge trading)
     max_opportunities_per_scan: int = 5  # Limit opportunities per scan
-
-    # Quick scan settings (subset of full scan)
-    quick_scan_min_volume: int = 50000  # Higher volume threshold for quick scans
+    market_fetch_limit: int = 10000
 
 
 class AnalystConfig(BaseModel):
@@ -64,6 +62,13 @@ class GuardianConfig(BaseModel):
     stop_loss_pct: float = 0.10        # Cut loss at 10% down (tight stop)
     max_hold_days: int = 5             # Maximum days to hold any position
     edge_capture_pct: float = 0.70     # Target: capture 70% of identified edge
+
+
+class Strategy(str, Enum):
+    """Available trading strategies."""
+
+    EDGE = "edge"
+    SURE_THING = "sure_thing"
 
 
 class ExecutionConfig(BaseModel):
@@ -119,6 +124,7 @@ class Settings(BaseSettings):
     guardian: GuardianConfig = Field(default_factory=GuardianConfig)
     execution: ExecutionConfig = Field(default_factory=ExecutionConfig)
     telegram: TelegramConfig = Field(default_factory=TelegramConfig)
+    strategy: Strategy = Strategy.EDGE
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -190,6 +196,9 @@ class Settings(BaseSettings):
 
                     new_section = section.__class__(**section_dict)
                     setattr(self, section_name, new_section)
+
+            if "strategy" in yaml_config:
+                self.strategy = Strategy(yaml_config["strategy"])
 
             logger.info(f"Loaded configuration from {config_path}")
 
