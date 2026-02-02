@@ -14,7 +14,7 @@ from coliseum.agents.analyst.recommender.models import (
     RecommenderDependencies,
     RecommenderOutput,
 )
-from coliseum.agents.analyst.recommender.prompts import RECOMMENDER_SYSTEM_PROMPT
+from coliseum.agents.analyst.recommender.prompts import RECOMMENDER_SYSTEM_PROMPT, RECOMMENDER_SURE_THING_PROMPT
 from coliseum.agents.analyst.recommender.calculations import (
     calculate_edge,
     calculate_expected_value,
@@ -34,12 +34,13 @@ from coliseum.storage.files import (
 logger = logging.getLogger(__name__)
 
 
-def _create_agent() -> Agent[RecommenderDependencies, RecommenderOutput]:
+def _create_agent(strategy: str = "edge") -> Agent[RecommenderDependencies, RecommenderOutput]:
+    prompt = RECOMMENDER_SURE_THING_PROMPT if strategy == "sure_thing" else RECOMMENDER_SYSTEM_PROMPT
     return Agent(
         model=get_model_string(OpenAIModel.GPT_5),
         output_type=RecommenderOutput,
         deps_type=RecommenderDependencies,
-        system_prompt=RECOMMENDER_SYSTEM_PROMPT,
+        system_prompt=prompt,
     )
 
 
@@ -89,15 +90,22 @@ def _register_tools(agent: Agent[RecommenderDependencies, RecommenderOutput]) ->
     register_get_current_time(agent)
 
 
-_factory = AgentFactory(
-    create_fn=_create_agent,
+_edge_factory = AgentFactory(
+    create_fn=lambda: _create_agent("edge"),
+    register_tools_fn=_register_tools,
+)
+
+_sure_thing_factory = AgentFactory(
+    create_fn=lambda: _create_agent("sure_thing"),
     register_tools_fn=_register_tools,
 )
 
 
-def get_agent() -> Agent[RecommenderDependencies, RecommenderOutput]:
-    """Get the singleton Recommender agent instance."""
-    return _factory.get_agent()
+def get_agent(strategy: str = "edge") -> Agent[RecommenderDependencies, RecommenderOutput]:
+    """Get the singleton Recommender agent instance for the given strategy."""
+    if strategy == "sure_thing":
+        return _sure_thing_factory.get_agent()
+    return _edge_factory.get_agent()
 
 
 async def run_recommender(
@@ -123,6 +131,7 @@ async def run_recommender(
     if not opp_file:
         raise FileNotFoundError(f"Opportunity file not found: {opportunity_id}")
     opportunity = load_opportunity_from_file(opp_file)
+    strategy = opportunity.strategy
 
     # Verify research exists
     if not opportunity.research_completed_at:
@@ -136,9 +145,12 @@ async def run_recommender(
         opportunity_id=opportunity_id,
         config=settings.analyst,
     )
-    prompt = _build_decision_prompt(opportunity, markdown_body)
+    if strategy == "sure_thing":
+        prompt = _build_sure_thing_decision_prompt(opportunity, markdown_body)
+    else:
+        prompt = _build_decision_prompt(opportunity, markdown_body)
 
-    agent = get_agent()
+    agent = get_agent(strategy)
     result = await agent.run(prompt, deps=deps)
     output = result.output
 
@@ -263,6 +275,41 @@ Consider:
 - Are sources credible and diverse?
 - Is there sufficient edge after accounting for risks?
 - If confidence or edge is low, say so explicitly
+"""
+
+    return prompt
+
+
+def _build_sure_thing_decision_prompt(
+    opportunity: OpportunitySignal, markdown_body: str
+) -> str:
+    """Build the evaluation prompt for sure-thing strategy."""
+    prompt = f"""Evaluate this sure-thing research and set risk-based trade metrics (no final trade decision).
+
+## Opportunity Details
+
+**Market**: {opportunity.event_ticker}
+**YES Price**: {opportunity.yes_price:.2f} ({opportunity.yes_price * 100:.1f}¢)
+**NO Price**: {opportunity.no_price:.2f} ({opportunity.no_price * 100:.1f}¢)
+
+## Full Research Context
+
+{markdown_body}
+
+## Your Task
+
+1. Review the research above carefully
+2. Identify the overall risk level (HIGH / MEDIUM / LOW) based on the research
+3. Set `estimated_true_probability` equal to the market price
+4. Set edge/EV to 0.0 (these metrics are not used for sure-thing decisions)
+5. Set `suggested_position_pct` explicitly by risk level (LOW=10%, MEDIUM=5%, HIGH=0%)
+6. Do not make a final BUY/NO decision (leave action unset)
+7. Do not use Kelly sizing or `calculate_position_size`
+
+## Important
+
+- If risk is HIGH, set edge/EV to 0.0 and suggested_position_pct to 0%
+- Be disciplined and conservative. When in doubt, downgrade risk
 """
 
     return prompt

@@ -178,6 +178,8 @@ Bullet list of questions investigated.
 | Official announcement | Yes/No | [citation] |
 | Recent volatility | Yes/No | [price movement] |
 
+Include all statements and concerns from the research. Do not omit conflicting or negative evidence.
+
 ### 4. Risk Classification
 **OVERALL RISK: HIGH / MEDIUM / LOW**
 Default to LOW unless there is explicit official confirmation of reversal risk.
