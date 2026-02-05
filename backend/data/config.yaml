@@ -23,6 +23,12 @@ scheduler:
 scout:
   max_opportunities_per_scan: 2
   market_fetch_limit: 10000
+  sure_thing_min_close_hours: 0
+  sure_thing_max_close_hours: 72
+  sure_thing_min_price: 92
+  sure_thing_max_price: 96
+  sure_thing_max_spread_cents: 3
+  sure_thing_min_volume: 2000
 
 analyst:
   max_research_time_seconds: 300

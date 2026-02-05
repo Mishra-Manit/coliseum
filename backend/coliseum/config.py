@@ -45,6 +45,12 @@ class ScoutConfig(BaseModel):
     min_liquidity_cents: int = 10  # Minimum bid-ask spread tolerance (cents)
     min_close_hours: int = 96   # Minimum hours until close (4 days for edge trading)
     max_close_hours: int = 240  # Maximum hours until close (10 days for edge trading)
+    sure_thing_min_close_hours: int = 0  # Sure-thing scan minimum hours until close
+    sure_thing_max_close_hours: int = 48  # Sure-thing scan maximum hours until close
+    sure_thing_min_price: int = 92  # Sure-thing min YES/NO price (cents)
+    sure_thing_max_price: int = 96  # Sure-thing max YES/NO price (cents)
+    sure_thing_max_spread_cents: int = 3  # Sure-thing max spread (cents)
+    sure_thing_min_volume: int = 5000  # Sure-thing min 24h volume (contracts)
     max_opportunities_per_scan: int = 5  # Limit opportunities per scan
     market_fetch_limit: int = 10000
 
