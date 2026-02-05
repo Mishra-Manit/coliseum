@@ -32,10 +32,7 @@ class TraderDecision(BaseModel):
         description="Confidence level in the decision (0.0 to 1.0). Higher values indicate stronger conviction.",
     )
     reasoning: str = Field(
-        description="Detailed explanation of the decision, including verification results and risk assessment"
-    )
-    verification_summary: str = Field(
-        description="Summary of web search verification results. What claims were verified? Any discrepancies found?"
+        description="Detailed explanation of the decision and risk assessment"
     )
 
 

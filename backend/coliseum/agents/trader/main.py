@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from typing import Literal
 from uuid import uuid4
 
-from pydantic_ai import Agent, RunContext, WebSearchTool
+from pydantic_ai import Agent, RunContext
 from pydantic_ai.messages import ModelMessage
 
 from coliseum.agents.agent_factory import AgentFactory
@@ -20,10 +20,12 @@ from coliseum.agents.trader.models import (
 )
 from coliseum.agents.trader.prompts import (
     build_trader_system_prompt,
+    build_trader_sure_thing_system_prompt,
     _build_trader_prompt,
+    _build_trader_sure_thing_prompt,
 )
 from coliseum.config import Settings, get_settings
-from coliseum.llm_providers import OpenAIModel, get_model_string
+from coliseum.llm_providers import FireworksModel, get_model_string
 from coliseum.services.kalshi.client import KalshiClient
 from coliseum.services.telegram import create_telegram_client
 from coliseum.storage.files import (
@@ -67,19 +69,28 @@ async def simulate_limit_order(
     }
 
 
-def _create_agent(settings: Settings) -> Agent[TraderDependencies, TraderOutput]:
-    """Create the Trader agent with OpenAI GPT-5."""
+def _create_edge_agent(settings: Settings) -> Agent[TraderDependencies, TraderOutput]:
+    """Create the Trader agent for edge trading strategy."""
     return Agent(
-        model=get_model_string(OpenAIModel.GPT_5),
+        model=get_model_string(FireworksModel.KIMI_K_2_5),
         output_type=TraderOutput,
         deps_type=TraderDependencies,
         system_prompt=build_trader_system_prompt(settings),
-        builtin_tools=[WebSearchTool()],
     )
 
 
-def _register_tools(agent: Agent[TraderDependencies, TraderOutput]) -> None:
-    """Register tools with the Trader agent."""
+def _create_sure_thing_agent(settings: Settings) -> Agent[TraderDependencies, TraderOutput]:
+    """Create the Trader agent for sure thing strategy (simplified)."""
+    return Agent(
+        model=get_model_string(FireworksModel.KIMI_K_2_5),
+        output_type=TraderOutput,
+        deps_type=TraderDependencies,
+        system_prompt=build_trader_sure_thing_system_prompt(settings),
+    )
+
+
+def _register_edge_tools(agent: Agent[TraderDependencies, TraderOutput]) -> None:
+    """Register tools with the Trader agent for edge trading."""
     register_load_opportunity_with_research(agent, include_metrics=True)
 
     @agent.tool
@@ -195,6 +206,34 @@ def _register_tools(agent: Agent[TraderDependencies, TraderOutput]) -> None:
             "fill_count": order.fill_count,
         }
 
+    _register_telegram_tool(agent)
+
+
+def _register_sure_thing_tools(agent: Agent[TraderDependencies, TraderOutput]) -> None:
+    """Register minimal tools for sure thing trading (no portfolio/slippage calculations)."""
+    register_load_opportunity_with_research(agent, include_metrics=False)
+
+    @agent.tool
+    async def get_current_market_price(
+        ctx: RunContext[TraderDependencies],
+        ticker: str,
+    ) -> dict:
+        """Fetch live Kalshi orderbook prices to confirm YES or NO is still 92-96%."""
+        client = ctx.deps.kalshi_client
+        market = await client.get_market(ticker)
+        return {
+            "ticker": ticker,
+            "yes_ask": market.yes_ask,
+            "yes_price_decimal": market.yes_ask / 100 if market.yes_ask else None,
+            "no_ask": market.no_ask,
+            "no_price_decimal": market.no_ask / 100 if market.no_ask else None,
+        }
+
+    _register_telegram_tool(agent)
+
+
+def _register_telegram_tool(agent: Agent[TraderDependencies, TraderOutput]) -> None:
+    """Register the Telegram alert tool (shared between strategies)."""
     @agent.tool
     async def send_telegram_alert(
         ctx: RunContext[TraderDependencies],
@@ -205,7 +244,6 @@ def _register_tools(agent: Agent[TraderDependencies, TraderOutput]) -> None:
     ) -> dict:
         """Send a Telegram alert about the trading decision."""
         try:
-            # Build concise message
             subtitle_part = f"\n{event_subtitle}" if event_subtitle else ""
             message = f"🎯 {event_title}{subtitle_part}\n\n{decision}: {reason}"
 
@@ -374,18 +412,28 @@ async def execute_working_order(
     return OrderResult(status="error", error_message="Unexpected end of loop")
 
 
-_factory: AgentFactory[TraderDependencies, TraderOutput] | None = None
+_edge_factory: AgentFactory[TraderDependencies, TraderOutput] | None = None
+_sure_thing_factory: AgentFactory[TraderDependencies, TraderOutput] | None = None
 
 
-def get_agent(settings: Settings) -> Agent[TraderDependencies, TraderOutput]:
-    """Get the singleton Trader agent instance."""
-    global _factory
-    if _factory is None:
-        _factory = AgentFactory(
-            create_fn=lambda: _create_agent(settings),
-            register_tools_fn=_register_tools,
+def get_agent(settings: Settings, strategy: str = "edge") -> Agent[TraderDependencies, TraderOutput]:
+    """Get the singleton Trader agent instance for the given strategy."""
+    global _edge_factory, _sure_thing_factory
+
+    if strategy == "sure_thing":
+        if _sure_thing_factory is None:
+            _sure_thing_factory = AgentFactory(
+                create_fn=lambda: _create_sure_thing_agent(settings),
+                register_tools_fn=_register_sure_thing_tools,
+            )
+        return _sure_thing_factory.get_agent()
+
+    if _edge_factory is None:
+        _edge_factory = AgentFactory(
+            create_fn=lambda: _create_edge_agent(settings),
+            register_tools_fn=_register_edge_tools,
         )
-    return _factory.get_agent()
+    return _edge_factory.get_agent()
 
 
 async def run_trader(
@@ -409,8 +457,9 @@ async def run_trader(
     if not opportunity.recommendation_completed_at:
         raise ValueError(f"Recommendation not completed for {opportunity_id}")
 
-    if opportunity.edge is None or opportunity.expected_value is None:
-        raise ValueError(f"Missing edge/EV data for {opportunity_id}")
+    if opportunity.strategy != "sure_thing":
+        if opportunity.edge is None or opportunity.expected_value is None:
+            raise ValueError(f"Missing edge/EV data for {opportunity_id}")
 
     # Create Kalshi client
     from coliseum.services.kalshi.config import KalshiConfig
@@ -432,12 +481,16 @@ async def run_trader(
             config=settings,
         )
 
-        # Build prompt
+        # Build prompt based on strategy
         markdown_body = get_opportunity_markdown_body(opp_file)
-        prompt = _build_trader_prompt(opportunity, markdown_body, settings)
+        strategy = opportunity.strategy
+        if strategy == "sure_thing":
+            prompt = _build_trader_sure_thing_prompt(opportunity, markdown_body, settings)
+        else:
+            prompt = _build_trader_prompt(opportunity, markdown_body, settings)
 
         # Run agent
-        agent = get_agent(settings)
+        agent = get_agent(settings, strategy)
         result = await agent.run(prompt, deps=deps)
         output: TraderOutput = result.output
 
@@ -455,20 +508,30 @@ async def run_trader(
         if output.decision.action == "EXECUTE_BUY_YES":
             side = "yes"
             target_price = opportunity.yes_price
-            edge = opportunity.edge
-            ev = opportunity.expected_value
-            position_pct = opportunity.suggested_position_pct or 0.0
         else:  # EXECUTE_BUY_NO
             side = "no"
             target_price = opportunity.no_price
+        
+        if opportunity.strategy == "sure_thing":
+            edge = 0.0
+            ev = 0.0
+            position_pct = 0.0
+        elif side == "yes":
+            edge = opportunity.edge
+            ev = opportunity.expected_value
+            position_pct = opportunity.suggested_position_pct or 0.0
+        else:
             edge = opportunity.edge_no
             ev = opportunity.expected_value_no
             position_pct = opportunity.suggested_position_pct_no or 0.0
 
         # Calculate position size
-        portfolio_state = load_state()
-        trade_size_usd = portfolio_state.portfolio.total_value * position_pct
-        contracts = int(trade_size_usd / target_price) if target_price > 0 else 0
+        if opportunity.strategy == "sure_thing":
+            contracts = 3
+        else:
+            portfolio_state = load_state()
+            trade_size_usd = portfolio_state.portfolio.total_value * position_pct
+            contracts = int(trade_size_usd / target_price) if target_price > 0 else 0
 
         # Get current market price and calculate slippage
         market = await client.get_market(opportunity.market_ticker)
