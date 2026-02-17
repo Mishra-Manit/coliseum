@@ -7,6 +7,7 @@ from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 
+from coliseum.agents.guardian import guardian_job
 from coliseum.agents.scout import scout_scan_job
 from coliseum.config import Settings
 
@@ -33,9 +34,8 @@ def start_scheduler(settings: Settings) -> NoReturn:
     )
 
     scheduler.add_job(
-        _placeholder_job,
+        guardian_job,
         IntervalTrigger(minutes=settings.scheduler.guardian_position_check_minutes),
-        args=["Guardian Position Check"],
         id="guardian-position-check",
         name="Guardian: Position Monitor",
     )

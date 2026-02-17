@@ -20,20 +20,15 @@ from coliseum.storage.memory import (
 )
 
 from .models import ScoutDependencies, ScoutOutput
-from .prompts import SCOUT_SYSTEM_PROMPT, SCOUT_SURE_THING_PROMPT
+from .prompts import SCOUT_SYSTEM_PROMPT, build_scout_sure_thing_prompt
 
 logger = logging.getLogger(__name__)
 
-# Strategy-specific constants
-EDGE_FILTERS = {"min_close_hours": 96, "max_close_hours": 240, "min_price": 10, "max_price": 90}
-SURE_THING_FILTERS = {"min_close_hours": 0, "max_close_hours": 48, "min_price": 92, "max_price": 96, "max_spread_cents": 3}
 
-
-def _create_scout_agent(strategy: Strategy = Strategy.EDGE) -> Agent[ScoutDependencies, ScoutOutput]:
-    """Create the Scout agent with strategy-specific prompt."""
-    prompt = SCOUT_SURE_THING_PROMPT if strategy == Strategy.SURE_THING else SCOUT_SYSTEM_PROMPT
+def _create_scout_agent(prompt: str) -> Agent[ScoutDependencies, ScoutOutput]:
+    """Create the Scout agent with the provided system prompt."""
     return Agent(
-        model=get_model_string(OpenAIModel.GPT_5_MINI),
+        model=get_model_string(OpenAIModel.GPT_5_2),
         output_type=ScoutOutput,
         deps_type=ScoutDependencies,
         system_prompt=prompt,
@@ -43,7 +38,6 @@ def _create_scout_agent(strategy: Strategy = Strategy.EDGE) -> Agent[ScoutDepend
 
 def _register_tools(agent: Agent[ScoutDependencies, ScoutOutput], strategy: Strategy = Strategy.EDGE) -> None:
     """Register tools with the Scout agent."""
-    filters = SURE_THING_FILTERS if strategy == Strategy.SURE_THING else EDGE_FILTERS
 
     @agent.tool
     async def fetch_markets_closing_soon(
@@ -54,11 +48,22 @@ def _register_tools(agent: Agent[ScoutDependencies, ScoutOutput], strategy: Stra
         Returns:
             List of market dictionaries with ticker, title, volume, prices, spread, close_time
         """
-        min_close_hours = filters["min_close_hours"]
-        max_close_hours = filters["max_close_hours"]
-        min_price = filters["min_price"]
-        max_price = filters["max_price"]
-        min_volume = 5000
+        if strategy == Strategy.SURE_THING:
+            scout_settings = ctx.deps.settings.scout
+            min_close_hours = scout_settings.sure_thing_min_close_hours
+            max_close_hours = scout_settings.sure_thing_max_close_hours
+            min_price = scout_settings.sure_thing_min_price
+            max_price = scout_settings.sure_thing_max_price
+            min_volume = scout_settings.sure_thing_min_volume
+            max_spread = scout_settings.sure_thing_max_spread_cents
+        else:
+            scout_settings = ctx.deps.settings.scout
+            min_close_hours = scout_settings.edge_min_close_hours
+            max_close_hours = scout_settings.edge_max_close_hours
+            min_price = scout_settings.edge_min_price
+            max_price = scout_settings.edge_max_price
+            min_volume = scout_settings.min_volume
+            max_spread = None
         market_fetch_limit = ctx.deps.settings.scout.market_fetch_limit
 
         markets = await ctx.deps.kalshi_client.get_markets_closing_in_range(
@@ -80,8 +85,6 @@ def _register_tools(agent: Agent[ScoutDependencies, ScoutOutput], strategy: Stra
         ]
         logger.info("Scout filtered to %d markets with YES or NO in %d-%d%% range", len(markets), min_price, max_price)
 
-        # Apply spread filter only for sure_thing strategy
-        max_spread = filters.get("max_spread_cents")
         if max_spread is not None:
             filtered_markets = []
             for m in markets:
@@ -99,6 +102,9 @@ def _register_tools(agent: Agent[ScoutDependencies, ScoutOutput], strategy: Stra
 
             markets = filtered_markets
             logger.info("Scout filtered to %d markets with spread <= %d cents", len(markets), max_spread)
+
+        market_tickers = [m.ticker for m in markets]
+        logger.info("Scout markets available for research (%d total): %s", len(markets), ", ".join(market_tickers) if market_tickers else "No markets available")
 
         return [
             {
@@ -128,20 +134,22 @@ def _register_tools(agent: Agent[ScoutDependencies, ScoutOutput], strategy: Stra
 
 
 _edge_factory = AgentFactory(
-    create_fn=lambda: _create_scout_agent(Strategy.EDGE),
+    create_fn=lambda: _create_scout_agent(SCOUT_SYSTEM_PROMPT),
     register_tools_fn=lambda agent: _register_tools(agent, Strategy.EDGE),
 )
 
-_sure_thing_factory = AgentFactory(
-    create_fn=lambda: _create_scout_agent(Strategy.SURE_THING),
-    register_tools_fn=lambda agent: _register_tools(agent, Strategy.SURE_THING),
-)
 
-
-def get_scout_agent(strategy: Strategy = Strategy.EDGE) -> Agent[ScoutDependencies, ScoutOutput]:
+def get_scout_agent(
+    strategy: Strategy = Strategy.EDGE, settings: Settings | None = None
+) -> Agent[ScoutDependencies, ScoutOutput]:
     """Get the singleton Scout agent instance for the given strategy."""
     if strategy == Strategy.SURE_THING:
-        return _sure_thing_factory.get_agent()
+        if settings is None:
+            settings = get_settings()
+        prompt = build_scout_sure_thing_prompt(settings)
+        agent = _create_scout_agent(prompt)
+        _register_tools(agent, Strategy.SURE_THING)
+        return agent
     return _edge_factory.get_agent()
 
 
@@ -174,13 +182,15 @@ async def run_scout(
         deps = ScoutDependencies(kalshi_client=client, settings=settings)
 
         # Run the agent with seen markets context
-        agent = get_scout_agent(strategy)
+        agent = get_scout_agent(strategy, settings)
         if strategy == Strategy.SURE_THING:
+            sure_thing_settings = settings.scout
             prompt = (
-                f"Scan Kalshi markets for SURE THING opportunities—markets at 92-96% where the outcome is locked in "
-                f"or near-decided with no swing risk. "
+                f"Scan Kalshi markets for SURE THING opportunities—markets at "
+                f"{sure_thing_settings.sure_thing_min_price}-{sure_thing_settings.sure_thing_max_price}% where the outcome "
+                f"is strongly favored with negligible or low reversal risk. "
                 f"Find up to {settings.scout.max_opportunities_per_scan} opportunities. "
-                f"Only select markets that pass the No-Swing Risk Checklist in the prompt."
+                f"Select markets that pass the Risk Assessment Checklist. Remember: residual uncertainty is normal for open markets—do not skip a market just because the outcome is not yet 100% official."
                 f"{seen_context}"
             )
         else:

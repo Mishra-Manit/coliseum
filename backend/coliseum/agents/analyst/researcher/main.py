@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 def _create_agent(strategy: str = "edge") -> Agent[ResearcherDependencies, ResearcherOutput]:
     prompt = RESEARCHER_SURE_THING_PROMPT if strategy == "sure_thing" else RESEARCHER_SYSTEM_PROMPT
     return Agent(
-        model=get_model_string(OpenAIModel.GPT_5_MINI),
+        model=get_model_string(OpenAIModel.GPT_5_2),
         output_type=ResearcherOutput,
         deps_type=ResearcherDependencies,
         system_prompt=prompt,

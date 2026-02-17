@@ -37,7 +37,7 @@ logger = logging.getLogger(__name__)
 def _create_agent(strategy: str = "edge") -> Agent[RecommenderDependencies, RecommenderOutput]:
     prompt = RECOMMENDER_SURE_THING_PROMPT if strategy == "sure_thing" else RECOMMENDER_SYSTEM_PROMPT
     return Agent(
-        model=get_model_string(OpenAIModel.GPT_5),
+        model=get_model_string(OpenAIModel.GPT_5_2),
         output_type=RecommenderOutput,
         deps_type=RecommenderDependencies,
         system_prompt=prompt,

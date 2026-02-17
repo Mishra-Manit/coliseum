@@ -25,7 +25,7 @@ from coliseum.agents.trader.prompts import (
     _build_trader_sure_thing_prompt,
 )
 from coliseum.config import Settings, get_settings
-from coliseum.llm_providers import FireworksModel, get_model_string
+from coliseum.llm_providers import OpenAIModel, get_model_string
 from coliseum.services.kalshi.client import KalshiClient
 from coliseum.services.telegram import create_telegram_client
 from coliseum.storage.files import (
@@ -72,7 +72,7 @@ async def simulate_limit_order(
 def _create_edge_agent(settings: Settings) -> Agent[TraderDependencies, TraderOutput]:
     """Create the Trader agent for edge trading strategy."""
     return Agent(
-        model=get_model_string(FireworksModel.KIMI_K_2_5),
+        model=get_model_string(OpenAIModel.GPT_5_2),
         output_type=TraderOutput,
         deps_type=TraderDependencies,
         system_prompt=build_trader_system_prompt(settings),

@@ -18,9 +18,7 @@ class LLMProvider(StrEnum):
 class OpenAIModel(StrEnum):
     """OpenAI models available via API."""
 
-    # GPT-5 Series (Latest, Late 2025)
     GPT_5_2 = "gpt-5.2"
-    GPT_5_1 = "gpt-5.1"
     GPT_5 = "gpt-5"
     GPT_5_MINI = "gpt-5-mini"
     GPT_5_NANO = "gpt-5-nano"
@@ -29,7 +27,6 @@ class OpenAIModel(StrEnum):
 class AnthropicModel(StrEnum):
     """Anthropic Claude models available via API."""
 
-    # Claude 4.5 Series
     CLAUDE_OPUS_4_5 = "claude-opus-4-5"
     CLAUDE_SONNET_4_5 = "claude-sonnet-4-5"
     CLAUDE_HAIKU_4_5 = "claude-haiku-4-5"
@@ -37,7 +34,6 @@ class AnthropicModel(StrEnum):
 class FireworksModel(StrEnum):
     """Fireworks AI models available via API."""
 
-    # Llama 3.3 / 3.1 Series
     LLAMA_3_3_70B_INSTRUCT = "accounts/fireworks/models/llama-v3p3-70b-instruct"
     LLAMA_3_1_405B_INSTRUCT = "accounts/fireworks/models/llama-v3p1-405b-instruct"
     LLAMA_3_1_70B_INSTRUCT = "accounts/fireworks/models/llama-v3p1-70b-instruct"
