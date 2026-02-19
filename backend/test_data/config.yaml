@@ -26,7 +26,7 @@ scout:
   edge_min_price: 10
   edge_max_price: 90
   sure_thing_min_close_hours: 0
-  sure_thing_max_close_hours: 72
+  sure_thing_max_close_hours: 36
   sure_thing_min_price: 92
   sure_thing_max_price: 96
   sure_thing_max_spread_cents: 3

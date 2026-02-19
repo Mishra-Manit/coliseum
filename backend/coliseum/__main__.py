@@ -83,6 +83,10 @@ scout:
   min_liquidity_cents: 10
   max_close_hours: 72
   max_opportunities_per_scan: 20
+  edge_min_close_hours: 96
+  edge_max_close_hours: 240
+  edge_min_price: 10
+  edge_max_price: 90
 
 analyst:
   max_research_time_seconds: 300
@@ -287,6 +291,46 @@ def cmd_scout(args: argparse.Namespace) -> int:
         return 1
 
 
+def cmd_guardian(args: argparse.Namespace) -> int:
+    """Run Guardian reconciliation manually."""
+    import asyncio
+
+    # Initialize Logfire before agent imports
+    try:
+        from coliseum.observability import initialize_logfire
+        settings = get_settings()
+        initialize_logfire(settings)
+    except Exception as e:
+        logger.warning(f"Failed to initialize Logfire: {e}")
+
+    try:
+        from coliseum.agents.guardian import run_guardian
+
+        print("\n=== Guardian Reconciler ===\n")
+
+        result = asyncio.run(run_guardian())
+
+        print("✓ Guardian reconciliation complete\n")
+        print(f"Positions Synced: {result.positions_synced}")
+        print(f"Entries Inspected: {result.reconciliation.entries_inspected}")
+        print(f"Kept Open: {result.reconciliation.kept_open}")
+        print(f"Closed: {result.reconciliation.newly_closed}")
+        print(f"Skipped (no trade): {result.reconciliation.skipped_no_trade}\n")
+
+        if result.warnings:
+            print("Warnings:")
+            for warning in result.warnings:
+                print(f"  • Position missing opportunity_id: {warning}")
+            print()
+
+        return 0
+
+    except Exception as e:
+        logger.error(f"Guardian failed: {e}", exc_info=True)
+        print(f"\n❌ Guardian failed: {e}\n")
+        return 1
+
+
 def cmd_analyst(args: argparse.Namespace) -> int:
     """Run Analyst pipeline (Researcher + Recommender) manually."""
     import asyncio
@@ -438,6 +482,12 @@ def main() -> int:
         help="Run Scout market scan manually",
     )
     parser_scout.set_defaults(func=cmd_scout)
+
+    parser_guardian = subparsers.add_parser(
+        "guardian",
+        help="Run Guardian reconciliation manually",
+    )
+    parser_guardian.set_defaults(func=cmd_guardian)
 
     parser_analyst = subparsers.add_parser(
         "analyst",

@@ -67,7 +67,9 @@ htmlcov/
 .tox/
 
 # Test Data
-test_data/
+# test_data/
+
+/docs/plans
 
 # OS
 .DS_Store

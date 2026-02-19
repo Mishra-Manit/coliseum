@@ -23,6 +23,10 @@ scheduler:
 scout:
   max_opportunities_per_scan: 2
   market_fetch_limit: 10000
+  edge_min_close_hours: 96
+  edge_max_close_hours: 240
+  edge_min_price: 10
+  edge_max_price: 90
   sure_thing_min_close_hours: 0
   sure_thing_max_close_hours: 72
   sure_thing_min_price: 92

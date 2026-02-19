@@ -1,54 +1,9 @@
-last_updated: '2026-01-30T21:23:00.281810'
+last_updated: '2026-02-19T22:52:38.522908'
 portfolio:
   total_value: 100.0
-  cash_balance: 95.68
-  positions_value: 4.32
-open_positions:
-- id: pos_test00001
-  market_ticker: KXAOMEN-26-NDJO
-  side: 'YES'
-  contracts: 16
-  average_entry: 0.27
-  current_price: 0.27
-  unrealized_pnl: 0.0
-  opportunity_id: null
-  strategy: edge
-  traded_at: '2026-01-30T21:13:55+00:00'
-  reasoning: "Research is coherent and timely; Djokovic is confirmed in the AO 2026\
-    \ final vs Carlos Alcaraz, with market pricing at 27c implying an underpricing\
-    \ versus a conservative 40 percent fair value. Risk checks: edge 13 percent and\
-    \ EV 48 percent both exceed thresholds, slippage is 0 percent, max single-trade\
-    \ cap and portfolio cap both respected, and cash is sufficient."
+  cash_balance: 100.0
+  positions_value: 0.0
+open_positions: []
 closed_positions: []
 seen_tickers:
-- KXU3-26JAN-T4.4
-- KXNBATRADE-26FEB06-GANT
-- KXPAYROLLS-26JAN-T90000
-- KXNBATRADE-26FEB06-JMOR
-- KXNBAGAME-26JAN25DENMEM-MEM
-- KXNCAAMBGAME-26JAN25SIUEVAN-SIU
-- KXNBAGAME-26JAN25DALMIL-MIL
-- KXNBATOTAL-26JAN25DALMIL-219
-- KXAOMEN-26-NDJO
-- KXFIRSTSUPERBOWLSONG-26FEB09-TIT
-- KXAOWOMEN-26-ERYB
-- KXSUPERBOWLAD-SB2026-ANTHROPIC
-- KXAOWOMEN-26-ASAB
-- KXAOMEN-26-CALC
-- KXNFLPREPACKSGP-26FEB08SEANE-SEAO45
-- KXSUPERBOWLAD-SB2026-TEMU
-- KXSUPERBOWLAD-SB2026-COIN
-- KXCPIYOY-26JAN-T2.4
-- KXEGGS-JAN-0
-- KXNCAAMBGAME-26JAN27ARPBGRAM-GRAM
-- KXNETFLIXRANKSHOWRUNNERUP-26FEB02-HIS
-- KXNETFLIXRANKMOVIE-26FEB02-THE
-- KXHIGHLAX-26FEB05-B81.5
-- KXTOPALBUMTHEFALLOFF-26FEB21-FAL
-- KXTRUMPMENTION-26FEB14-VENE
-- KXTSAW-26FEB15-A2.30
-- KXNETFLIXRANKSHOWRUNNERUP-26FEB16-LOV
-- KXNETFLIXRANKSHOWGLOBAL-26FEB16-THE
-- KXBTCD-26FEB1618-T68249.99
-- KXHIGHTSEA-26FEB17-T42
-- KXLOWTPHIL-26FEB16-B33.5
+- KXGDPYEAR-25-B2.3
