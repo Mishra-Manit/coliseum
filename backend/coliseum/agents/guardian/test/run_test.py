@@ -3,7 +3,7 @@
 Guardian Agent Test Runner
 
 Runs the Guardian agent in isolation with verbose output to verify functionality.
-Does NOT save data to the data folder - purely for testing and debugging.
+This executes a real reconciliation run and will update local state/memory files.
 
 Usage:
     # From backend/ directory (activate venv first):
@@ -42,28 +42,36 @@ logging.getLogger("urllib3").setLevel(logging.WARNING)
 async def run_guardian_test(
     position_id: str | None = None,
 ) -> None:
-    """Execute a Guardian monitoring check in test mode (no file persistence).
-
-    Args:
-        position_id: Specific position ID to monitor (optional)
-    """
+    """Execute one Guardian reconciliation run with verbose logging."""
     logger.info("=" * 60)
     logger.info("GUARDIAN AGENT TEST")
     logger.info("=" * 60)
     logger.info(f"Position ID: {position_id or 'None (will check all)'}")
     logger.info("-" * 60)
 
-    # TODO: Implement Guardian agent test
-    # 1. Create GuardianDependencies with Kalshi client, news service
-    # 2. Load sample positions or create mock positions
-    # 3. Run Guardian agent monitoring loop once
-    # 4. Print position health assessments and exit signals
-    
-    logger.warning("Guardian agent test not yet implemented")
-    logger.info("To implement: Add Guardian agent logic and tools")
-    
+    from coliseum.agents.guardian import run_guardian
+    from coliseum.config import get_settings
+
+    settings = get_settings()
+    result = await run_guardian(settings=settings)
+
+    logger.info("Guardian agent run complete")
+    logger.info("Positions synced: %d", result.positions_synced)
+    logger.info(
+        "Reconciliation: inspected=%d kept_open=%d newly_closed=%d skipped_no_trade=%d warnings=%d",
+        result.reconciliation.entries_inspected,
+        result.reconciliation.kept_open,
+        result.reconciliation.newly_closed,
+        result.reconciliation.skipped_no_trade,
+        result.reconciliation.warnings,
+    )
+    if result.warnings:
+        logger.warning("Missing memory entries: %s", ", ".join(result.warnings))
+    if result.agent_summary:
+        logger.info("Agent summary: %s", result.agent_summary)
+
     logger.info("\n" + "=" * 60)
-    logger.info("TEST COMPLETE - No data was saved to disk")
+    logger.info("TEST COMPLETE")
     logger.info("=" * 60)
 
 
