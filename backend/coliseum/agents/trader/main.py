@@ -35,9 +35,7 @@ from coliseum.storage.files import (
     generate_trade_id,
     load_opportunity_from_file,
     log_trade,
-    update_opportunity_status,
 )
-from coliseum.storage.memory import TradeDetails, update_entry
 from coliseum.storage.state import (
     Position,
     load_state,
@@ -497,11 +495,6 @@ async def run_trader(
         # Handle execution based on decision
         if output.decision.action == "REJECT":
             logger.info(f"Trader REJECTED trade: {output.decision.reasoning}")
-            update_opportunity_status(opportunity.market_ticker, "skipped")
-            update_entry(
-                market_ticker=opportunity.market_ticker,
-                status="SKIPPED",
-            )
             return output
 
         # Determine side and get corresponding metrics
@@ -545,11 +538,6 @@ async def run_trader(
         if slippage_pct > max_slippage:
             logger.warning(f"Slippage too high: {slippage_pct:.1%} > {max_slippage:.0%}")
             output.execution_status = "rejected"
-            update_opportunity_status(opportunity.market_ticker, "skipped")
-            update_entry(
-                market_ticker=opportunity.market_ticker,
-                status="SKIPPED",
-            )
             return output
 
         initial_price_cents = int(current_price_decimal * 100)
@@ -578,9 +566,9 @@ async def run_trader(
                 fill_price=order_result.fill_price or current_price_decimal,
                 total_cost=order_result.total_cost_usd,
                 config=settings,
+                reasoning=output.decision.reasoning,
             )
 
-            # Log trade (use metrics for chosen side)
             trade = TradeExecution(
                 id=generate_trade_id(),
                 position_id=f"pos_{uuid4().hex[:8]}",
@@ -599,20 +587,6 @@ async def run_trader(
             )
             log_trade(trade)
 
-            # Update opportunity status
-            update_opportunity_status(opportunity.market_ticker, "traded")
-
-            update_entry(
-                market_ticker=opportunity.market_ticker,
-                status="EXECUTED",
-                trade=TradeDetails(
-                    side=side.upper(),  # type: ignore
-                    contracts=order_result.contracts_filled,
-                    entry_price=order_result.fill_price or current_price_decimal,
-                    reasoning=output.decision.reasoning,
-                ),
-            )
-
             logger.info(
                 f"Trade executed: {order_result.contracts_filled} {side} contracts @ "
                 f"{order_result.fill_price:.2%} (${order_result.total_cost_usd:.2f})"
@@ -628,27 +602,27 @@ def _update_state_after_trade(
     fill_price: float,
     total_cost: float,
     config: Settings,
+    reasoning: str | None = None,
 ) -> None:
-    """Update state.yaml with new position, adjust cash balance, and recalculate risk metrics."""
+    """Update state.yaml with new position and adjust portfolio balances."""
     state = load_state()
 
-    # Update cash balance
     state.portfolio.cash_balance -= total_cost
     state.portfolio.positions_value += total_cost
-    state.portfolio.total_value = (
-        state.portfolio.cash_balance + state.portfolio.positions_value
-    )
+    state.portfolio.total_value = state.portfolio.cash_balance + state.portfolio.positions_value
 
-    # Create position
-    position_id = f"pos_{uuid4().hex[:8]}"
     position = Position(
-        id=position_id,
+        id=f"pos_{uuid4().hex[:8]}",
         market_ticker=opportunity.market_ticker,
         side=side,
         contracts=contracts,
         average_entry=fill_price,
-        current_price=fill_price,  # Will be updated by Guardian
-        unrealized_pnl=0.0,  # Will be calculated by Guardian
+        current_price=fill_price,
+        unrealized_pnl=0.0,
+        opportunity_id=opportunity.id,
+        strategy=opportunity.strategy,
+        traded_at=datetime.now(timezone.utc),
+        reasoning=reasoning,
     )
     state.open_positions.append(position)
 

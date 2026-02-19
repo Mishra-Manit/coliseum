@@ -3,7 +3,7 @@
 Guardian Agent Test Runner
 
 Runs the Guardian agent in isolation with verbose output to verify functionality.
-This executes a real reconciliation run and will update local state/memory files.
+This executes a real reconciliation run and will update local state.yaml.
 
 Usage:
     # From backend/ directory (activate venv first):
@@ -58,15 +58,14 @@ async def run_guardian_test(
     logger.info("Guardian agent run complete")
     logger.info("Positions synced: %d", result.positions_synced)
     logger.info(
-        "Reconciliation: inspected=%d kept_open=%d newly_closed=%d skipped_no_trade=%d warnings=%d",
+        "Reconciliation: inspected=%d kept_open=%d newly_closed=%d warnings=%d",
         result.reconciliation.entries_inspected,
         result.reconciliation.kept_open,
         result.reconciliation.newly_closed,
-        result.reconciliation.skipped_no_trade,
         result.reconciliation.warnings,
     )
     if result.warnings:
-        logger.warning("Missing memory entries: %s", ", ".join(result.warnings))
+        logger.warning("Positions missing opportunity_id: %s", ", ".join(result.warnings))
     if result.agent_summary:
         logger.info("Agent summary: %s", result.agent_summary)
 

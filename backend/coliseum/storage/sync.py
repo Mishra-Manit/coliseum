@@ -9,6 +9,7 @@ from uuid import uuid4
 from coliseum.services.kalshi import KalshiClient
 from coliseum.services.kalshi.models import Position as KalshiPosition
 from coliseum.storage.state import (
+    ClosedPosition,
     PortfolioState,
     PortfolioStats,
     Position,
@@ -20,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 def normalize_kalshi_side(side: str | None) -> str | None:
-    """Normalize side text to YES/NO for state and memory reconciliation."""
+    """Normalize side text to YES/NO for state reconciliation."""
     return _normalize_side(side)
 
 
@@ -137,11 +138,11 @@ def _map_kalshi_position(
     kalshi_pos: KalshiPosition,
     avg_entry: float,
     current_price: float,
-    existing_id: str | None,
+    existing: Position | None,
 ) -> Position:
-    """Map a Kalshi API position to a local Position model."""
+    """Map a Kalshi API position to a local Position model, preserving metadata from existing position."""
     side = _normalize_side(kalshi_pos.side)
-    position_id = existing_id or f"pos_{uuid4().hex[:8]}"
+    position_id = existing.id if existing else f"pos_{uuid4().hex[:8]}"
     contracts = kalshi_pos.contracts
     unrealized_pnl = (current_price - avg_entry) * contracts
     return Position(
@@ -152,6 +153,10 @@ def _map_kalshi_position(
         average_entry=avg_entry,
         current_price=current_price,
         unrealized_pnl=unrealized_pnl,
+        opportunity_id=existing.opportunity_id if existing else None,
+        strategy=existing.strategy if existing else "edge",
+        traded_at=existing.traded_at if existing else None,
+        reasoning=existing.reasoning if existing else None,
     )
 
 
@@ -180,7 +185,6 @@ async def sync_portfolio_from_kalshi(client: KalshiClient) -> PortfolioState:
             continue
         key = (kalshi_pos.market_ticker, side)
         existing = existing_by_key.get(key)
-        existing_id = existing.id if existing else None
 
         current_price = 0.0
         try:
@@ -215,7 +219,7 @@ async def sync_portfolio_from_kalshi(client: KalshiClient) -> PortfolioState:
                 kalshi_pos=kalshi_pos,
                 avg_entry=avg_entry,
                 current_price=current_price,
-                existing_id=existing_id,
+                existing=existing,
             )
         )
 
@@ -233,6 +237,8 @@ async def sync_portfolio_from_kalshi(client: KalshiClient) -> PortfolioState:
             positions_value=positions_value,
         ),
         open_positions=open_positions,
+        closed_positions=existing_state.closed_positions,
+        seen_tickers=existing_state.seen_tickers,
     )
     save_state(new_state)
     logger.info(

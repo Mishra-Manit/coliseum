@@ -3,7 +3,7 @@
 import logging
 import shutil
 import tempfile
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 from typing import Literal
 
@@ -13,17 +13,6 @@ from pydantic import BaseModel, Field
 from coliseum.config import get_settings
 
 logger = logging.getLogger(__name__)
-
-
-# Status type for opportunity lifecycle
-OpportunityStatus = Literal[
-    "pending", "researching", "recommended", "traded", "expired", "skipped"
-]
-
-
-# ============================================================================
-# Pydantic Models
-# ============================================================================
 
 
 class PortfolioStats(BaseModel):
@@ -44,19 +33,36 @@ class Position(BaseModel):
     average_entry: float
     current_price: float
     unrealized_pnl: float
+    opportunity_id: str | None = None
+    strategy: str = "edge"
+    traded_at: datetime | None = None
+    reasoning: str | None = None
+
+
+class ClosedPosition(BaseModel):
+    """Closed position record -- moved here by Guardian when Kalshi confirms close."""
+
+    market_ticker: str
+    side: Literal["YES", "NO"]
+    contracts: int
+    entry_price: float
+    exit_price: float
+    pnl: float
+    opportunity_id: str | None = None
+    strategy: str = "edge"
+    traded_at: datetime | None = None
+    closed_at: datetime | None = None
+    reasoning: str | None = None
 
 
 class PortfolioState(BaseModel):
-    """Complete portfolio state - matches data/state.yaml schema."""
+    """Complete portfolio state matching data/state.yaml schema."""
 
     last_updated: datetime | None = None
     portfolio: PortfolioStats
     open_positions: list[Position] = Field(default_factory=list)
-
-
-# ============================================================================
-# Helper Functions
-# ============================================================================
+    closed_positions: list[ClosedPosition] = Field(default_factory=list)
+    seen_tickers: list[str] = Field(default_factory=list)
 
 
 def get_data_dir() -> Path:
@@ -94,23 +100,14 @@ def _create_default_state() -> PortfolioState:
     )
 
 
-# ============================================================================
-# Public API
-# ============================================================================
-
-
 def load_state() -> PortfolioState:
     """Load portfolio state from data/state.yaml."""
     state_path = _get_state_path()
 
-    # If state file doesn't exist, return default
     if not state_path.exists():
-        logger.info(
-            f"State file not found: {state_path}. Returning default empty state."
-        )
+        logger.info(f"State file not found: {state_path}. Returning default empty state.")
         return _create_default_state()
 
-    # Load and parse YAML
     try:
         with open(state_path, "r", encoding="utf-8") as f:
             raw_data = yaml.safe_load(f)
@@ -119,7 +116,6 @@ def load_state() -> PortfolioState:
             logger.warning(f"Empty state file: {state_path}. Returning default state.")
             return _create_default_state()
 
-        # Parse into Pydantic model
         state = PortfolioState(**raw_data)
         logger.debug(f"Loaded state from {state_path}")
         return state
@@ -133,20 +129,12 @@ def load_state() -> PortfolioState:
 
 
 def save_state(state: PortfolioState) -> None:
-    """Atomically save portfolio state to data/state.yaml.
-
-    This uses a tempfile → rename pattern to ensure atomic writes.
-    If the process crashes mid-write, the original state.yaml remains intact.
-    """
+    """Atomically save portfolio state to data/state.yaml."""
     state_path = _get_state_path()
-
-    # Update timestamp automatically
     state.last_updated = datetime.utcnow()
-
-    # Convert Pydantic model to dict, handling datetime serialization
     state_dict = state.model_dump(mode="json")
 
-    # Write to temporary file in same directory (atomic rename requirement)
+    # Same directory as target so rename is atomic on the same filesystem
     temp_path: Path | None = None
     try:
         with tempfile.NamedTemporaryFile(
@@ -165,13 +153,24 @@ def save_state(state: PortfolioState) -> None:
             )
             temp_path = Path(temp_file.name)
 
-        # Atomic rename
         shutil.move(str(temp_path), str(state_path))
         logger.debug(f"Saved state to {state_path}")
 
     except Exception as e:
-        # Clean up temp file if it exists
         if temp_path is not None:
             temp_path.unlink(missing_ok=True)
         logger.error(f"Failed to save state: {e}")
         raise
+
+
+def add_seen_ticker(ticker: str) -> None:
+    """Append a ticker to seen_tickers in state.yaml if not already present."""
+    state = load_state()
+    if ticker not in state.seen_tickers:
+        state.seen_tickers.append(ticker)
+        save_state(state)
+
+
+def get_seen_tickers() -> list[str]:
+    """Return all tickers that have been discovered by Scout."""
+    return load_state().seen_tickers

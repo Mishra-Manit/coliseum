@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 
 from coliseum.config import Settings
 from coliseum.services.kalshi.client import KalshiClient
-from coliseum.storage.state import PortfolioState
+from coliseum.storage.state import PortfolioState, Position
 
 
 class GuardianDependencies(BaseModel):
@@ -21,6 +21,7 @@ class GuardianDependencies(BaseModel):
     synced_state: PortfolioState | None = None
     fills: list[dict[str, Any]] | None = None
     reconciliation: ReconciliationStats | None = None
+    pre_sync_open_positions: list[Position] = Field(default_factory=list)
 
 
 class ReconciliationStats(BaseModel):
@@ -29,7 +30,6 @@ class ReconciliationStats(BaseModel):
     entries_inspected: int = 0
     kept_open: int = 0
     newly_closed: int = 0
-    skipped_no_trade: int = 0
     warnings: int = 0
 
 
