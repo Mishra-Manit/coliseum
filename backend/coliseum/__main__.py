@@ -1,6 +1,7 @@
 """Coliseum CLI entry point."""
 
 import argparse
+import asyncio
 import logging
 import sys
 from datetime import datetime
@@ -14,7 +15,13 @@ env_file = Path(__file__).parent.parent / ".env"
 load_dotenv(env_file)
 
 from coliseum import __version__
+from coliseum.agents.analyst import run_analyst
+from coliseum.agents.guardian import run_guardian
+from coliseum.agents.scout import run_scout
+from coliseum.agents.trader import run_trader
 from coliseum.config import get_settings
+from coliseum.pipeline import run_pipeline
+from coliseum.scheduler import start_scheduler
 
 # Configure logging
 logging.basicConfig(
@@ -25,15 +32,14 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
-# Initialize Logfire cloud tracking (must be before agent imports)
-try:
-    from coliseum.observability import initialize_logfire
+def _init_logfire() -> None:
+    """Initialize Logfire if available, without failing commands."""
+    try:
+        from coliseum.observability import initialize_logfire
 
-    settings = get_settings()
-    initialize_logfire(settings)
-except Exception as e:
-    logger.warning(f"Failed to initialize Logfire: {e}")
-    # Continue running - observability is optional
+        initialize_logfire(get_settings())
+    except Exception as e:
+        logger.warning(f"Failed to initialize Logfire: {e}")
 
 
 def cmd_init(args: argparse.Namespace) -> int:
@@ -82,7 +88,6 @@ scout:
   min_volume: 10000
   min_liquidity_cents: 10
   max_close_hours: 72
-  max_opportunities_per_scan: 20
   edge_min_close_hours: 96
   edge_max_close_hours: 240
   edge_min_price: 10
@@ -171,8 +176,7 @@ def cmd_config(args: argparse.Namespace) -> int:
         print("Scout:")
         print(f"  Min Volume: {settings.scout.min_volume:,} contracts")
         print(f"  Min Liquidity: {settings.scout.min_liquidity_cents}¢ spread")
-        print(f"  Max Close Hours: {settings.scout.max_close_hours}h")
-        print(f"  Max Opportunities/Scan: {settings.scout.max_opportunities_per_scan}\n")
+        print(f"  Max Close Hours: {settings.scout.max_close_hours}h\n")
 
         print("Analyst:")
         print(f"  Max Research Time: {settings.analyst.max_research_time_seconds}s\n")
@@ -252,19 +256,9 @@ def cmd_status(args: argparse.Namespace) -> int:
 
 def cmd_scout(args: argparse.Namespace) -> int:
     """Run a manual Scout market scan."""
-    import asyncio
-
-    # Initialize Logfire before agent imports
-    try:
-        from coliseum.observability import initialize_logfire
-        settings = get_settings()
-        initialize_logfire(settings)
-    except Exception as e:
-        logger.warning(f"Failed to initialize Logfire: {e}")
+    _init_logfire()
 
     try:
-        from coliseum.agents.scout import run_scout
-
         print(f"\n=== Scout Scan ===\n")
 
         result = asyncio.run(run_scout())
@@ -293,19 +287,9 @@ def cmd_scout(args: argparse.Namespace) -> int:
 
 def cmd_guardian(args: argparse.Namespace) -> int:
     """Run Guardian reconciliation manually."""
-    import asyncio
-
-    # Initialize Logfire before agent imports
-    try:
-        from coliseum.observability import initialize_logfire
-        settings = get_settings()
-        initialize_logfire(settings)
-    except Exception as e:
-        logger.warning(f"Failed to initialize Logfire: {e}")
+    _init_logfire()
 
     try:
-        from coliseum.agents.guardian import run_guardian
-
         print("\n=== Guardian Reconciler ===\n")
 
         result = asyncio.run(run_guardian())
@@ -333,19 +317,9 @@ def cmd_guardian(args: argparse.Namespace) -> int:
 
 def cmd_analyst(args: argparse.Namespace) -> int:
     """Run Analyst pipeline (Researcher + Recommender) manually."""
-    import asyncio
-
-    # Initialize Logfire before agent imports
-    try:
-        from coliseum.observability import initialize_logfire
-        settings = get_settings()
-        initialize_logfire(settings)
-    except Exception as e:
-        logger.warning(f"Failed to initialize Logfire: {e}")
+    _init_logfire()
 
     try:
-        from coliseum.agents.analyst import run_analyst
-
         opportunity_id = args.opportunity_id
         print(f"\n=== Analyst Pipeline ===\n")
         print(f"Opportunity ID: {opportunity_id}\n")
@@ -371,19 +345,9 @@ def cmd_analyst(args: argparse.Namespace) -> int:
 
 def cmd_trader(args: argparse.Namespace) -> int:
     """Run Trader agent to execute or reject a trade recommendation."""
-    import asyncio
-
-    # Initialize Logfire before agent imports
-    try:
-        from coliseum.observability import initialize_logfire
-        settings = get_settings()
-        initialize_logfire(settings)
-    except Exception as e:
-        logger.warning(f"Failed to initialize Logfire: {e}")
+    _init_logfire()
 
     try:
-        from coliseum.agents.trader import run_trader
-
         opportunity_id = args.opportunity_id
         print(f"\n=== Trader Agent ===\n")
         print(f"Opportunity ID: {opportunity_id}\n")
@@ -417,6 +381,8 @@ def cmd_trader(args: argparse.Namespace) -> int:
 def cmd_run(args: argparse.Namespace) -> int:
     """Start the autonomous trading system."""
     try:
+        _init_logfire()
+
         if args.debug:
             logging.getLogger().setLevel(logging.DEBUG)
 
@@ -424,11 +390,15 @@ def cmd_run(args: argparse.Namespace) -> int:
 
         print("\n=== Coliseum Autonomous Trading System ===\n")
         print(f"Version: {__version__}")
-        print(f"Mode: {'📝 PAPER TRADING' if settings.trading.paper_mode else '💰 LIVE TRADING'}")
+        print(f"Mode: {'PAPER TRADING' if settings.trading.paper_mode else 'LIVE TRADING'}")
         print(f"Bankroll: ${settings.trading.initial_bankroll:,.2f}")
         print(f"Data Directory: {settings.data_dir}\n")
 
-        from coliseum.scheduler import start_scheduler
+        if args.once:
+            print("Running full pipeline once (Scout -> Analyst -> Trader)...\n")
+            asyncio.run(run_pipeline(settings))
+            print("\nPipeline run complete.\n")
+            return 0
 
         print("Starting scheduler...\n")
         start_scheduler(settings)
@@ -436,11 +406,11 @@ def cmd_run(args: argparse.Namespace) -> int:
         return 0
 
     except KeyboardInterrupt:
-        print("\n\n⚠️  Received interrupt signal. Shutting down...\n")
+        print("\n\nReceived interrupt signal. Shutting down...\n")
         return 0
     except Exception as e:
         logger.error(f"Failed to start system: {e}", exc_info=True)
-        print(f"\n❌ Failed to start: {e}\n")
+        print(f"\nFailed to start: {e}\n")
         return 1
 
 
@@ -519,6 +489,11 @@ def main() -> int:
         "--debug",
         action="store_true",
         help="Enable debug logging",
+    )
+    parser_run.add_argument(
+        "--once",
+        action="store_true",
+        help="Run the full pipeline once (Scout -> Analyst -> Trader) then exit",
     )
     parser_run.set_defaults(func=cmd_run)
 
