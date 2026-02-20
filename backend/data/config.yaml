@@ -2,11 +2,12 @@
 # This file contains operational parameters for the autonomous trading system.
 # API keys and secrets should be stored in .env file, not here.
 
-strategy: edge  # Options: edge, sure_thing
+strategy: sure_thing  # Options: edge, sure_thing
 
 trading:
   paper_mode: false
   initial_bankroll: 100.00
+  sure_thing_contracts: 1
 
 risk:
   max_position_pct: 0.10          # Max 10% of portfolio per position
@@ -21,7 +22,6 @@ scheduler:
   guardian_news_scan_minutes: 30  # Scan news every 30 minutes
 
 scout:
-  max_opportunities_per_scan: 2
   market_fetch_limit: 10000
   edge_min_close_hours: 96
   edge_max_close_hours: 240

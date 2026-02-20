@@ -5,6 +5,7 @@ strategy: sure_thing
 trading:
   paper_mode: true
   initial_bankroll: 100.00
+  sure_thing_contracts: 1
 
 risk:
   max_position_pct: 0.10
@@ -19,7 +20,6 @@ scheduler:
   guardian_news_scan_minutes: 30  # Scan news every 30 minutes
 
 scout:
-  max_opportunities_per_scan: 5
   market_fetch_limit: 20000
   edge_min_close_hours: 96
   edge_max_close_hours: 240

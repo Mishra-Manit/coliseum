@@ -1,6 +1,14 @@
-last_updated: '2026-01-21T20:11:50.177281'
+last_updated: '2026-02-20T22:31:46.563602'
 portfolio:
   total_value: 100.0
   cash_balance: 100.0
   positions_value: 0.0
 open_positions: []
+closed_positions: []
+seen_tickers:
+- KXWOHOCKEY-MEN26CGOLD-USA
+- KXNCAABBGAME-26FEB201400LSUIND-LSU
+- KXTRUMPSAY-26FEB23-MARI
+- KXBERNIEMENTION-26FEB21-TRUM
+- KXWOMHOCKEYMVP-26-MCEL
+- KXAAAGASW-26FEB23-2.959
