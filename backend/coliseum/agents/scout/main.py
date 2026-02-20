@@ -1,5 +1,6 @@
 """Scout Agent: Market discovery and opportunity filtering."""
 
+import asyncio
 import json
 import logging
 
@@ -10,6 +11,7 @@ from coliseum.agents.shared_tools import register_get_current_time
 from coliseum.config import Settings, Strategy, get_settings
 from coliseum.llm_providers import OpenAIModel, get_model_string
 from coliseum.services.kalshi.client import KalshiClient
+from coliseum.services.kalshi.config import KalshiConfig
 from coliseum.storage.files import save_opportunity, generate_opportunity_id
 from coliseum.storage.state import add_seen_ticker, get_seen_tickers
 
@@ -191,7 +193,6 @@ async def run_scout(
         logger.debug(f"Injecting {len(seen_tickers)} seen tickers into prompt context")
 
     # Scout always reads from production API (market data is public)
-    from coliseum.services.kalshi.config import KalshiConfig
     kalshi_config = KalshiConfig(paper_mode=False)
     async with KalshiClient(config=kalshi_config) as client:
         prefetched_markets = await _prefetch_markets_for_scan(client, settings, strategy)
@@ -205,7 +206,7 @@ async def run_scout(
                 f"Scan Kalshi markets for SURE THING opportunities—markets at "
                 f"{sure_thing_settings.sure_thing_min_price}-{sure_thing_settings.sure_thing_max_price}% where the outcome "
                 f"is strongly favored with negligible or low reversal risk. "
-                f"Find up to {settings.scout.max_opportunities_per_scan} opportunities. "
+                f"Find exactly 1 opportunity—the single least-risky qualifying market. "
                 f"Select markets that pass the Risk Assessment Checklist. Remember: residual uncertainty is normal for open markets—do not skip a market just because the outcome is not yet 100% official. "
                 f"CRITICAL: You MUST return at least 1 opportunity. If no market meets the ideal risk threshold, select the single least-risky available market as a fallback and label it clearly in the rationale."
                 f"{seen_context}"
@@ -213,8 +214,7 @@ async def run_scout(
             )
         else:
             prompt = (
-                f"Scan Kalshi markets and identify up to {settings.scout.max_opportunities_per_scan} "
-                f"high-quality trading opportunities. "
+                f"Scan Kalshi markets and identify exactly 1 high-quality trading opportunity—the single best candidate. "
                 f"Only include markets with significant volume (>10,000 contracts) to ensure liquidity."
                 f"{seen_context}"
                 f"{_build_market_context_prompt(prefetched_markets)}"
@@ -268,8 +268,6 @@ async def run_scout(
 
 def scout_scan_job() -> None:
     """Scheduler job wrapper for market scan (blocking)."""
-    import asyncio
-
     try:
         result = asyncio.run(run_scout())
         logger.info(f"✓ Scout scan: {result.opportunities_found} opportunities")

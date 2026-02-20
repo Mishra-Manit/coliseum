@@ -9,8 +9,8 @@ from coliseum.config import Settings
 
 _TOOL_USAGE_RULES = """<tool_usage_rules>
 Tool Call Budgets (STRICT LIMITS):
-- generate_opportunity_id_tool(): AT MOST 1 call per final selected opportunity (0 calls if none)
-- get_current_time(): AT MOST 1 call per scan, only if opportunities_found > 0
+- generate_opportunity_id_tool(): AT MOST 1 call for the final selected opportunity
+- get_current_time(): AT MOST 1 call per scan
 - Web search tools: Maximum 40 total searches across all candidates
 
 Tool Calling Discipline:
@@ -25,6 +25,8 @@ Tool-Specific Rules:
 Prefetched market dataset:
 - Treat the provided dataset as the full universe for this scan
 - Do not assume additional unseen markets exist
+- Treat all prefetched markets as already pre-filtered for baseline viability (price/spread/volume)
+- Do not reject prefetched markets for spread/volume thresholds; focus on research quality and edge
 
 generate_opportunity_id_tool():
 - Call at most once per opportunity in final output
@@ -34,7 +36,7 @@ generate_opportunity_id_tool():
 get_current_time():
 - Call at most once during Phase 5 (Build Output)
 - Use the returned timestamp for all discovered_at fields
-- Call only when opportunities_found > 0
+- Call once for the final selected opportunity
 
 Web Search Tools:
 - Budget: Maximum 40 total searches (approximately 2-4 per market)
@@ -68,9 +70,10 @@ Do Not: Claim markets outside the provided dataset were scanned."""
 _WORKFLOW_PHASES_5_TO_7 = """\
 Phase 5: Build Output
 Actions:
-- If no opportunities selected, skip generate_opportunity_id_tool() and get_current_time()
+- Maintain exactly one selected opportunity; if the primary selection fails, replace it with the
+  next least-risky fallback candidate before output construction
 - Call generate_opportunity_id_tool() at most once per opportunity after final list is frozen
-- Call get_current_time() at most once for all discovered_at timestamps (only if opportunities_found > 0)
+- Call get_current_time() at most once for all discovered_at timestamps
 - For each opportunity: extract required fields, calculate prices (yes_price = yes_ask / 100,
   no_price = no_ask / 100), write complete rationale including source URLs
 
@@ -81,24 +84,55 @@ Do Not: Return output if ANY check fails.
 Phase 7: Return Output
 Action: Return ONLY the validated ScoutOutput JSON object—no commentary, no explanations."""
 
+_BANNED_MARKET_LIST = """\
+<banned_market_list>
+Skip immediately (without web research) if ticker/title/description indicates ANY banned category,
+unless a documented niche override explicitly allows that category:
+
+1. Weather/Climate (ban always)
+   - Examples: temperature highs/lows, precipitation, storms, wind, flood outcomes
+   - Common signals: "max temp", "min temp", "high temp", "low temp", temperature thresholds/ranges
+
+2. Crypto Spot/Range/Threshold (ban always)
+   - Examples: Bitcoin/Ethereum/SOL spot level, range, or threshold at a timestamp
+   - Common signals: "price at", "price range", "<asset> price on <date/time>"
+
+3. Parlays / Pack products (ban always)
+   - Examples: multi-leg combinations, pack/parlay contracts
+   - Common signals: ticker contains "PACK", title includes "parlay" or "multi-leg"
+
+4. Celebrity/music release timing props (ban always unless this is a target niche)
+   - Examples: "Will [artist/celebrity] release [song/album/content] before [date]?"
+   - Common signals: "release date", "new song", "new album", entertainment drop timing props
+   - Niche override (explicit only): allow only if prompt context includes
+     ALLOW_CELEBRITY_RELEASE_NICHE=true; otherwise treat as banned
+
+Banned-category override rule:
+- Never prioritize a banned market when a non-banned candidate is available.
+- If all available candidates are banned or otherwise weak, still return exactly one opportunity:
+  choose the single least-risky market from the available set and explicitly label it as
+  FORCED_FALLBACK in rationale.
+- Fallback risk ranking for banned candidates may use available market metadata (price, spread,
+  volume, close time) without deep web research.
+</banned_market_list>"""
+
 _VALIDATION_STRUCTURAL = """\
 Structural Validation:
 - [ ] Valid JSON (no trailing commas, correct brackets)
 - [ ] All required fields present in EACH opportunity
-- [ ] opportunities array length <= max_opportunities_per_scan
+- [ ] opportunities array length == 1
 - [ ] markets_scanned == len(PREFETCHED_MARKETS_JSON)
 - [ ] opportunities_found == len(opportunities) (exact match)
 - [ ] filtered_out == markets_scanned − opportunities_found
 
 Shared Forbidden Category Check (EACH opportunity):
-- [ ] NOT weather/climate market (temperature, precipitation, storms, floods, wind)
-- [ ] NOT crypto price market
-- [ ] NOT multi-leg parlay (ticker does not contain "PACK")
+- [ ] Preferred path: NOT weather/climate, crypto price, parlay/PACK, or celebrity/music timing prop
+- [ ] Fallback exception: banned categories allowed only if rationale explicitly marks FORCED_FALLBACK
 - [ ] NOT a duplicate of another selected opportunity's underlying event
 
 Removal Protocol:
-If ANY opportunity fails ANY check: remove it, decrement opportunities_found, increment
-filtered_out, re-verify remaining, do not replace.
+If selected opportunity fails checks: replace with next least-risky fallback candidate, update
+opportunities_found/filtered_out, and re-run validation until exactly one opportunity passes.
 
 Return ONLY the validated ScoutOutput JSON. No other text."""
 
@@ -135,12 +169,12 @@ Data Integrity: Do not fabricate sources or URLs; do not invent price/volume dat
 at least one verifiable source URL; do not extrapolate missing data.
 
 Market Selection Restrictions:
-- Do not select markets with yes_price > 0.90 or < 0.10
+- For primary selection, avoid markets with yes_price > 0.90 or < 0.10
 - Do not select multi-leg parlays (ticker contains "PACK")
 - Do not select crypto price markets
 - Do not select weather/climate markets
+- Do not select celebrity/music release timing props unless ALLOW_CELEBRITY_RELEASE_NICHE=true
 - Do not select word-choice gambling markets (pure randomness, no research edge)
-- Do not select markets with spread > 10 cents
 - Do not select multiple markets from the same underlying event
 
 Required Actions:
@@ -178,11 +212,14 @@ When sources conflict, cite both and briefly note the discrepancy.
 
 {_TOOL_USAGE_RULES}
 
+{_BANNED_MARKET_LIST}
+
 <opportunity_count_policy>
-max_opportunities_per_scan is a HARD CEILING, not a target. Zero is a valid output.
-- Do not backfill weak candidates to reach the count
-- Do not lower selection criteria to increase output size
-- Stop when you have max_opportunities_per_scan strong candidates OR research budget is exhausted
+Return exactly 1 opportunity — the single highest-edge, most researchable candidate.
+If no market cleanly meets ideal criteria, select the single least-risky available fallback and
+state clearly in rationale that this was a forced best-available choice.
+Do not return zero opportunities.
+Stop when you have identified the single strongest candidate OR research budget is exhausted.
 </opportunity_count_policy>
 
 <selection_criteria>
@@ -190,7 +227,7 @@ Select markets meeting ALL of these:
 - Timing: Close time 4-10 days from now
 - Edge Potential: Research suggests ≥5% price discrepancy from fair value
 - Repricing Catalyst: Clear, identifiable, near-term trigger (news event, data release, announcement)
-- Liquidity: Spread < 10 cents (< 5 preferred), volume > 10,000 contracts
+- Liquidity: Assume prefetched markets already pass baseline liquidity/viability filters
 - Diversity: Maximum 1 market per distinct underlying event/entity
 </selection_criteria>
 
@@ -220,10 +257,12 @@ Execute in strict sequence.
 {_WORKFLOW_PHASE_1}
 
 Phase 2: Initial Filtering
-- Apply forbidden category filters (weather, crypto, parlays, extreme probabilities, wide spreads)
+- Apply forbidden category filters (weather, crypto, parlays, celebrity/music release timing props unless ALLOW_CELEBRITY_RELEASE_NICHE=true, extreme probabilities)
 - Filter by time window (4-10 days to close)
-- Identify 5-10 candidates with strongest signals (volume, spread, topic)
-- Do not research markets that clearly fail constraints
+- Identify 5-10 candidates with strongest signals (topic and catalyst quality)
+- Do not research markets that clearly fail constraints unless needed for forced fallback
+- If filtering leaves zero candidates, choose the single least-risky market from the full prefetched
+  set and mark rationale with FORCED_FALLBACK
 
 Phase 3: Deep Research
 - For each candidate: 2-4 targeted searches, verify event details, seek mispricing evidence
@@ -233,7 +272,9 @@ Phase 3: Deep Research
 Phase 4: Candidate Evaluation
 - Apply all selection criteria; estimate edge (≥5% required)
 - Rank by edge potential and research quality
-- Select top candidates up to max_opportunities_per_scan; do not include borderline candidates to hit quota
+- Select the single strongest candidate; do not include borderline candidates.
+- If no candidate meets ideal selection criteria, select the least-risky available candidate and
+  mark rationale with FORCED_FALLBACK
 
 {_WORKFLOW_PHASES_5_TO_7}
 </workflow>
@@ -252,8 +293,8 @@ Content (per opportunity):
 - [ ] Sources are real URLs, not fabricated
 
 Strategy-Specific Forbidden Checks:
-- [ ] NOT extreme probability (yes_price between 0.10 and 0.90)
-- [ ] NOT wide spread (spread < 10 cents)
+- [ ] Preferred path: NOT extreme probability (yes_price between 0.10 and 0.90)
+- [ ] Fallback exception: extreme-probability market allowed only when rationale marks FORCED_FALLBACK
 
 {_VALIDATION_STRUCTURAL}
 </pre_output_validation>"""
@@ -304,11 +345,12 @@ Data Integrity: Do not fabricate sources or URLs; do not invent price/volume dat
 at least one verifiable source URL; do not extrapolate missing data.
 
 Market Selection Restrictions:
-- Price Range (CRITICAL): At least ONE side (YES or NO) must be {min_p}–{max_p}% to qualify
-- Swing Risk (CRITICAL): Do not select markets with HIGH swing risk—active formal appeals,
+- Price Range (informational): Prefetched markets are already pre-filtered to the strategy's viable range
+- Swing Risk (CRITICAL): Avoid markets with HIGH swing risk—active formal appeals,
   pending judicial/regulatory decisions, or highly volatile underlying inputs.
   Informal social media complaints do NOT count as formal challenges.
-- Do not select multi-leg parlays, weather/climate markets, or crypto price markets
+- For primary selection, avoid multi-leg parlays, weather/climate markets, and crypto price markets
+- For primary selection, avoid celebrity/music release timing props unless ALLOW_CELEBRITY_RELEASE_NICHE=true
 - Do not select two or more markets on the same underlying topic
 
 Required Actions:
@@ -353,48 +395,33 @@ Optional (at least one):
   ✓ Recent corroboration (credible source within last 72 hours supports expected outcome)
   ✓ Stable inputs (key variables unlikely to shift before resolution)
 
-Selection: NEGLIGIBLE or LOW reversal risk → SELECT. MODERATE or HIGH → SKIP.
-Fails any Required check → SKIP.
+Selection: NEGLIGIBLE or LOW reversal risk → SELECT. MODERATE → eligible only as best-available
+fallback when no NEGLIGIBLE/LOW candidate remains and no disqualifying risks are present.
+HIGH → avoid in normal selection; eligible only as FORCED_FALLBACK when no lower-risk candidate exists.
+Fails any Required check → disqualify for primary selection; if all candidates fail Required checks,
+choose the least-risky available candidate as FORCED_FALLBACK.
 </web_research_strategy>
 
 {_TOOL_USAGE_RULES}
 
+{_BANNED_MARKET_LIST}
+
 <opportunity_count_policy>
-max_opportunities_per_scan is a HARD CEILING, not a target.
-MINIMUM OUTPUT REQUIREMENT (HARD): You MUST return at least 1 opportunity—zero is NOT acceptable.
-- Fill slots ONLY with NEGLIGIBLE or LOW reversal-risk markets; never use MODERATE/HIGH markets
-  to reach a higher count
-- If you have found at least 1 NEGLIGIBLE/LOW market, your quota obligation is satisfied—stop
-  adding markets the moment you run out of qualifying candidates, even if slots remain
-- If ZERO markets qualify at NEGLIGIBLE or LOW risk, apply the Fallback Rule (see below)
-- Never stop at zero—the pipeline requires at least one candidate to proceed
+You must return exactly 1 opportunity every scan — the single lowest-reversal-risk market from
+all researched candidates. Score every candidate by risk level. Select the one with the lowest
+assessed reversal risk regardless of whether it is NEGLIGIBLE, LOW, or MODERATE — always pick
+the best available. Do not return zero opportunities.
 </opportunity_count_policy>
-
-<fallback_rule>
-GUARD — read before anything else:
-  If you have already selected at least 1 NEGLIGIBLE or LOW risk market, SKIP this rule entirely.
-  Do not add a fallback market alongside valid selections. The fallback is a last resort, not an
-  extra slot.
-
-Apply ONLY when your NEGLIGIBLE/LOW selection count is exactly zero after Phase 4:
-1. From all researched candidates that are not forbidden categories, rank by reversal risk
-2. Select the single market with the LOWEST assessed reversal risk, even if MODERATE
-3. Begin its rationale with: "FALLBACK SELECTION: No low-risk candidates found. Least-risky available market."
-4. State the true risk level honestly (e.g., "Risk Level: MODERATE (Fallback)")
-5. Complete all 7 rationale components as normal—do not inflate or hide the actual risk
-6. This fallback produces exactly 1 opportunity in the output, nothing more
-</fallback_rule>
 
 <selection_criteria>
 Select markets meeting ALL of these:
-- Price: At least one side (YES or NO) in {min_p}–{max_p} cents; buy whichever side is in range
+- Price: Assume prefetched markets already meet the strategy price-range gate
 - Timing: Close within {max_h} hours
 - Outcome Status: CONFIRMED, NEAR-DECIDED, or STRONGLY FAVORED; reversal risk NEGLIGIBLE or LOW
+  (MODERATE allowed only as lowest-risk fallback when no NEGLIGIBLE/LOW candidate remains)
 - Resolution Path: Clear official source; no active formal appeals or reviews
-- Liquidity: Spread < {max_s} cents; spread must not destroy the 4-8% profit margin
+- Liquidity: Assume prefetched markets already meet spread/viability requirements
 - Diversity: No two markets on the same underlying topic
-
-Fallback (when zero markets meet the above): apply the Fallback Rule—select one least-risky market.
 </selection_criteria>
 
 <output_requirements>
@@ -409,7 +436,7 @@ Each rationale must include all 7 components in order:
 2. Supporting Evidence—specific quantitative facts locking in the outcome
 3. Resolution Source—official body or authority that finalizes the result
 4. Risk Checklist—which checklist items passed
-5. Risk Level—NEGLIGIBLE or LOW with brief justification
+5. Risk Level — state actual level (NEGLIGIBLE/LOW/MODERATE/HIGH); this market was selected as the single lowest-risk available candidate.
 6. Remaining Risks—"None identified" OR brief acknowledgment of minor residual risk
 7. Sources—at least one real URL (never fabricated or placeholder)
 
@@ -427,11 +454,13 @@ Execute in strict sequence.
 {_WORKFLOW_PHASE_1}
 
 Phase 2: Initial Filtering
-- Filter to {min_p}–{max_p}% range (at least one side must be in range)
+- Do not re-filter by price range (already enforced upstream in prefetched set)
 - Filter by time window (closing within {max_h} hours)
-- Filter out forbidden categories (weather, crypto, parlays)
+- Filter out forbidden categories (weather, crypto, parlays, celebrity/music release timing props unless ALLOW_CELEBRITY_RELEASE_NICHE=true)
 - Identify candidates where outcome appears locked, confirmed, or strongly favored
-- Do not research markets clearly outside price range or time window
+- Do not research markets clearly outside time window
+- If filtering leaves zero candidates, choose the single least-risky market from the full prefetched
+  set and mark rationale with FORCED_FALLBACK
 
 Phase 3: Outcome Confirmation Research
 - For each candidate: is outcome CONFIRMED, NEAR-DECIDED, or STRONGLY FAVORED?
@@ -439,22 +468,11 @@ Phase 3: Outcome Confirmation Research
 - Check for active formal appeals or challenges (disqualifying if found)
 - Do not select markets with uncertain or speculative outcomes
 
-Phase 4: Risk Assessment
-- Apply Risk Assessment Checklist to each candidate
-- Assess reversal probability: NEGLIGIBLE / LOW / MODERATE / HIGH for every candidate
-- Decision (choose exactly one branch, execute it, then stop):
-
-  BRANCH A — at least one NEGLIGIBLE/LOW candidate exists:
-    → Select all qualifying NEGLIGIBLE/LOW candidates up to max_opportunities_per_scan
-    → Discard every MODERATE/HIGH candidate entirely — do not include them, do not label them
-    → Do NOT apply the Fallback Rule; skip it completely
-    → Proceed to Phase 5
-
-  BRANCH B — zero NEGLIGIBLE/LOW candidates exist:
-    → Apply Fallback Rule: select the single least-risky candidate regardless of risk level
-    → Label it clearly as FALLBACK SELECTION in the rationale
-    → Output will contain exactly 1 opportunity
-    → Proceed to Phase 5
+Phase 4: Risk Ranking & Selection
+- Assign each candidate a reversal risk score: NEGLIGIBLE < LOW < MODERATE < HIGH
+- Select the single candidate with the lowest reversal risk
+- If two candidates tie, prefer the one with higher liquidity (lower spread)
+- Output will always contain exactly 1 opportunity
 
 {_WORKFLOW_PHASES_5_TO_7}
 </workflow>
@@ -466,26 +484,19 @@ Field-Level (per opportunity):
 - [ ] rationale: contains at least one https:// URL
 - [ ] status: exactly "pending"
 - [ ] strategy: exactly "sure_thing" (CRITICAL)
-- [ ] At least one side (yes_price or no_price) in {min_p}–{max_p}% range
 
 Content (per opportunity):
 - [ ] All 7 rationale components present (outcome status, evidence, resolution source,
   risk checklist, risk level, remaining risks, sources)
 - [ ] Outcome status is CONFIRMED, NEAR-DECIDED, or STRONGLY FAVORED
-- [ ] Risk level is NEGLIGIBLE or LOW — OR — opportunity is explicitly labeled "FALLBACK SELECTION"
+- [ ] Risk level is NEGLIGIBLE, LOW, MODERATE, or HIGH (HIGH only when rationale marks FORCED_FALLBACK)
 
 Quality Control:
-- [ ] opportunities array length >= 1 (at least one opportunity MUST be present)
-- [ ] Every non-fallback opportunity has NEGLIGIBLE or LOW reversal risk
-- [ ] If any non-fallback opportunity exists, ZERO FALLBACK SELECTION opportunities exist—
-      remove any FALLBACK SELECTION entry before returning output
-- [ ] If every opportunity in the array is a FALLBACK SELECTION, exactly 1 is present
-- [ ] Fallback opportunity rationale begins with "FALLBACK SELECTION: ..." and states true risk level
-- [ ] No MODERATE or HIGH risk opportunity appears without a FALLBACK SELECTION label
+- [ ] opportunities array length == 1
 
 Strategy-Specific Forbidden Checks:
-- [ ] Spread < {max_s} cents (does not destroy 4-8% profit margin)
-- [ ] NOT pending formal appeals or official reviews
+- [ ] Preferred path: NOT pending formal appeals or official reviews
+- [ ] Fallback exception: allowed only when rationale marks FORCED_FALLBACK
 - [ ] Closing within {max_h} hours
 
 {_VALIDATION_STRUCTURAL}
