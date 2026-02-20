@@ -1,5 +1,11 @@
 # AGENTS.md
 
+## Spec Version
+
+- Current version: `1.0.0`
+- Versioning scheme: `MAJOR.MINOR.PATCH` (semantic versioning)
+- Keep `CLAUDE.md` and `AGENTS.md` on the exact same version at all times
+
 > **CRITICAL**: Always activate the venv before running backend code:
 > ```bash
 > cd backend && source venv/bin/activate
@@ -83,3 +89,18 @@ model = get_model_string(OpenAIModel.GPT_5_MINI)  # "openai-responses:gpt-5-mini
 
 - Never pipe through `head`, `tail`, `less` (causes buffering issues)
 - Use command flags instead: `git log -n 10` not `git log | head -10`
+
+## Versioning Rules
+
+Every content change to this file requires a version bump. Choose the bump type based on impact:
+
+- **MAJOR** (`X.0.0`): Breaking policy changes or removed guidance that can change established agent/user workflows.
+- **MINOR** (`x.Y.0`): New features, new required workflows, new commands, new constraints, or expanded capabilities.
+- **PATCH** (`x.y.Z`): Clarifications, wording updates, typo fixes, formatting-only changes, and non-breaking refinements.
+
+Operational rules:
+
+1. If multiple change types are included in one edit, apply only the highest required bump.
+2. Do not skip versions.
+3. Keep version numbers identical in `CLAUDE.md` and `AGENTS.md`.
+4. When uncertain between two bump levels, choose the higher one.
