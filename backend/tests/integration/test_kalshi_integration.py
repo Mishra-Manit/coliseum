@@ -13,6 +13,7 @@ Run from backend/ directory:
 import asyncio
 import os
 import sys
+import traceback
 from pathlib import Path
 
 # Add backend to path
@@ -203,7 +204,6 @@ async def main() -> None:
         print("\n" + "=" * 60)
         print(f"❌ TEST FAILED: {e}")
         print("=" * 60)
-        import traceback
         traceback.print_exc()
         sys.exit(1)
 

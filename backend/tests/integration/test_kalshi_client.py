@@ -7,9 +7,12 @@ Run with: python test_kalshi_client.py
 """
 
 import asyncio
+import base64
 import os
 import sys
 from datetime import datetime
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
 
 # Add backend to path for imports
 from pathlib import Path
@@ -210,9 +213,6 @@ async def test_auth_signature() -> None:
     # Create a test key (this is just for signature testing, not a real key)
     # In production, this comes from the environment
     try:
-        from cryptography.hazmat.primitives.asymmetric import rsa
-        from cryptography.hazmat.primitives import serialization
-
         # Generate a test RSA key
         private_key = rsa.generate_private_key(
             public_exponent=65537,
@@ -236,7 +236,6 @@ async def test_auth_signature() -> None:
         print_success("RSA signature generation works")
 
         # Test signature format (base64)
-        import base64
         try:
             base64.b64decode(headers["KALSHI-ACCESS-SIGNATURE"])
             print_success("Signature is valid base64")

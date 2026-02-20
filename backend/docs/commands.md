@@ -17,6 +17,12 @@ python -m coliseum.test_pipeline trader --verbose --opportunity-file KXBTCD-26JA
 python -m coliseum.test_pipeline guardian
 ```
 
+## Trader
+python -m coliseum.test_pipeline trader \
+  --opportunity-file KXNBAMENTION-26FEB21LACLAL-INJU.md \
+  --live
+
+
 Pipeline + cleanup:
 
 ```
