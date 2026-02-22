@@ -1,13 +1,11 @@
 # Coliseum Configuration
-# This file contains operational parameters for the autonomous trading system.
-# API keys and secrets should be stored in .env file, not here.
 
 strategy: sure_thing  # Options: edge, sure_thing
 
 trading:
   paper_mode: false
   initial_bankroll: 100.00
-  sure_thing_contracts: 1
+  sure_thing_contracts: 3
 
 risk:
   max_position_pct: 0.10          # Max 10% of portfolio per position
@@ -22,17 +20,17 @@ scheduler:
   guardian_news_scan_minutes: 30  # Scan news every 30 minutes
 
 scout:
-  market_fetch_limit: 10000
+  market_fetch_limit: 20000
   edge_min_close_hours: 96
   edge_max_close_hours: 240
   edge_min_price: 10
   edge_max_price: 90
   sure_thing_min_close_hours: 0
-  sure_thing_max_close_hours: 72
+  sure_thing_max_close_hours: 48
   sure_thing_min_price: 92
   sure_thing_max_price: 96
   sure_thing_max_spread_cents: 3
-  sure_thing_min_volume: 2000
+  sure_thing_min_volume: 1000
 
 analyst:
   max_research_time_seconds: 300
@@ -53,8 +51,4 @@ execution:
   max_order_age_minutes: 60       # Cancel order if open > 1 hour
 
 telegram:
-  send_trade_alerts: true
-  send_risk_alerts: true
-  send_position_alerts: true
-  send_opportunity_alerts: true
-  send_system_alerts: false
+  send_alerts: true

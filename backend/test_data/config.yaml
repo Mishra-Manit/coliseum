@@ -26,7 +26,7 @@ scout:
   edge_min_price: 10
   edge_max_price: 90
   sure_thing_min_close_hours: 0
-  sure_thing_max_close_hours: 36
+  sure_thing_max_close_hours: 12
   sure_thing_min_price: 92
   sure_thing_max_price: 96
   sure_thing_max_spread_cents: 3
@@ -45,8 +45,4 @@ execution:
   use_limit_orders_only: true
 
 telegram:
-  send_trade_alerts: true
-  send_risk_alerts: true
-  send_position_alerts: true
-  send_opportunity_alerts: true
-  send_system_alerts: false
+  send_alerts: true
