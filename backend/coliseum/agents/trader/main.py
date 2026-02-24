@@ -520,7 +520,7 @@ async def run_trader(
 
         # Calculate position size
         if opportunity.strategy == "sure_thing":
-            contracts = 3
+            contracts = settings.trading.sure_thing_contracts
         else:
             portfolio_state = load_state()
             trade_size_usd = portfolio_state.portfolio.total_value * position_pct
