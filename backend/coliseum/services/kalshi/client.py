@@ -517,7 +517,7 @@ class KalshiClient:
             created_time=data.get("created_time"),
             updated_time=data.get("updated_time"),
             client_order_id=data.get("client_order_id", ""),
-            order_group_id=data.get("order_group_id", ""),
+            order_group_id=data.get("order_group_id") or "",
             taker_fill_count=data.get("taker_fill_count", 0),
             taker_fill_cost=data.get("taker_fill_cost", 0),
             maker_fill_count=data.get("maker_fill_count", 0),

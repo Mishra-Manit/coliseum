@@ -28,6 +28,7 @@ def initialize_logfire(settings: Settings) -> None:
             service_name="coliseum",
             service_version=__version__,
             environment="paper" if settings.trading.paper_mode else "live",
+            console=False,
         )
 
         # 2. Instrument PydanticAI agents (Scout, Analyst, Trader, Guardian)
