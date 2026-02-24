@@ -10,7 +10,6 @@ Individual agents:
 
 ```
 python -m coliseum.test_pipeline scout
-python -m coliseum.test_pipeline scout --dry-run
 python -m coliseum.test_pipeline analyst --opportunity-id opp_abc12345
 python -m coliseum.test_pipeline trader --opportunity-file KXBTCD-26JAN2317-T89999.99.md
 python -m coliseum.test_pipeline trader --verbose --opportunity-file KXBTCD-26JAN2317-T89999.99.md

@@ -47,6 +47,7 @@ async def _prefetch_markets_for_scan(
     client: KalshiClient,
     settings: Settings,
     strategy: Strategy,
+    seen_tickers: set[str] | None = None,
 ) -> list[dict]:
     """Fetch and pre-filter market dataset once before Scout agent run."""
     scout_settings = settings.scout
@@ -72,6 +73,10 @@ async def _prefetch_markets_for_scan(
         status="open",
     )
     logger.info("Scout prefetch fetched %d markets closing in %d-%d hours", len(markets), min_close_hours, max_close_hours)
+
+    if seen_tickers:
+        markets = [m for m in markets if m.ticker not in seen_tickers]
+        logger.info("Scout prefetch filtered to %d markets after removing seen tickers", len(markets))
 
     markets = [m for m in markets if m.volume >= min_volume]
     logger.info("Scout prefetch filtered to %d markets with volume >= %d", len(markets), min_volume)
@@ -173,29 +178,25 @@ def get_scout_agent(
 
 async def run_scout(
     settings: Settings | None = None,
-    dry_run: bool = False,
     strategy: Strategy = Strategy.EDGE,
 ) -> ScoutOutput:
-    """Execute a Scout scan and optionally save opportunities."""
+    """Execute a Scout scan and save opportunities."""
     if settings is None:
         settings = get_settings()
 
-    mode_label = "[DRY RUN] " if dry_run else ""
-    logger.info(f"{mode_label}Starting Scout scan (strategy={strategy.value})...")
+    logger.info(f"Starting Scout scan (strategy={strategy.value})...")
 
     seen_tickers = get_seen_tickers()
-    seen_context = ""
-    if seen_tickers:
-        seen_context = (
-            "\n\nPREVIOUSLY DISCOVERED MARKETS (DO NOT SELECT THESE - already being processed):\n"
-            + "\n".join(f"- {ticker}" for ticker in seen_tickers)
-        )
-        logger.debug(f"Injecting {len(seen_tickers)} seen tickers into prompt context")
 
     # Scout always reads from production API (market data is public)
     kalshi_config = KalshiConfig(paper_mode=False)
     async with KalshiClient(config=kalshi_config) as client:
-        prefetched_markets = await _prefetch_markets_for_scan(client, settings, strategy)
+        prefetched_markets = await _prefetch_markets_for_scan(
+            client,
+            settings,
+            strategy,
+            seen_tickers=set(seen_tickers),
+        )
         deps = ScoutDependencies(settings=settings, prefetched_markets=prefetched_markets)
 
         # Run the agent with seen markets context
@@ -209,42 +210,22 @@ async def run_scout(
                 f"Find exactly 1 opportunity—the single least-risky qualifying market. "
                 f"Select markets that pass the Risk Assessment Checklist. Remember: residual uncertainty is normal for open markets—do not skip a market just because the outcome is not yet 100% official. "
                 f"CRITICAL: You MUST return at least 1 opportunity. If no market meets the ideal risk threshold, select the single least-risky available market as a fallback and label it clearly in the rationale."
-                f"{seen_context}"
                 f"{_build_market_context_prompt(prefetched_markets)}"
             )
         else:
             prompt = (
                 f"Scan Kalshi markets and identify exactly 1 high-quality trading opportunity—the single best candidate. "
                 f"Only include markets with significant volume (>10,000 contracts) to ensure liquidity."
-                f"{seen_context}"
                 f"{_build_market_context_prompt(prefetched_markets)}"
             )
         result = await agent.run(prompt, deps=deps)
 
         output: ScoutOutput = result.output
 
-        # Skip persistence in dry-run mode
-        if dry_run:
-            logger.info(
-                f"{mode_label}Scout scan complete: "
-                f"{output.opportunities_found} opportunities found "
-                f"(not saved - dry run mode)"
-            )
-            return output
-
-        seen = get_seen_tickers()
-        skipped_count = 0
         added_count = 0
 
         for opp in output.opportunities:
             try:
-                if opp.market_ticker in seen:
-                    logger.info(
-                        f"Skipping duplicate: {opp.market_ticker} (already in state)"
-                    )
-                    skipped_count += 1
-                    continue
-
                 opp.strategy = strategy.value
 
                 save_opportunity(opp)
@@ -259,7 +240,6 @@ async def run_scout(
         logger.info(
             f"Scout scan complete: "
             f"{output.opportunities_found} opportunities found, "
-            f"{skipped_count} skipped (duplicates), "
             f"{added_count} added to state"
         )
 

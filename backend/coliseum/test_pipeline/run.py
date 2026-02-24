@@ -11,7 +11,6 @@ Usage:
 
     # Run individual agents:
     python -m coliseum.test_pipeline scout
-    python -m coliseum.test_pipeline scout --dry-run  # No file persistence
     python -m coliseum.test_pipeline analyst --opportunity-id opp_123  # Required (no-op if omitted)
     python -m coliseum.test_pipeline trader --opportunity-file KXBTCD-26JAN2317-T89999.99.md
     python -m coliseum.test_pipeline guardian
@@ -29,6 +28,7 @@ import logging
 import os
 import shutil
 import sys
+from functools import lru_cache
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -42,6 +42,26 @@ if str(backend_path) not in sys.path:
     sys.path.insert(0, str(backend_path))
 
 from coliseum.test_pipeline.config import TEST_DATA_DIR
+from coliseum.agents.analyst import run_analyst
+from coliseum.agents.guardian.main import (
+    _find_positions_without_opportunity_id,
+    reconcile_closed_positions,
+)
+from coliseum.agents.guardian.models import GuardianResult
+from coliseum.agents.scout import run_scout
+from coliseum.agents.trader import run_trader
+import coliseum.config as config_module
+from coliseum.config import get_settings
+from coliseum.observability import initialize_logfire
+from coliseum.services.kalshi import KalshiClient
+from coliseum.services.kalshi.config import KalshiConfig
+from coliseum.storage.files import (
+    find_opportunity_file_by_id,
+    get_opportunity_strategy_by_id,
+    load_opportunity_from_file,
+)
+from coliseum.storage.state import load_state
+from coliseum.storage.sync import sync_portfolio_from_kalshi
 
 
 # =============================================================================
@@ -72,8 +92,6 @@ logging.getLogger("asyncio").setLevel(logging.WARNING)
 def _initialize_test_logfire() -> None:
     """Initialize Logfire for test pipeline runs."""
     try:
-        from coliseum.observability import initialize_logfire
-        from coliseum.config import get_settings
         settings = get_settings()
         initialize_logfire(settings)
     except Exception as e:
@@ -106,8 +124,7 @@ def init_test_data_structure() -> None:
             "  paper_mode: true\n"
             "  initial_bankroll: 100.0\n"
             "\n"
-            "scout:\n"
-            "  max_opportunities_per_scan: 5\n",
+            "scout:\n",
             encoding="utf-8",
         )
 
@@ -121,19 +138,6 @@ def init_test_data_structure() -> None:
             "  cash_balance: 100.0\n"
             "  positions_value: 0.0\n"
             "open_positions: []\n",
-            encoding="utf-8",
-        )
-
-    # Create memory.md if it doesn't exist (agent memory system)
-    memory_path = TEST_DATA_DIR / "memory.md"
-    if not memory_path.exists():
-        memory_path.write_text(
-            "# Agent Memory Log\n"
-            "\n"
-            "> This file tracks the agent's trading plans, reasoning, and learnings.\n"
-            "> The Guardian reviews this to ensure the agent is following market strategy correctly.\n"
-            "\n"
-            "---\n",
             encoding="utf-8",
         )
 
@@ -162,7 +166,6 @@ def clean_test_data() -> None:
 
     logger.info(f"Removed {file_count} files from {TEST_DATA_DIR}")
     
-    # Reinitialize the directory structure (including memory.md)
     init_test_data_structure()
     logger.info("Test data directory cleaned and reinitialized")
 
@@ -174,14 +177,12 @@ def _override_data_dir() -> None:
     Must be called before any agent code runs.
     """
     # Clear the settings cache so it will be reloaded with new data_dir
-    from coliseum.config import get_settings
     get_settings.cache_clear()
     
     # Set environment variable to override data_dir
     os.environ["DATA_DIR"] = str(TEST_DATA_DIR)
     
     # Monkey-patch get_settings to use test_data_dir
-    import coliseum.config as config_module
     
     original_get_settings = config_module.get_settings.__wrapped__
     
@@ -192,7 +193,6 @@ def _override_data_dir() -> None:
         return settings
     
     # Replace the cached function
-    from functools import lru_cache
     config_module.get_settings = lru_cache()(patched_get_settings)
     
     logger.info(f"Data directory overridden to: {TEST_DATA_DIR}")
@@ -231,24 +231,17 @@ def _select_opportunity_file(opportunities_dir: Path, opportunity_file: str | No
 # Scout Agent Test Runner
 # =============================================================================
 
-async def run_scout_test(dry_run: bool = False) -> "ScoutOutput | None":
+async def run_scout_test() -> "ScoutOutput | None":
     """Run Scout agent using production code.
 
-    Args:
-        dry_run: If True, skip file persistence.
-                 The agent runs and returns results, but nothing is saved to disk.
-                 If False, saves to test_data/ directory (isolated from production).
-    
     Returns:
         ScoutOutput with discovered opportunities, or None on failure.
     """
-    mode_label = "[DRY RUN] " if dry_run else ""
-    
     logger.info("\n" + "=" * 70)
-    logger.info(f"{mode_label}Scout Agent Test")
+    logger.info("Scout Agent Test")
     logger.info("=" * 70)
 
-    # Initialize test data structure (needed for config even in dry-run)
+    # Initialize test data structure
     init_test_data_structure()
 
     # Override data directory to use test_data/
@@ -257,22 +250,17 @@ async def run_scout_test(dry_run: bool = False) -> "ScoutOutput | None":
     # Initialize Logfire BEFORE agent imports
     _initialize_test_logfire()
 
-    # Now import and run the production Scout agent
-    from coliseum.agents.scout import run_scout
-    from coliseum.config import get_settings
-    
+    # Run the production Scout agent
     settings = get_settings()
 
-    logger.info(f"{mode_label}Running production Scout agent...")
-    if dry_run:
-        logger.info("   (No files will be saved - dry run mode)")
+    logger.info("Running production Scout agent...")
     logger.info("-" * 70)
 
     try:
-        output = await run_scout(dry_run=dry_run, strategy=settings.strategy)
+        output = await run_scout(strategy=settings.strategy)
 
         logger.info("\n" + "=" * 70)
-        logger.info(f"{mode_label}Results")
+        logger.info("Results")
         logger.info("=" * 70)
         logger.info(f"   Markets scanned: {output.markets_scanned}")
         logger.info(f"   Opportunities found: {output.opportunities_found}")
@@ -295,10 +283,9 @@ async def run_scout_test(dry_run: bool = False) -> "ScoutOutput | None":
             logger.warning("\n   No opportunities found!")
 
         logger.info("\n" + "=" * 70)
-        if dry_run:
-            logger.info(f"{mode_label}Scout test complete - {len(output.opportunities)} opportunities found (not saved)")
-        else:
-            logger.info(f"Scout test complete - {len(output.opportunities)} opportunities saved to test_data/")
+        logger.info(
+            f"Scout test complete - {len(output.opportunities)} opportunities saved to test_data/"
+        )
         logger.info("=" * 70 + "\n")
         
         return output
@@ -344,16 +331,18 @@ async def run_analyst_test(opportunity_id: str | None = None) -> None:
         logger.info("=" * 70 + "\n")
         return
 
-    from coliseum.agents.analyst import run_analyst
-    from coliseum.config import get_settings
-
     settings = get_settings()
+    opp_file = find_opportunity_file_by_id(opportunity_id)
+    if not opp_file:
+        raise FileNotFoundError(f"Opportunity file not found: {opportunity_id}")
+    strategy = get_opportunity_strategy_by_id(opportunity_id)
+    logger.info(f"   Opportunity file: {opp_file}")
+    logger.info(f"   Detected strategy: {strategy}")
 
     try:
         opportunity = await run_analyst(
             opportunity_id=opportunity_id,
             settings=settings,
-            dry_run=False,
         )
     except Exception as e:
         logger.exception(f"Analyst test failed: {e}")
@@ -385,10 +374,15 @@ async def run_analyst_test(opportunity_id: str | None = None) -> None:
 # Trader Agent Test Runner
 # =============================================================================
 
-async def run_trader_test(opportunity_file: str | None = None, verbose: bool = False) -> None:
+async def run_trader_test(
+    opportunity_file: str | None = None,
+    verbose: bool = False,
+    live: bool = False,
+) -> None:
     """Run Trader agent on a specific opportunity file."""
     logger.info("\n" + "=" * 70)
-    logger.info("Trader Agent Test (DRY RUN, PAPER MODE)")
+    mode_label = "LIVE EXECUTION" if live else "PAPER MODE"
+    logger.info(f"Trader Agent Test ({mode_label})")
     logger.info("=" * 70)
 
     # Initialize test data structure
@@ -403,17 +397,13 @@ async def run_trader_test(opportunity_file: str | None = None, verbose: bool = F
     logger.info("-" * 70)
     opportunities_dir = TEST_DATA_DIR / "opportunities"
     opp_file = _select_opportunity_file(opportunities_dir, opportunity_file)
-    from coliseum.storage.files import load_opportunity_from_file
 
     opportunity = load_opportunity_from_file(opp_file)
     logger.info(f"   Selected opportunity: {opportunity.id}")
     logger.info(f"   Market: {opportunity.market_ticker}")
 
-    from coliseum.agents.trader import run_trader
-    from coliseum.config import get_settings
-
     settings = get_settings()
-    settings.trading.paper_mode = True
+    settings.trading.paper_mode = not live
 
     if settings.trading.paper_mode:
         logger.info("   Paper mode enabled; skipping Kalshi credential checks.")
@@ -424,6 +414,8 @@ async def run_trader_test(opportunity_file: str | None = None, verbose: bool = F
         logger.info("Trader test complete (skipped)")
         logger.info("=" * 70 + "\n")
         return
+    else:
+        logger.warning("   LIVE mode enabled: orders can be placed on your Kalshi account.")
 
     if verbose:
         os.environ["COLISEUM_AGENT_TRACE"] = "1"
@@ -458,10 +450,15 @@ async def run_trader_test(opportunity_file: str | None = None, verbose: bool = F
 # Guardian Agent Test Runner
 # =============================================================================
 
-async def run_guardian_test() -> None:
-    """Run Guardian agent to check positions.
+async def run_guardian_test() -> "GuardianResult | None":
+    """Run Guardian agent to reconcile positions.
 
-    Monitors all open positions and generates exit signals if needed.
+    Syncs portfolio state from Kalshi (local state in paper mode),
+    then detects positions that closed since last sync and moves them
+    to closed_positions in state.yaml.
+
+    Returns:
+        GuardianResult with reconciliation stats, or None on failure.
     """
     logger.info("\n" + "=" * 70)
     logger.info("Guardian Agent Test")
@@ -476,25 +473,72 @@ async def run_guardian_test() -> None:
     # Initialize Logfire BEFORE agent imports
     _initialize_test_logfire()
 
-    # Check for open positions
-    positions_dir = TEST_DATA_DIR / "positions" / "open"
+    settings = get_settings()
 
-    if positions_dir.exists():
-        open_positions = list(positions_dir.glob("*.yaml")) + list(positions_dir.glob("*.md"))
-        logger.info(f"   Found {len(open_positions)} open positions")
-    else:
-        logger.info("   No open positions found")
-
+    logger.info(f"   Paper mode: {settings.trading.paper_mode}")
+    logger.info(f"   Data dir: {settings.data_dir}")
     logger.info("-" * 70)
 
-    # TODO: Implement actual Guardian agent when main.py is ready
-    logger.warning("   Guardian agent not yet implemented in main.py")
-    logger.info("   To implement: Create Guardian agent with position monitoring tools")
-    logger.info("   Expected behavior: Check P/L, news, generate exit signals if triggered")
+    kalshi_config = KalshiConfig(paper_mode=True)
+    private_key_pem = ""
+    if not settings.trading.paper_mode and settings.get_rsa_private_key():
+        private_key_pem = settings.get_rsa_private_key()
 
-    logger.info("\n" + "=" * 70)
-    logger.info("Guardian test complete (stub implementation)")
-    logger.info("=" * 70 + "\n")
+    try:
+        async with KalshiClient(
+            config=kalshi_config,
+            api_key=settings.kalshi_api_key if private_key_pem else None,
+            private_key_pem=private_key_pem or None,
+        ) as client:
+            pre_sync_state = load_state()
+            state = await sync_portfolio_from_kalshi(client)
+            logger.info(f"   Synced state: {len(state.open_positions)} open positions")
+            logger.info(
+                f"   Portfolio: cash=${state.portfolio.cash_balance:.2f}, "
+                f"positions=${state.portfolio.positions_value:.2f}"
+            )
+
+            fills = await client.get_fills()
+            logger.info(f"   Fills from Kalshi: {len(fills)}")
+
+            state, stats = await reconcile_closed_positions(
+                old_open=pre_sync_state.open_positions,
+                new_state=state,
+                fills=fills,
+                client=client,
+            )
+
+        missing = _find_positions_without_opportunity_id(state)
+        for missing_key in missing:
+            logger.warning(f"   Position missing opportunity_id: {missing_key}")
+
+        result = GuardianResult(
+            positions_synced=len(state.open_positions),
+            reconciliation=stats,
+            warnings=missing,
+        )
+
+        logger.info("\n" + "=" * 70)
+        logger.info("Guardian results")
+        logger.info("=" * 70)
+        logger.info(f"   Positions synced: {result.positions_synced}")
+        logger.info(f"   Entries inspected: {stats.entries_inspected}")
+        logger.info(f"   Kept open: {stats.kept_open}")
+        logger.info(f"   Newly closed: {stats.newly_closed}")
+        logger.info(f"   Skipped (no trade): {stats.skipped_no_trade}")
+        logger.info(f"   Reconciliation warnings: {stats.warnings}")
+        if result.warnings:
+            logger.info(f"   Missing opportunity_id: {', '.join(result.warnings)}")
+
+        logger.info("\n" + "=" * 70)
+        logger.info("Guardian test complete")
+        logger.info("=" * 70 + "\n")
+
+        return result
+
+    except Exception as e:
+        logger.exception(f"Guardian test failed: {e}")
+        return None
 
 
 # =============================================================================
@@ -527,13 +571,8 @@ async def run_full_pipeline() -> None:
     logger.info("STEP 1: Scout - Discovering opportunities")
     logger.info("=" * 70)
     
-    from coliseum.agents.scout import run_scout
-    from coliseum.agents.analyst import run_analyst
-    from coliseum.agents.trader import run_trader
-    from coliseum.config import get_settings
-    
     settings = get_settings()
-    scout_output = await run_scout(dry_run=False, strategy=settings.strategy)
+    scout_output = await run_scout(strategy=settings.strategy)
     
     if not scout_output or not scout_output.opportunities:
         logger.warning("Scout found no opportunities. Pipeline complete.")
@@ -557,7 +596,6 @@ async def run_full_pipeline() -> None:
             analyzed_opp = await run_analyst(
                 opportunity_id=opp.id,
                 settings=settings,
-                dry_run=False,
             )
             logger.info(f"   Status: {analyzed_opp.status}")
             logger.info(f"   Edge: {analyzed_opp.edge:+.2%}" if analyzed_opp.edge else "   Edge: N/A")
@@ -582,11 +620,51 @@ async def run_full_pipeline() -> None:
         
         logger.info(f"\nCompleted opportunity {i}/{total_opps}")
 
+    # Step 4: Guardian - Reconcile positions
+    logger.info("\n" + "=" * 70)
+    logger.info("STEP 4: Guardian - Reconciling positions")
+    logger.info("=" * 70)
+
+    kalshi_config = KalshiConfig(paper_mode=True)
+    private_key_pem = ""
+    if not settings.trading.paper_mode and settings.get_rsa_private_key():
+        private_key_pem = settings.get_rsa_private_key()
+
+    try:
+        async with KalshiClient(
+            config=kalshi_config,
+            api_key=settings.kalshi_api_key if private_key_pem else None,
+            private_key_pem=private_key_pem or None,
+        ) as client:
+            pre_sync_state = load_state()
+            state = await sync_portfolio_from_kalshi(client)
+            fills = await client.get_fills()
+            state, guardian_stats = await reconcile_closed_positions(
+                old_open=pre_sync_state.open_positions,
+                new_state=state,
+                fills=fills,
+                client=client,
+            )
+
+        missing = _find_positions_without_opportunity_id(state)
+
+        logger.info(f"   Positions synced: {len(state.open_positions)}")
+        logger.info(
+            f"   Reconciliation: inspected={guardian_stats.entries_inspected} "
+            f"kept_open={guardian_stats.kept_open} "
+            f"closed={guardian_stats.newly_closed} "
+            f"skipped={guardian_stats.skipped_no_trade}"
+        )
+        if missing:
+            logger.warning(f"   Missing opportunity_id: {', '.join(missing)}")
+    except Exception as e:
+        logger.error(f"   Guardian failed: {e}")
+
     logger.info("\n" + "=" * 70)
     logger.info("FULL PIPELINE TEST COMPLETE")
     logger.info("=" * 70)
     logger.info(f"   Processed {total_opps} opportunities sequentially")
-    logger.info("   Flow: Scout -> (Analyst -> Trader) for each")
+    logger.info("   Flow: Scout -> (Analyst -> Trader) for each -> Guardian")
     logger.info("=" * 70 + "\n")
 
 
@@ -603,9 +681,6 @@ def main() -> None:
 Examples:
     # Run Scout agent test (saves to test_data/)
     python -m coliseum.test_pipeline scout
-
-    # Run Scout agent test without file persistence (debugging)
-    python -m coliseum.test_pipeline scout --dry-run
 
     # Run Analyst agent test (requires opportunity ID)
     python -m coliseum.test_pipeline analyst --opportunity-id opp_abc12345
@@ -628,12 +703,7 @@ Examples:
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
     # Scout command
-    scout_parser = subparsers.add_parser("scout", help="Run Scout agent to find opportunities")
-    scout_parser.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="Run agent without saving files (debugging mode)",
-    )
+    subparsers.add_parser("scout", help="Run Scout agent to find opportunities")
 
     # Analyst command
     analyst_parser = subparsers.add_parser("analyst", help="Run Analyst agent to research opportunities")
@@ -656,6 +726,11 @@ Examples:
         "--verbose",
         action="store_true",
         help="Log tool calls and results from the trader agent",
+    )
+    trader_parser.add_argument(
+        "--live",
+        action="store_true",
+        help="Execute with live Kalshi trading (default: paper mode)",
     )
 
     # Guardian command
@@ -680,7 +755,7 @@ Examples:
 
     try:
         if args.command == "scout":
-            asyncio.run(run_scout_test(dry_run=args.dry_run))
+            asyncio.run(run_scout_test())
             sys.exit(0)
 
         elif args.command == "analyst":
@@ -692,6 +767,7 @@ Examples:
                 run_trader_test(
                     opportunity_file=args.opportunity_file,
                     verbose=args.verbose,
+                    live=args.live,
                 )
             )
             sys.exit(0)

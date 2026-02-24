@@ -13,7 +13,7 @@ import logging
 from coliseum.agents.analyst.recommender import run_recommender
 from coliseum.agents.analyst.researcher import run_researcher
 from coliseum.config import Settings
-from coliseum.storage.files import OpportunitySignal
+from coliseum.storage.files import OpportunitySignal, get_opportunity_strategy_by_id
 
 logger = logging.getLogger(__name__)
 
@@ -29,41 +29,37 @@ __all__ = [
 async def run_analyst(
     opportunity_id: str,
     settings: Settings,
-    dry_run: bool = False,
 ) -> OpportunitySignal:
     """Run full Analyst pipeline: Researcher + Recommender.
 
     This is the main entry point that orchestrates both agents sequentially:
     1. Researcher conducts research and appends to opportunity file
     2. Recommender evaluates research and appends recommendation
-
-    Returns:
-        Complete OpportunitySignal with all stages populated
     """
     logger.info(f"Running full Analyst pipeline for: {opportunity_id}")
+    strategy = get_opportunity_strategy_by_id(opportunity_id)
+    logger.info(f"Using strategy '{strategy}' for analyst pipeline")
 
     # Phase 1: Research
     logger.info("Phase 1: Running Researcher...")
-    research_output = await run_researcher(
+    await run_researcher(
         opportunity_id=opportunity_id,
         settings=settings,
-        dry_run=dry_run,
+        strategy=strategy,
     )
 
     logger.info("Research complete")
 
     # Phase 2: Recommendation
     logger.info("Phase 2: Running Recommender...")
-    recommendation_output, opportunity = await run_recommender(
+    _, opportunity = await run_recommender(
         opportunity_id=opportunity_id,
         settings=settings,
-        dry_run=dry_run,
+        strategy=strategy,
     )
 
-    logger.info(
-        f"Recommendation complete - "
-        f"Edge: {opportunity.edge:+.2%}, "
-        f"EV: {opportunity.expected_value:+.2%}"
-    )
+    edge_str = f"{opportunity.edge:+.2%}" if opportunity.edge is not None else "N/A"
+    ev_str = f"{opportunity.expected_value:+.2%}" if opportunity.expected_value is not None else "N/A"
+    logger.info(f"Recommendation complete - Edge: {edge_str}, EV: {ev_str}")
 
     return opportunity

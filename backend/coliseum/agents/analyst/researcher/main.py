@@ -3,6 +3,7 @@
 import logging
 import time
 from datetime import datetime, timezone
+from typing import Literal
 from pydantic_ai import Agent, RunContext, WebSearchTool
 
 from coliseum.agents.agent_factory import AgentFactory
@@ -19,7 +20,6 @@ from coliseum.storage.files import (
     append_to_opportunity,
     find_opportunity_file_by_id,
     load_opportunity_from_file,
-    update_opportunity_status,
 )
 
 logger = logging.getLogger(__name__)
@@ -61,7 +61,7 @@ def get_agent(strategy: str = "edge") -> Agent[ResearcherDependencies, Researche
 async def run_researcher(
     opportunity_id: str,
     settings: Settings,
-    dry_run: bool = False,
+    strategy: Literal["edge", "sure_thing"] | None = None,
 ) -> ResearcherOutput:
     """Run Researcher agent - appends research to opportunity file."""
     start_time = time.time()
@@ -73,11 +73,14 @@ async def run_researcher(
         raise FileNotFoundError(f"Opportunity file not found: {opportunity_id}")
 
     opportunity = load_opportunity_from_file(opp_file)
-    strategy = opportunity.strategy
-
-    # Update status to "researching"
-    if not dry_run:
-        update_opportunity_status(opportunity.market_ticker, "researching")
+    resolved_strategy = strategy or opportunity.strategy
+    if strategy and opportunity.strategy != strategy:
+        raise ValueError(
+            f"Strategy mismatch for {opportunity_id}: expected {strategy}, found {opportunity.strategy}"
+        )
+    logger.info(
+        f"Researcher strategy resolved: {resolved_strategy} (file={opportunity.strategy})"
+    )
 
     # Run research
     deps = ResearcherDependencies(
@@ -86,7 +89,7 @@ async def run_researcher(
     )
     prompt = _build_research_prompt(opportunity, settings)
 
-    agent = get_agent(strategy)
+    agent = get_agent(resolved_strategy)
     result = await agent.run(prompt, deps=deps)
     output = result.output
 
@@ -107,13 +110,12 @@ async def run_researcher(
     }
 
     # Append to opportunity file
-    if not dry_run:
-        append_to_opportunity(
-            market_ticker=opportunity.market_ticker,
-            frontmatter_updates=frontmatter_updates,
-            body_section=research_section,
-            section_header="## Research Synthesis",
-        )
+    append_to_opportunity(
+        market_ticker=opportunity.market_ticker,
+        frontmatter_updates=frontmatter_updates,
+        body_section=research_section,
+        section_header="## Research Synthesis",
+    )
 
     logger.info(
         f"Researcher completed in {duration:.1f}s - "

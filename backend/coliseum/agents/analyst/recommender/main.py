@@ -3,6 +3,7 @@
 import logging
 import time
 from datetime import datetime, timezone
+from typing import Literal
 from pydantic_ai import Agent, RunContext
 
 from coliseum.agents.agent_factory import AgentFactory
@@ -28,7 +29,6 @@ from coliseum.storage.files import (
     get_opportunity_markdown_body,
     find_opportunity_file_by_id,
     load_opportunity_from_file,
-    update_opportunity_status,
 )
 
 logger = logging.getLogger(__name__)
@@ -111,14 +111,13 @@ def get_agent(strategy: str = "edge") -> Agent[RecommenderDependencies, Recommen
 async def run_recommender(
     opportunity_id: str,
     settings: Settings,
-    dry_run: bool = False,
+    strategy: Literal["edge", "sure_thing"] | None = None,
 ) -> tuple[RecommenderOutput, OpportunitySignal]:
     """Run Recommender agent - appends recommendation to opportunity file.
 
     Args:
         opportunity_id: Opportunity ID to evaluate
         settings: System settings
-        dry_run: If True, skip file writes
 
     Returns:
         tuple of (RecommenderOutput, updated OpportunitySignal)
@@ -131,7 +130,14 @@ async def run_recommender(
     if not opp_file:
         raise FileNotFoundError(f"Opportunity file not found: {opportunity_id}")
     opportunity = load_opportunity_from_file(opp_file)
-    strategy = opportunity.strategy
+    resolved_strategy = strategy or opportunity.strategy
+    if strategy and opportunity.strategy != strategy:
+        raise ValueError(
+            f"Strategy mismatch for {opportunity_id}: expected {strategy}, found {opportunity.strategy}"
+        )
+    logger.info(
+        f"Recommender strategy resolved: {resolved_strategy} (file={opportunity.strategy})"
+    )
 
     # Verify research exists
     if not opportunity.research_completed_at:
@@ -145,12 +151,14 @@ async def run_recommender(
         opportunity_id=opportunity_id,
         config=settings.analyst,
     )
-    if strategy == "sure_thing":
+    if resolved_strategy == "sure_thing":
+        logger.info("Recommender using sure_thing evaluation prompt")
         prompt = _build_sure_thing_decision_prompt(opportunity, markdown_body)
     else:
+        logger.info("Recommender using edge evaluation prompt")
         prompt = _build_decision_prompt(opportunity, markdown_body)
 
-    agent = get_agent(strategy)
+    agent = get_agent(resolved_strategy)
     result = await agent.run(prompt, deps=deps)
     output = result.output
 
@@ -180,9 +188,37 @@ async def run_recommender(
     duration = time.time() - start_time
     completed_at = datetime.now(timezone.utc)
 
-    # Prepare recommendation section for append
-    action_label = output.action if hasattr(output, 'action') and output.action else "PENDING"
-    recommendation_section = f"""---
+    # Prepare recommendation section/frontmatter updates
+    if resolved_strategy == "sure_thing":
+        recommendation_section = f"""---
+
+## Trade Evaluation
+
+| Side | Edge | EV | Suggested Size |
+|------|------|-----|----------------|
+| **YES** |  |  |  |
+| **NO** |  |  |  |
+
+**Status**: Pending
+
+### Reasoning
+
+{output.reasoning}"""
+        frontmatter_updates = {
+            "estimated_true_probability": None,
+            "current_market_price": None,
+            "expected_value": None,
+            "edge": None,
+            "suggested_position_pct": None,
+            "edge_no": None,
+            "expected_value_no": None,
+            "suggested_position_pct_no": None,
+            "recommendation_completed_at": completed_at.isoformat(),
+            "action": None,
+            "status": "recommended",
+        }
+    else:
+        recommendation_section = f"""---
 
 ## Trade Evaluation
 
@@ -196,41 +232,31 @@ async def run_recommender(
 ### Reasoning
 
 {output.reasoning}"""
-
-    # Prepare frontmatter updates
-    frontmatter_updates = {
-        # YES-side metrics
-        "estimated_true_probability": output.estimated_true_probability,
-        "current_market_price": output.current_market_price,
-        "expected_value": output.expected_value,
-        "edge": output.edge,
-        "suggested_position_pct": output.suggested_position_pct,
-        # NO-side metrics
-        "edge_no": output.edge_no,
-        "expected_value_no": output.expected_value_no,
-        "suggested_position_pct_no": output.suggested_position_pct_no,
-        # Status fields
-        "recommendation_completed_at": completed_at.isoformat(),
-        "action": None,  # No action field in output
-        "status": "recommended",
-    }
+        frontmatter_updates = {
+            "estimated_true_probability": output.estimated_true_probability,
+            "current_market_price": output.current_market_price,
+            "expected_value": output.expected_value,
+            "edge": output.edge,
+            "suggested_position_pct": output.suggested_position_pct,
+            "edge_no": output.edge_no,
+            "expected_value_no": output.expected_value_no,
+            "suggested_position_pct_no": output.suggested_position_pct_no,
+            "recommendation_completed_at": completed_at.isoformat(),
+            "action": None,
+            "status": "recommended",
+        }
 
     # Append to opportunity file
-    if not dry_run:
-        append_to_opportunity(
-            market_ticker=opportunity.market_ticker,
-            frontmatter_updates=frontmatter_updates,
-            body_section=recommendation_section,
-            section_header="## Trade Evaluation",
-        )
-
-        # Update opportunity status
-        update_opportunity_status(opportunity.market_ticker, "recommended")
-
-    logger.info(
-        f"Recommender completed in {duration:.1f}s - "
-        f"Edge: {output.edge:+.0%}, EV: {output.expected_value:+.0%}"
+    append_to_opportunity(
+        market_ticker=opportunity.market_ticker,
+        frontmatter_updates=frontmatter_updates,
+        body_section=recommendation_section,
+        section_header="## Trade Evaluation",
     )
+
+    edge_str = f"{output.edge:+.0%}" if output.edge is not None else "N/A"
+    ev_str = f"{output.expected_value:+.0%}" if output.expected_value is not None else "N/A"
+    logger.info(f"Recommender completed in {duration:.1f}s - Edge: {edge_str}, EV: {ev_str}")
 
     # Return updated opportunity
     updated_opp = load_opportunity_from_file(opp_file)
@@ -302,13 +328,13 @@ def _build_sure_thing_decision_prompt(
 2. Identify the overall risk level (HIGH / MEDIUM / LOW) based on the research
 3. Set `estimated_true_probability` equal to the market price
 4. Set edge/EV to 0.0 (these metrics are not used for sure-thing decisions)
-5. Set `suggested_position_pct` explicitly by risk level (LOW=10%, MEDIUM=5%, HIGH=0%)
+5. Set `suggested_position_pct` to 0.0 (sizing is handled later by Trader)
 6. Do not make a final BUY/NO decision (leave action unset)
 7. Do not use Kelly sizing or `calculate_position_size`
 
 ## Important
 
-- If risk is HIGH, set edge/EV to 0.0 and suggested_position_pct to 0%
+- Always set suggested_position_pct to 0.0 in sure-thing mode
 - Be disciplined and conservative. When in doubt, downgrade risk
 """
 
