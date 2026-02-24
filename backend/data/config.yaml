@@ -5,7 +5,7 @@ strategy: sure_thing  # Options: edge, sure_thing
 trading:
   paper_mode: false
   initial_bankroll: 100.00
-  sure_thing_contracts: 3
+  sure_thing_contracts: 5
 
 risk:
   max_position_pct: 0.10          # Max 10% of portfolio per position
