@@ -18,9 +18,7 @@ from coliseum.storage.state import get_data_dir
 
 logger = logging.getLogger(__name__)
 
-OpportunityStatus = Literal[
-    "pending", "researching", "recommended", "traded", "expired", "skipped"
-]
+OpportunityStrategy = Literal["edge", "sure_thing"]
 
 
 class OpportunitySignal(BaseModel):
@@ -60,13 +58,10 @@ class OpportunitySignal(BaseModel):
     discovered_at: datetime = Field(
         description="Timestamp when Scout discovered this"
     )
-    status: Literal[
-        "pending", "researching", "recommended", "traded", "expired", "skipped"
-    ] = Field(
+    status: str = Field(
         default="pending",
-        description="Opportunity lifecycle status."
+        description="Lifecycle status for the opportunity."
     )
-
     # Research fields
     research_completed_at: datetime | None = None
     research_duration_seconds: int | None = None
@@ -267,6 +262,33 @@ def load_opportunity_from_file(file_path: Path) -> OpportunitySignal:
     return _parse_opportunity_from_parts(frontmatter, body)
 
 
+def _load_opportunity_frontmatter(file_path: Path) -> dict:
+    """Load and parse YAML frontmatter from an opportunity markdown file."""
+    content = file_path.read_text(encoding="utf-8")
+
+    if not content.startswith("---"):
+        raise ValueError(f"Invalid frontmatter in {file_path}")
+
+    parts = content.split("---", 2)
+    if len(parts) < 3:
+        raise ValueError(f"Could not parse frontmatter in {file_path}")
+
+    return yaml.safe_load(parts[1]) or {}
+
+
+def get_opportunity_strategy_from_file(file_path: Path) -> OpportunityStrategy:
+    """Read and validate strategy directly from opportunity frontmatter."""
+    frontmatter = _load_opportunity_frontmatter(file_path)
+    strategy = frontmatter.get("strategy")
+
+    if strategy not in {"edge", "sure_thing"}:
+        raise ValueError(
+            f"Opportunity {file_path} must define strategy as 'edge' or 'sure_thing'"
+        )
+
+    return strategy
+
+
 def find_opportunity_file_by_id(
     opportunity_id: str, lookback_days: int = 7
 ) -> Path | None:
@@ -303,6 +325,16 @@ def find_opportunity_file_by_id(
                 continue
 
     return None
+
+
+def get_opportunity_strategy_by_id(
+    opportunity_id: str, lookback_days: int = 7
+) -> OpportunityStrategy:
+    """Find an opportunity by ID and return its validated strategy."""
+    opp_file = find_opportunity_file_by_id(opportunity_id, lookback_days=lookback_days)
+    if not opp_file:
+        raise FileNotFoundError(f"Opportunity file not found: {opportunity_id}")
+    return get_opportunity_strategy_from_file(opp_file)
 
 
 def load_opportunity_with_all_stages(
@@ -377,61 +409,6 @@ def find_opportunity_file(market_ticker: str, lookback_days: int = 7) -> Path | 
             return file_path
 
     return None
-
-
-def update_opportunity_status(
-    market_ticker: str,
-    new_status: OpportunityStatus,
-    lookback_days: int = 7,
-) -> bool:
-    """Update the status field in an opportunity's markdown frontmatter."""
-    file_path = find_opportunity_file(market_ticker, lookback_days)
-
-    if file_path is None:
-        logger.warning(f"Opportunity file not found for {market_ticker}")
-        return False
-
-    try:
-        content = file_path.read_text(encoding="utf-8")
-
-        if not content.startswith("---"):
-            logger.error(f"Invalid frontmatter format in {file_path}")
-            return False
-
-        parts = content.split("---", 2)
-        if len(parts) < 3:
-            logger.error(f"Could not parse frontmatter in {file_path}")
-            return False
-
-        frontmatter_raw = parts[1]
-        body = parts[2]
-
-        frontmatter = yaml.safe_load(frontmatter_raw)
-        if frontmatter is None:
-            frontmatter = {}
-
-        old_status = frontmatter.get("status", "unknown")
-        frontmatter["status"] = new_status
-
-        new_frontmatter_raw = yaml.dump(
-            frontmatter,
-            default_flow_style=False,
-            allow_unicode=True,
-            sort_keys=False,
-        )
-        new_content = f"---\n{new_frontmatter_raw}---{body}"
-
-        file_path.write_text(new_content, encoding="utf-8")
-
-        logger.info(
-            f"Updated opportunity status: {market_ticker} ({old_status} -> {new_status})"
-        )
-
-        return True
-
-    except Exception as e:
-        logger.error(f"Failed to update opportunity status for {market_ticker}: {e}")
-        return False
 
 
 def opportunity_exists(market_ticker: str, lookback_days: int = 7) -> bool:
