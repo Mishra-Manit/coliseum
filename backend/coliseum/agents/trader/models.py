@@ -15,7 +15,7 @@ class TraderDependencies(BaseModel):
     model_config = {"arbitrary_types_allowed": True}
 
     kalshi_client: KalshiClient
-    telegram_client: TelegramClient
+    telegram_client: TelegramClient | None
     opportunity_id: str
     config: Settings
 

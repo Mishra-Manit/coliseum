@@ -4,6 +4,7 @@ import asyncio
 import json
 import logging
 from collections.abc import Sequence
+from contextlib import AsyncExitStack
 from datetime import datetime, timezone
 from typing import Literal
 from uuid import uuid4
@@ -27,6 +28,7 @@ from coliseum.agents.trader.prompts import (
 from coliseum.config import Settings, get_settings
 from coliseum.llm_providers import OpenAIModel, get_model_string
 from coliseum.services.kalshi.client import KalshiClient
+from coliseum.services.kalshi.config import KalshiConfig
 from coliseum.services.telegram import create_telegram_client
 from coliseum.storage.files import (
     TradeExecution,
@@ -80,7 +82,7 @@ def _create_edge_agent(settings: Settings) -> Agent[TraderDependencies, TraderOu
 def _create_sure_thing_agent(settings: Settings) -> Agent[TraderDependencies, TraderOutput]:
     """Create the Trader agent for sure thing strategy (simplified)."""
     return Agent(
-        model=get_model_string(FireworksModel.KIMI_K_2_5),
+        model=get_model_string(OpenAIModel.GPT_5_2),
         output_type=TraderOutput,
         deps_type=TraderDependencies,
         system_prompt=build_trader_sure_thing_system_prompt(settings),
@@ -242,6 +244,19 @@ def _register_telegram_tool(agent: Agent[TraderDependencies, TraderOutput]) -> N
     ) -> dict:
         """Send a Telegram alert about the trading decision."""
         try:
+            if not ctx.deps.config.telegram.send_alerts:
+                return {
+                    "success": True,
+                    "skipped": True,
+                    "reason": "Telegram alerts are disabled in config",
+                }
+
+            if ctx.deps.telegram_client is None:
+                return {
+                    "success": False,
+                    "error": "Telegram client not configured",
+                }
+
             subtitle_part = f"\n{event_subtitle}" if event_subtitle else ""
             message = f"🎯 {event_title}{subtitle_part}\n\n{decision}: {reason}"
 
@@ -460,18 +475,25 @@ async def run_trader(
             raise ValueError(f"Missing edge/EV data for {opportunity_id}")
 
     # Create Kalshi client
-    from coliseum.services.kalshi.config import KalshiConfig
-
     kalshi_config = KalshiConfig(paper_mode=settings.trading.paper_mode)
     private_key_pem = "" if settings.trading.paper_mode else settings.get_rsa_private_key()
-    async with KalshiClient(
-        config=kalshi_config,
-        api_key=settings.kalshi_api_key,
-        private_key_pem=private_key_pem,
-    ) as client, create_telegram_client(
-        bot_token=settings.telegram_bot_token,
-        chat_id=settings.telegram_chat_id,
-    ) as telegram_client:
+    async with AsyncExitStack() as stack:
+        client = await stack.enter_async_context(
+            KalshiClient(
+                config=kalshi_config,
+                api_key=settings.kalshi_api_key,
+                private_key_pem=private_key_pem,
+            )
+        )
+        telegram_client = None
+        if settings.telegram.send_alerts:
+            telegram_client = await stack.enter_async_context(
+                create_telegram_client(
+                    bot_token=settings.telegram_bot_token,
+                    chat_id=settings.telegram_chat_id,
+                )
+            )
+
         deps = TraderDependencies(
             kalshi_client=client,
             telegram_client=telegram_client,
