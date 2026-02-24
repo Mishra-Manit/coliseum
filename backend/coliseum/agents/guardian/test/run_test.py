@@ -14,6 +14,7 @@ Usage:
     python -m coliseum.agents.guardian.test.run_test --position-id "pos_abc123"
 """
 
+import argparse
 import asyncio
 import logging
 import sys
@@ -23,6 +24,9 @@ from pathlib import Path
 backend_path = Path(__file__).parent.parent.parent.parent.parent
 if str(backend_path) not in sys.path:
     sys.path.insert(0, str(backend_path))
+
+from coliseum.agents.guardian import run_guardian
+from coliseum.config import get_settings
 
 
 # Configure verbose logging
@@ -49,9 +53,6 @@ async def run_guardian_test(
     logger.info(f"Position ID: {position_id or 'None (will check all)'}")
     logger.info("-" * 60)
 
-    from coliseum.agents.guardian import run_guardian
-    from coliseum.config import get_settings
-
     settings = get_settings()
     result = await run_guardian(settings=settings)
 
@@ -76,8 +77,6 @@ async def run_guardian_test(
 
 def main() -> None:
     """Main entry point for the test script."""
-    import argparse
-
     parser = argparse.ArgumentParser(
         description="Test the Guardian agent in isolation",
         formatter_class=argparse.RawDescriptionHelpFormatter,
