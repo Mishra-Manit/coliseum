@@ -56,7 +56,6 @@ class ScoutConfig(BaseModel):
     sure_thing_max_price: int = 96  # Sure-thing max YES/NO price (cents)
     sure_thing_max_spread_cents: int = 3  # Sure-thing max spread (cents)
     sure_thing_min_volume: int = 5000  # Sure-thing min 24h volume (contracts)
-    max_opportunities_per_scan: int = 5  # Limit opportunities per scan
     market_fetch_limit: int = 10000
 
 
@@ -97,11 +96,7 @@ class ExecutionConfig(BaseModel):
 class TelegramConfig(BaseModel):
     """Telegram notification configuration."""
 
-    send_trade_alerts: bool = True
-    send_risk_alerts: bool = True
-    send_position_alerts: bool = True
-    send_opportunity_alerts: bool = True
-    send_system_alerts: bool = False
+    send_alerts: bool = True
 
 
 class Settings(BaseSettings):
