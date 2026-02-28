@@ -17,7 +17,6 @@ class TradingConfig(BaseModel):
     """Trading operational parameters."""
 
     paper_mode: bool = True
-    initial_bankroll: float = 100.0
     sure_thing_contracts: int = Field(default=1, ge=1)
 
 

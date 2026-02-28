@@ -4,7 +4,6 @@ strategy: sure_thing
 
 trading:
   paper_mode: true
-  initial_bankroll: 100.00
   sure_thing_contracts: 5
 
 risk:

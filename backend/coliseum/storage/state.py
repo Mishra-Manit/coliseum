@@ -86,14 +86,11 @@ def _get_state_path() -> Path:
 
 def _create_default_state() -> PortfolioState:
     """Create a default empty portfolio state."""
-    settings = get_settings()
-    initial_value = settings.trading.initial_bankroll
-
     return PortfolioState(
         last_updated=None,
         portfolio=PortfolioStats(
-            total_value=initial_value,
-            cash_balance=initial_value,
+            total_value=0.0,
+            cash_balance=0.0,
             positions_value=0.0,
         ),
         open_positions=[],

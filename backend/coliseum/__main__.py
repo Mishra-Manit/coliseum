@@ -70,7 +70,6 @@ def cmd_init(args: argparse.Namespace) -> int:
 
 trading:
   paper_mode: true
-  initial_bankroll: 100.00
 
 risk:
   max_position_pct: 0.10
@@ -158,8 +157,7 @@ def cmd_config(args: argparse.Namespace) -> int:
         print(f"Data Directory: {settings.data_dir}\n")
 
         print("Trading:")
-        print(f"  Paper Mode: {settings.trading.paper_mode}")
-        print(f"  Initial Bankroll: ${settings.trading.initial_bankroll:,.2f}\n")
+        print(f"  Paper Mode: {settings.trading.paper_mode}\n")
 
         print("Risk Management:")
         print(f"  Max Position: {settings.risk.max_position_pct:.0%}")
@@ -391,7 +389,6 @@ def cmd_run(args: argparse.Namespace) -> int:
         print("\n=== Coliseum Autonomous Trading System ===\n")
         print(f"Version: {__version__}")
         print(f"Mode: {'PAPER TRADING' if settings.trading.paper_mode else 'LIVE TRADING'}")
-        print(f"Bankroll: ${settings.trading.initial_bankroll:,.2f}")
         print(f"Data Directory: {settings.data_dir}\n")
 
         if args.once:

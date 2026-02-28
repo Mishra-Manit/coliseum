@@ -122,7 +122,6 @@ def init_test_data_structure() -> None:
             "# Test configuration\n"
             "trading:\n"
             "  paper_mode: true\n"
-            "  initial_bankroll: 100.0\n"
             "\n"
             "scout:\n",
             encoding="utf-8",
