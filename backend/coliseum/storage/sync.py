@@ -94,13 +94,21 @@ def _extract_fill_count(fill: dict[str, Any]) -> int | None:
 
 
 def _extract_fill_price(fill: dict[str, Any], side: str | None) -> float | None:
+    if side == "NO":
+        no_price = _normalize_price(fill.get("no_price"))
+        if no_price is not None:
+            return no_price
+        yes_price = _normalize_price(
+            fill.get("yes_price") or fill.get("price") or fill.get("fill_price")
+        )
+        if yes_price is not None:
+            return 1.0 - yes_price
+        return None
+
     direct = _normalize_price(
-        fill.get("price") or fill.get("fill_price") or fill.get("avg_price")
+        fill.get("yes_price") or fill.get("price") or fill.get("fill_price") or fill.get("avg_price")
     )
-    if direct is not None:
-        return direct
-    side_key = "yes_price" if side == "YES" else "no_price"
-    return _normalize_price(fill.get(side_key))
+    return direct
 
 
 def _compute_average_entries(
@@ -143,8 +151,8 @@ def _map_kalshi_position(
     """Map a Kalshi API position to a local Position model, preserving metadata from existing position."""
     side = _normalize_side(kalshi_pos.side)
     position_id = existing.id if existing else f"pos_{uuid4().hex[:8]}"
+    opportunity_id = existing.opportunity_id if existing else f"sync_{uuid4().hex[:8]}"
     contracts = kalshi_pos.contracts
-    unrealized_pnl = (current_price - avg_entry) * contracts
     return Position(
         id=position_id,
         market_ticker=kalshi_pos.market_ticker,
@@ -152,11 +160,7 @@ def _map_kalshi_position(
         contracts=contracts,
         average_entry=avg_entry,
         current_price=current_price,
-        unrealized_pnl=unrealized_pnl,
-        opportunity_id=existing.opportunity_id if existing else None,
-        strategy=existing.strategy if existing else "edge",
-        traded_at=existing.traded_at if existing else None,
-        reasoning=existing.reasoning if existing else None,
+        opportunity_id=opportunity_id,
     )
 
 

@@ -3,7 +3,7 @@
 import logging
 import shutil
 import tempfile
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Literal
 
@@ -32,11 +32,7 @@ class Position(BaseModel):
     contracts: int
     average_entry: float
     current_price: float
-    unrealized_pnl: float
     opportunity_id: str | None = None
-    strategy: str = "edge"
-    traded_at: datetime | None = None
-    reasoning: str | None = None
 
 
 class ClosedPosition(BaseModel):
@@ -49,10 +45,7 @@ class ClosedPosition(BaseModel):
     exit_price: float
     pnl: float
     opportunity_id: str | None = None
-    strategy: str = "edge"
-    traded_at: datetime | None = None
     closed_at: datetime | None = None
-    reasoning: str | None = None
 
 
 class PortfolioState(BaseModel):
@@ -128,7 +121,7 @@ def load_state() -> PortfolioState:
 def save_state(state: PortfolioState) -> None:
     """Atomically save portfolio state to data/state.yaml."""
     state_path = _get_state_path()
-    state.last_updated = datetime.utcnow()
+    state.last_updated = datetime.now(timezone.utc)
     state_dict = state.model_dump(mode="json")
 
     # Same directory as target so rename is atomic on the same filesystem

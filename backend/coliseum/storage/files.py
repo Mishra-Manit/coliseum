@@ -153,7 +153,19 @@ def save_opportunity(opportunity: OpportunitySignal) -> Path:
 """
 
     content = _format_markdown_with_frontmatter(frontmatter, body)
-    file_path.write_text(content, encoding="utf-8")
+
+    # Atomic write
+    with tempfile.NamedTemporaryFile(
+        mode='w',
+        delete=False,
+        suffix='.md',
+        dir=file_path.parent,
+        encoding='utf-8'
+    ) as f:
+        f.write(content)
+        temp_path = Path(f.name)
+
+    shutil.move(str(temp_path), str(file_path))
 
     logger.info(f"Saved opportunity to {file_path}")
     return file_path
@@ -216,6 +228,47 @@ def append_to_opportunity(
 
     logger.info(f"Appended section '{section_header}' to {file_path}")
     return file_path
+
+
+def update_opportunity_frontmatter(file_path: Path, frontmatter_updates: dict) -> None:
+    """Atomically update frontmatter fields in an opportunity markdown file."""
+    content = file_path.read_text(encoding="utf-8")
+
+    if not content.startswith("---"):
+        raise ValueError(f"Invalid frontmatter in {file_path}")
+
+    parts = content.split("---", 2)
+    if len(parts) < 3:
+        raise ValueError(f"Could not parse frontmatter in {file_path}")
+
+    frontmatter_raw = parts[1]
+    body = parts[2]
+
+    frontmatter = yaml.safe_load(frontmatter_raw) or {}
+    frontmatter.update(frontmatter_updates)
+
+    new_frontmatter_raw = yaml.dump(
+        frontmatter,
+        default_flow_style=False,
+        allow_unicode=True,
+        sort_keys=False,
+    )
+    new_content = f"---\n{new_frontmatter_raw}---{body}"
+
+    # Atomic write
+    with tempfile.NamedTemporaryFile(
+        mode="w",
+        delete=False,
+        suffix=".md",
+        dir=file_path.parent,
+        encoding="utf-8",
+    ) as f:
+        f.write(new_content)
+        temp_path = Path(f.name)
+
+    shutil.move(str(temp_path), str(file_path))
+
+    logger.info(f"Updated frontmatter in {file_path}")
 
 
 def _parse_opportunity_from_parts(frontmatter: dict, body: str) -> OpportunitySignal:
@@ -366,7 +419,7 @@ def log_trade(trade: TradeExecution) -> None:
     date_str = trade.executed_at.strftime("%Y-%m-%d")
     ledger_path = trades_dir / f"{date_str}.jsonl"
 
-    trade_json = trade.model_dump_json() + "\\n"
+    trade_json = trade.model_dump_json() + "\n"
 
     try:
         with open(ledger_path, "a", encoding="utf-8") as f:
