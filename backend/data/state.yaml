@@ -1,9 +1,30 @@
-last_updated: '2026-02-28T03:50:16.608381'
+last_updated: '2026-02-28T06:38:53.153633Z'
 portfolio:
-  total_value: 100.0
-  cash_balance: 100.0
-  positions_value: 0.0
-open_positions: []
+  total_value: 29.03
+  cash_balance: 14.28
+  positions_value: 14.75
+open_positions:
+- id: pos_3abbda63
+  market_ticker: KXNYTHEAD-26FEB-T1
+  side: 'NO'
+  contracts: 5
+  average_entry: 0.93
+  current_price: 0.9
+  opportunity_id: sync_ee70b444
+- id: pos_0cf0c919
+  market_ticker: KXTRUTHSOCIAL-26FEB28-B129
+  side: 'NO'
+  contracts: 10
+  average_entry: 0.96
+  current_price: 0.93
+  opportunity_id: sync_58a784af
+- id: pos_a032b335
+  market_ticker: KXTRUMPSAYMONTH-26MAR01-TURN
+  side: 'NO'
+  contracts: 1
+  average_entry: 0.96
+  current_price: 0.95
+  opportunity_id: sync_627a95c7
 closed_positions: []
 seen_tickers:
 - KXWOHOCKEY-MEN26CGOLD-USA
@@ -24,3 +45,5 @@ seen_tickers:
 - KXATTENDSOTU-JHUG
 - KXTRUMPSAYMONTH-26MAR01-TURN
 - KXTRUTHSOCIAL-26FEB28-B129
+- KXNYTHEAD-26FEB-T1
+- KXAAAGASW-26MAR02-3.008

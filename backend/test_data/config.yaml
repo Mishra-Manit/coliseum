@@ -3,7 +3,7 @@
 strategy: sure_thing
 
 trading:
-  paper_mode: true
+  paper_mode: false
   sure_thing_contracts: 5
 
 risk:
