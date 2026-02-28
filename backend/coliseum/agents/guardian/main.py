@@ -1,4 +1,4 @@
-"""Guardian Agent: LLM-orchestrated portfolio reconciler."""
+"""Guardian: deterministic portfolio reconciler (no LLM)."""
 
 from __future__ import annotations
 
@@ -6,12 +6,7 @@ import asyncio
 import logging
 from datetime import datetime, timezone
 
-from pydantic_ai import Agent, RunContext
-
-from coliseum.agents.agent_factory import AgentFactory
-from coliseum.agents.shared_tools import register_get_current_time
 from coliseum.config import Settings, get_settings
-from coliseum.llm_providers import OpenAIModel, get_model_string
 from coliseum.services.kalshi import KalshiClient
 from coliseum.services.kalshi.config import KalshiConfig
 from coliseum.storage.state import ClosedPosition, PortfolioState, Position, load_state, save_state
@@ -23,8 +18,7 @@ from coliseum.storage.sync import (
     sync_portfolio_from_kalshi,
 )
 
-from .models import GuardianDependencies, GuardianResult, ReconciliationStats
-from .prompts import GUARDIAN_SYSTEM_PROMPT, build_guardian_prompt
+from .models import GuardianResult, ReconciliationStats
 
 logger = logging.getLogger(__name__)
 
@@ -137,10 +131,7 @@ async def reconcile_closed_positions(
                 exit_price=exit_price,
                 pnl=pnl,
                 opportunity_id=pos.opportunity_id,
-                strategy=pos.strategy,
-                traded_at=pos.traded_at,
                 closed_at=datetime.now(timezone.utc),
-                reasoning=pos.reasoning,
             )
         )
         stats.newly_closed += 1
@@ -170,137 +161,10 @@ def _find_positions_without_opportunity_id(state: PortfolioState) -> list[str]:
     ]
 
 
-def _create_guardian_agent() -> Agent[GuardianDependencies, GuardianResult]:
-    """Create the Guardian agent for portfolio sync and reconciliation."""
-    return Agent(
-        model=get_model_string(OpenAIModel.GPT_5_2),
-        output_type=GuardianResult,
-        deps_type=GuardianDependencies,
-        system_prompt=GUARDIAN_SYSTEM_PROMPT,
-    )
-
-
-def _register_tools(agent: Agent[GuardianDependencies, GuardianResult]) -> None:
-    """Register tools used by Guardian for Kalshi sync and reconciliation."""
-
-    @agent.tool
-    async def sync_portfolio_from_kalshi_tool(
-        ctx: RunContext[GuardianDependencies],
-    ) -> dict[str, object]:
-        """Sync local state.yaml from live Kalshi portfolio account data."""
-        ctx.deps.pre_sync_open_positions = load_state().open_positions
-        state = await sync_portfolio_from_kalshi(ctx.deps.kalshi_client)
-        ctx.deps.synced_state = state
-        return {
-            "positions_synced": len(state.open_positions),
-            "cash_balance": state.portfolio.cash_balance,
-            "positions_value": state.portfolio.positions_value,
-            "total_value": state.portfolio.total_value,
-        }
-
-    @agent.tool
-    async def fetch_recent_fills(
-        ctx: RunContext[GuardianDependencies],
-        limit: int = 500,
-    ) -> dict[str, object]:
-        """Fetch recent account fills for closed position reconciliation."""
-        fills = await ctx.deps.kalshi_client.get_fills(limit=limit)
-        ctx.deps.fills = fills
-        return {"fills_count": len(fills)}
-
-    @agent.tool
-    async def reconcile_closed_positions_tool(
-        ctx: RunContext[GuardianDependencies],
-    ) -> dict[str, object]:
-        """Detect positions closed since last sync and move them to closed_positions in state.yaml."""
-        if ctx.deps.synced_state is None:
-            ctx.deps.pre_sync_open_positions = load_state().open_positions
-            ctx.deps.synced_state = await sync_portfolio_from_kalshi(ctx.deps.kalshi_client)
-        if ctx.deps.fills is None:
-            ctx.deps.fills = await ctx.deps.kalshi_client.get_fills(limit=500)
-
-        updated_state, stats = await reconcile_closed_positions(
-            old_open=ctx.deps.pre_sync_open_positions,
-            new_state=ctx.deps.synced_state,
-            fills=ctx.deps.fills,
-            client=ctx.deps.kalshi_client,
-        )
-        ctx.deps.synced_state = updated_state
-        ctx.deps.reconciliation = stats
-        return stats.model_dump()
-
-    @agent.tool
-    async def find_positions_without_opportunity_id_tool(
-        ctx: RunContext[GuardianDependencies],
-    ) -> list[str]:
-        """Find open positions that have no opportunity_id (not opened by our pipeline)."""
-        if ctx.deps.synced_state is None:
-            ctx.deps.synced_state = await sync_portfolio_from_kalshi(ctx.deps.kalshi_client)
-        return _find_positions_without_opportunity_id(ctx.deps.synced_state)
-
-    @agent.tool
-    async def summarize_synced_portfolio_tool(
-        ctx: RunContext[GuardianDependencies],
-    ) -> dict[str, object]:
-        """Get a concise summary of synced portfolio state and open positions."""
-        if ctx.deps.synced_state is None:
-            ctx.deps.synced_state = await sync_portfolio_from_kalshi(ctx.deps.kalshi_client)
-        state = ctx.deps.synced_state
-        return {
-            "positions_synced": len(state.open_positions),
-            "cash_balance": state.portfolio.cash_balance,
-            "positions_value": state.portfolio.positions_value,
-            "total_value": state.portfolio.total_value,
-            "open_positions": [
-                {
-                    "market_ticker": pos.market_ticker,
-                    "side": pos.side,
-                    "contracts": pos.contracts,
-                    "average_entry": pos.average_entry,
-                    "current_price": pos.current_price,
-                    "unrealized_pnl": pos.unrealized_pnl,
-                }
-                for pos in state.open_positions
-            ],
-        }
-
-    register_get_current_time(agent)
-
-
-_guardian_factory = AgentFactory(
-    create_fn=_create_guardian_agent,
-    register_tools_fn=_register_tools,
-)
-
-
-def get_guardian_agent() -> Agent[GuardianDependencies, GuardianResult]:
-    """Get the singleton Guardian agent instance."""
-    return _guardian_factory.get_agent()
-
-
-async def _run_guardian_fallback(client: KalshiClient) -> GuardianResult:
-    """Run deterministic fallback reconciliation if agent orchestration fails."""
-    pre_sync_state = load_state()
-    state = await sync_portfolio_from_kalshi(client)
-    fills = await client.get_fills(limit=500)
-    updated_state, stats = await reconcile_closed_positions(
-        old_open=pre_sync_state.open_positions,
-        new_state=state,
-        fills=fills,
-        client=client,
-    )
-    missing = _find_positions_without_opportunity_id(updated_state)
-    return GuardianResult(
-        positions_synced=len(updated_state.open_positions),
-        reconciliation=stats,
-        warnings=missing,
-        agent_summary="Fallback deterministic reconciliation executed after agent error.",
-    )
-
-
 async def run_guardian(settings: Settings | None = None) -> GuardianResult:
-    """Run Guardian reconciliation cycle via LLM tool orchestration."""
+    """Run one Guardian reconciliation cycle: sync, reconcile, summarize."""
     settings = settings or get_settings()
+
     if settings.trading.paper_mode and not settings.get_rsa_private_key():
         logger.warning("Guardian skipped -- no real Kalshi data")
         return GuardianResult(agent_summary="Guardian skipped due to missing Kalshi auth.")
@@ -313,30 +177,54 @@ async def run_guardian(settings: Settings | None = None) -> GuardianResult:
         api_key=settings.kalshi_api_key,
         private_key_pem=private_key_pem,
     ) as client:
-        deps = GuardianDependencies(
-            kalshi_client=client,
-            settings=settings,
-        )
-        agent = get_guardian_agent()
-        try:
-            result = await agent.run(build_guardian_prompt(), deps=deps)
-            output = result.output
-        except Exception as exc:
-            logger.error("Guardian agent orchestration failed: %s", exc, exc_info=True)
-            output = await _run_guardian_fallback(client)
+        # Step 1: snapshot pre-sync positions
+        pre_sync_state = load_state()
 
-    for missing_key in output.warnings:
+        # Step 2: sync portfolio from Kalshi (updates state.yaml with balances + positions)
+        state = await sync_portfolio_from_kalshi(client)
+        logger.info(
+            "Guardian synced portfolio: cash=$%.2f positions_value=$%.2f total=$%.2f open=%d",
+            state.portfolio.cash_balance,
+            state.portfolio.positions_value,
+            state.portfolio.total_value,
+            len(state.open_positions),
+        )
+
+        # Step 3: fetch recent fills for exit price calculation
+        fills = await client.get_fills(limit=500)
+
+        # Step 4: reconcile closed positions
+        updated_state, stats = await reconcile_closed_positions(
+            old_open=pre_sync_state.open_positions,
+            new_state=state,
+            fills=fills,
+            client=client,
+        )
+
+        # Step 5: find positions not opened by our pipeline
+        missing = _find_positions_without_opportunity_id(updated_state)
+
+    for missing_key in missing:
         logger.warning("Guardian position missing opportunity_id: %s", missing_key)
 
-    logger.info("Guardian synced %d positions from Kalshi", output.positions_synced)
+    logger.info("Guardian synced %d positions from Kalshi", len(updated_state.open_positions))
     logger.info(
-        "Guardian entries inspected=%d kept_open=%d closed=%d",
-        output.reconciliation.entries_inspected,
-        output.reconciliation.kept_open,
-        output.reconciliation.newly_closed,
+        "Guardian reconciliation: inspected=%d kept_open=%d closed=%d",
+        stats.entries_inspected,
+        stats.kept_open,
+        stats.newly_closed,
     )
 
-    return output
+    return GuardianResult(
+        positions_synced=len(updated_state.open_positions),
+        reconciliation=stats,
+        warnings=missing,
+        agent_summary=(
+            f"Synced {len(updated_state.open_positions)} positions. "
+            f"Reconciled {stats.newly_closed} closed. "
+            f"{len(missing)} missing opportunity_id."
+        ),
+    )
 
 
 def guardian_job() -> None:
