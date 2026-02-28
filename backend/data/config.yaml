@@ -13,11 +13,6 @@ risk:
   min_ev_threshold: 0.05          # Only trade if EV > 5%
   kelly_fraction: 0.50            # Use 1/2 Kelly (more aggressive for edge trading)
 
-scheduler:
-  scout_full_scan_minutes: 60     # Full market scan every hour
-  guardian_position_check_minutes: 15  # Check positions every 15 min
-  guardian_news_scan_minutes: 30  # Scan news every 30 minutes
-
 scout:
   market_fetch_limit: 20000
   edge_min_close_hours: 96

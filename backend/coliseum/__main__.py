@@ -21,7 +21,6 @@ from coliseum.agents.scout import run_scout
 from coliseum.agents.trader import run_trader
 from coliseum.config import get_settings
 from coliseum.pipeline import run_pipeline
-from coliseum.scheduler import start_scheduler
 
 # Configure logging
 logging.basicConfig(
@@ -77,11 +76,6 @@ risk:
   min_edge_threshold: 0.05
   min_ev_threshold: 0.10
   kelly_fraction: 0.25
-
-scheduler:
-  scout_full_scan_minutes: 60
-  guardian_position_check_minutes: 15
-  guardian_news_scan_minutes: 30
 
 scout:
   min_volume: 10000
@@ -165,11 +159,6 @@ def cmd_config(args: argparse.Namespace) -> int:
         print(f"  Min Edge: {settings.risk.min_edge_threshold:.0%}")
         print(f"  Min EV: {settings.risk.min_ev_threshold:.0%}")
         print(f"  Kelly Fraction: {settings.risk.kelly_fraction}\n")
-
-        print("Scheduler (minutes):")
-        print(f"  Scout Full Scan: {settings.scheduler.scout_full_scan_minutes}")
-        print(f"  Guardian Position Check: {settings.scheduler.guardian_position_check_minutes}")
-        print(f"  Guardian News Scan: {settings.scheduler.guardian_news_scan_minutes}\n")
 
         print("Scout:")
         print(f"  Min Volume: {settings.scout.min_volume:,} contracts")
@@ -427,8 +416,10 @@ def cmd_run(args: argparse.Namespace) -> int:
             print("\nPipeline run complete.\n")
             return 0
 
-        print("Starting scheduler...\n")
-        start_scheduler(settings)
+        print("Continuous scheduling is not implemented yet.")
+        print("Running full pipeline once (Guardian -> Scout -> Analyst -> Trader)...\n")
+        asyncio.run(run_pipeline(settings))
+        print("\nPipeline run complete.\n")
 
         return 0
 

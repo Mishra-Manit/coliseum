@@ -30,14 +30,6 @@ class RiskConfig(BaseModel):
     kelly_fraction: float = 0.50  # 1/2 Kelly for edge trading
 
 
-class SchedulerConfig(BaseModel):
-    """Job scheduling intervals in minutes."""
-
-    scout_full_scan_minutes: int = 60
-    guardian_position_check_minutes: int = 15
-    guardian_news_scan_minutes: int = 30
-
-
 class ScoutConfig(BaseModel):
     """Scout agent market filtering parameters."""
 
@@ -122,8 +114,6 @@ class Settings(BaseSettings):
     # Nested configuration sections
     trading: TradingConfig = Field(default_factory=TradingConfig)
     risk: RiskConfig = Field(default_factory=RiskConfig)
-
-    scheduler: SchedulerConfig = Field(default_factory=SchedulerConfig)
     scout: ScoutConfig = Field(default_factory=ScoutConfig)
     analyst: AnalystConfig = Field(default_factory=AnalystConfig)
     guardian: GuardianConfig = Field(default_factory=GuardianConfig)
@@ -185,7 +175,6 @@ class Settings(BaseSettings):
             for section_name in [
                 "trading",
                 "risk",
-                "scheduler",
                 "scout",
                 "analyst",
                 "guardian",

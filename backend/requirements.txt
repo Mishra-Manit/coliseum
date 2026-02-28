@@ -8,9 +8,6 @@ pyyaml>=6.0.3,<7.0.0
 pydantic-ai-slim[anthropic,openai,logfire]>=1.42.0,<2.0.0
 exa-py>=2.0.2,<3.0.0
 
-# Job Scheduler
-apscheduler>=3.11.2,<4.0.0
-
 # Cryptography (Kalshi Trading API)
 cryptography>=46.0.3,<47.0.0
 

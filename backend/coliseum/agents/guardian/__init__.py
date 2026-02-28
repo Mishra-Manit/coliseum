@@ -1,5 +1,5 @@
 """Guardian Agent package."""
 
-from .main import guardian_job, run_guardian
+from .main import run_guardian
 
-__all__ = ["guardian_job", "run_guardian"]
+__all__ = ["run_guardian"]

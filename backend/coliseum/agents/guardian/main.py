@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
 from datetime import datetime, timezone
 
@@ -225,16 +224,3 @@ async def run_guardian(settings: Settings | None = None) -> GuardianResult:
             f"{len(missing)} missing opportunity_id."
         ),
     )
-
-
-def guardian_job() -> None:
-    """Scheduler job wrapper for Guardian reconciliation."""
-    try:
-        result = asyncio.run(run_guardian())
-        logger.info(
-            "Guardian: %d positions synced, %d closed",
-            result.positions_synced,
-            result.reconciliation.newly_closed,
-        )
-    except Exception as exc:
-        logger.error("Guardian run failed: %s", exc, exc_info=True)

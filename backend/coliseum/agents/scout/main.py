@@ -1,6 +1,5 @@
 """Scout Agent: Market discovery and opportunity filtering."""
 
-import asyncio
 import json
 import logging
 
@@ -244,12 +243,3 @@ async def run_scout(
         )
 
         return output
-
-
-def scout_scan_job() -> None:
-    """Scheduler job wrapper for market scan (blocking)."""
-    try:
-        result = asyncio.run(run_scout())
-        logger.info(f"✓ Scout scan: {result.opportunities_found} opportunities")
-    except Exception as e:
-        logger.error(f"Scout scan failed: {e}", exc_info=True)
