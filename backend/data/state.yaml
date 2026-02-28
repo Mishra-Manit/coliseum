@@ -1,22 +1,43 @@
-last_updated: '2026-02-28T06:38:53.153633Z'
+last_updated: '2026-02-28T07:14:50.878218Z'
 portfolio:
-  total_value: 29.03
-  cash_balance: 14.28
-  positions_value: 14.75
+  total_value: 26.78
+  cash_balance: 0.82
+  positions_value: 25.96
 open_positions:
+- id: pos_bbafbff6
+  market_ticker: KXNASCARRACE-ONLGF1AS26-ADAN
+  side: 'NO'
+  contracts: 5
+  average_entry: 0.96
+  current_price: 0.95
+  opportunity_id: sync_e047f731
+- id: pos_eeb0c3a6
+  market_ticker: KXNASCARRACE-ONLGF1AS26-LARI
+  side: 'NO'
+  contracts: 4
+  average_entry: 0.95
+  current_price: 0.94
+  opportunity_id: sync_c8bb6634
+- id: pos_bb16db28
+  market_ticker: KXAAAGASW-26MAR02-3.008
+  side: 'NO'
+  contracts: 5
+  average_entry: 0.96
+  current_price: 0.95
+  opportunity_id: sync_e29a905c
 - id: pos_3abbda63
   market_ticker: KXNYTHEAD-26FEB-T1
   side: 'NO'
   contracts: 5
   average_entry: 0.93
-  current_price: 0.9
+  current_price: 0.45
   opportunity_id: sync_ee70b444
 - id: pos_0cf0c919
   market_ticker: KXTRUTHSOCIAL-26FEB28-B129
   side: 'NO'
   contracts: 10
   average_entry: 0.96
-  current_price: 0.93
+  current_price: 0.95
   opportunity_id: sync_58a784af
 - id: pos_a032b335
   market_ticker: KXTRUMPSAYMONTH-26MAR01-TURN
@@ -47,3 +68,5 @@ seen_tickers:
 - KXTRUTHSOCIAL-26FEB28-B129
 - KXNYTHEAD-26FEB-T1
 - KXAAAGASW-26MAR02-3.008
+- KXNASCARRACE-ONLGF1AS26-ADAN
+- KXNASCARRACE-ONLGF1AS26-LARI
