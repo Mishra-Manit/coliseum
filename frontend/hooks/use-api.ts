@@ -32,3 +32,9 @@ export function useOpportunityDetail(id: string | null) {
     { refreshInterval: 30000 }
   );
 }
+
+export function usePipelineStatus() {
+  return useSWR<{ running: boolean }>("/api/pipeline/status", fetcher, {
+    refreshInterval: 3000,
+  });
+}

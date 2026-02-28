@@ -1,5 +1,6 @@
 """FastAPI dashboard server for the Coliseum trading system."""
 
+import asyncio
 import logging
 from pathlib import Path
 from typing import Any
@@ -7,6 +8,9 @@ from typing import Any
 import yaml
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+
+from coliseum.config import get_settings
+from coliseum.pipeline import run_pipeline
 
 logger = logging.getLogger(__name__)
 
@@ -151,3 +155,41 @@ async def get_opportunity(opportunity_id: str):
                 "raw_frontmatter": fm,
             }
     raise HTTPException(status_code=404, detail=f"Opportunity {opportunity_id} not found")
+
+
+# ---------------------------------------------------------------------------
+# Pipeline trigger
+# ---------------------------------------------------------------------------
+
+_pipeline_running = False
+_pipeline_task: asyncio.Task[None] | None = None
+
+
+async def _execute_pipeline() -> None:
+    """Wrapper that flips the running flag on completion."""
+    global _pipeline_running
+    try:
+        settings = get_settings()
+        await run_pipeline(settings)
+    except Exception:
+        logger.exception("Pipeline run failed")
+    finally:
+        _pipeline_running = False
+
+
+@app.post("/api/pipeline/run", status_code=202)
+async def trigger_pipeline():
+    """Kick off a full pipeline cycle. Returns 409 if one is already running."""
+    global _pipeline_running, _pipeline_task
+    if _pipeline_running:
+        raise HTTPException(status_code=409, detail="Pipeline already running")
+
+    _pipeline_running = True
+    _pipeline_task = asyncio.create_task(_execute_pipeline())
+    return {"status": "started"}
+
+
+@app.get("/api/pipeline/status")
+async def pipeline_status():
+    """Check whether a pipeline cycle is currently in progress."""
+    return {"running": _pipeline_running}
