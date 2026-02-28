@@ -1,22 +1,55 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { Navbar } from "@/components/navbar"
-import { Sidebar } from "@/components/sidebar"
-import { MainContent } from "@/components/main-content"
-import { BottomBanner } from "@/components/bottom-banner"
+import { useState } from "react";
+import { SWRConfig } from "swr";
+import { DashboardNavbar } from "@/components/dashboard/dashboard-navbar";
+import { PortfolioOverview } from "@/components/dashboard/portfolio-overview";
+import { OpportunitiesFeed } from "@/components/dashboard/opportunities-feed";
+import { OpportunityDetailView } from "@/components/dashboard/opportunity-detail";
+import { KalshiAccount } from "@/components/dashboard/kalshi-account";
 
 export default function Home() {
-  const [selectedEvent, setSelectedEvent] = useState("us-election")
+  const [selectedOpportunityId, setSelectedOpportunityId] = useState<
+    string | null
+  >(null);
 
   return (
-    <div className="flex flex-col min-h-screen bg-[#0e0e10]">
-      <Navbar />
-      <div className="flex flex-1 pt-[50px]">
-        <Sidebar selectedEvent={selectedEvent} onSelectEvent={setSelectedEvent} />
-        <MainContent selectedEvent={selectedEvent} />
+    <SWRConfig
+      value={{
+        revalidateOnFocus: true,
+        revalidateOnReconnect: true,
+        errorRetryCount: 3,
+      }}
+    >
+      <div className="flex flex-col min-h-screen bg-background noise-bg">
+        <DashboardNavbar />
+
+        <main className="flex-1 p-6 overflow-y-auto">
+          <div className="max-w-[1800px] mx-auto space-y-6">
+            <PortfolioOverview />
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              <div className="lg:col-span-3 space-y-6">
+                <KalshiAccount />
+              </div>
+
+              <div className="lg:col-span-3">
+                <OpportunitiesFeed
+                  onSelectOpportunity={setSelectedOpportunityId}
+                  selectedId={selectedOpportunityId}
+                />
+              </div>
+
+              <div className="lg:col-span-6">
+                <OpportunityDetailView
+                  opportunityId={selectedOpportunityId}
+                  onClose={() => setSelectedOpportunityId(null)}
+                />
+              </div>
+            </div>
+          </div>
+        </main>
       </div>
-      <BottomBanner />
-    </div>
-  )
+    </SWRConfig>
+  );
 }

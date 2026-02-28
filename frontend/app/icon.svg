@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <!-- Black rounded square background -->
+  <rect width="512" height="512" rx="96" fill="#0a0a0a"/>
+  <!-- Subtle border -->
+  <rect x="4" y="4" width="504" height="504" rx="92" fill="none" stroke="#222" stroke-width="4"/>
+  <!-- Stylized "C" as a broken circle / arena ring -->
+  <circle cx="256" cy="256" r="140" fill="none" stroke="#fff" stroke-width="36" stroke-linecap="round" stroke-dasharray="720 160"/>
+  <!-- Two crossed swords inside the C -->
+  <g stroke="#fff" stroke-width="16" stroke-linecap="round" fill="none">
+    <!-- Sword 1: top-left to bottom-right -->
+    <line x1="210" y1="200" x2="302" y2="312"/>
+    <!-- Sword 1 guard -->
+    <line x1="196" y1="224" x2="234" y2="196"/>
+    <!-- Sword 2: top-right to bottom-left -->
+    <line x1="302" y1="200" x2="210" y2="312"/>
+    <!-- Sword 2 guard -->
+    <line x1="278" y1="196" x2="316" y2="224"/>
+  </g>
+</svg>

@@ -3,83 +3,82 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* Twitch-style dark theme colors */
 :root {
-  --background: #0e0e10;
-  --foreground: #efeff1;
-  --card: #18181b;
-  --card-foreground: #efeff1;
-  --popover: #18181b;
-  --popover-foreground: #efeff1;
-  --primary: #9147ff;
-  --primary-foreground: #ffffff;
-  --secondary: #1f1f23;
-  --secondary-foreground: #efeff1;
-  --muted: #26262c;
-  --muted-foreground: #adadb8;
-  --accent: #772ce8;
-  --accent-foreground: #ffffff;
-  --destructive: #eb0400;
-  --destructive-foreground: #ffffff;
-  --border: #2f2f35;
-  --input: #2f2f35;
-  --ring: #9147ff;
-  --chart-1: #9147ff;
-  --chart-2: #00ff7f;
-  --chart-3: #ff4d4d;
-  --chart-4: #ffcc00;
-  --chart-5: #00bcd4;
-  --radius: 0.375rem;
-  --sidebar: #1f1f23;
-  --sidebar-foreground: #efeff1;
-  --sidebar-primary: #9147ff;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #26262c;
-  --sidebar-accent-foreground: #efeff1;
-  --sidebar-border: #2f2f35;
-  --sidebar-ring: #9147ff;
+  --background: #0c0a09;
+  --foreground: #fafaf9;
+  --card: #1c1917;
+  --card-foreground: #fafaf9;
+  --popover: #1c1917;
+  --popover-foreground: #fafaf9;
+  --primary: #d97706;
+  --primary-foreground: #0c0a09;
+  --secondary: #292524;
+  --secondary-foreground: #fafaf9;
+  --muted: #292524;
+  --muted-foreground: #a8a29e;
+  --accent: #b45309;
+  --accent-foreground: #fafaf9;
+  --destructive: #dc2626;
+  --destructive-foreground: #fafaf9;
+  --border: #44403c;
+  --input: #44403c;
+  --ring: #d97706;
+  --chart-1: #d97706;
+  --chart-2: #16a34a;
+  --chart-3: #dc2626;
+  --chart-4: #eab308;
+  --chart-5: #06b6d4;
+  --radius: 0.625rem;
 
-  /* Custom Twitch colors */
-  --twitch-purple: #9147ff;
-  --twitch-purple-dark: #772ce8;
-  --twitch-purple-light: #a970ff;
-  --twitch-red: #eb0400;
-  --twitch-green: #00ff7f;
+  --color-success: #16a34a;
+  --color-warning: #eab308;
+  --color-danger: #dc2626;
+  --color-info: #06b6d4;
+
+  --sidebar: #1c1917;
+  --sidebar-foreground: #fafaf9;
+  --sidebar-primary: #d97706;
+  --sidebar-primary-foreground: #0c0a09;
+  --sidebar-accent: #292524;
+  --sidebar-accent-foreground: #fafaf9;
+  --sidebar-border: #44403c;
+  --sidebar-ring: #d97706;
 }
 
 .dark {
-  --background: #0e0e10;
-  --foreground: #efeff1;
-  --card: #18181b;
-  --card-foreground: #efeff1;
-  --popover: #18181b;
-  --popover-foreground: #efeff1;
-  --primary: #9147ff;
-  --primary-foreground: #ffffff;
-  --secondary: #1f1f23;
-  --secondary-foreground: #efeff1;
-  --muted: #26262c;
-  --muted-foreground: #adadb8;
-  --accent: #772ce8;
-  --accent-foreground: #ffffff;
-  --destructive: #eb0400;
-  --destructive-foreground: #ffffff;
-  --border: #2f2f35;
-  --input: #2f2f35;
-  --ring: #9147ff;
-  --sidebar: #1f1f23;
-  --sidebar-foreground: #efeff1;
-  --sidebar-primary: #9147ff;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #26262c;
-  --sidebar-accent-foreground: #efeff1;
-  --sidebar-border: #2f2f35;
-  --sidebar-ring: #9147ff;
+  --background: #0c0a09;
+  --foreground: #fafaf9;
+  --card: #1c1917;
+  --card-foreground: #fafaf9;
+  --popover: #1c1917;
+  --popover-foreground: #fafaf9;
+  --primary: #d97706;
+  --primary-foreground: #0c0a09;
+  --secondary: #292524;
+  --secondary-foreground: #fafaf9;
+  --muted: #292524;
+  --muted-foreground: #a8a29e;
+  --accent: #b45309;
+  --accent-foreground: #fafaf9;
+  --destructive: #dc2626;
+  --destructive-foreground: #fafaf9;
+  --border: #44403c;
+  --input: #44403c;
+  --ring: #d97706;
+  --sidebar: #1c1917;
+  --sidebar-foreground: #fafaf9;
+  --sidebar-primary: #d97706;
+  --sidebar-primary-foreground: #0c0a09;
+  --sidebar-accent: #292524;
+  --sidebar-accent-foreground: #fafaf9;
+  --sidebar-border: #44403c;
+  --sidebar-ring: #d97706;
 }
 
 @theme inline {
-  --font-sans: "Inter", "Roobert", "Helvetica Neue", Helvetica, Arial, sans-serif;
-  --font-mono: "Geist Mono", "Geist Mono Fallback";
+  --font-sans: var(--font-sans, "Space Grotesk", system-ui, sans-serif);
+  --font-display: var(--font-display, "Playfair Display", Georgia, serif);
+  --font-mono: var(--font-mono, "JetBrains Mono", "Fira Code", monospace);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -127,20 +126,215 @@
   }
 }
 
-/* Custom scrollbar for Twitch-like feel */
+/* Warm custom scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
+  width: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #0e0e10;
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #2f2f35;
-  border-radius: 4px;
+  background: #44403c;
+  border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #3f3f46;
+  background: #57534e;
+}
+
+/* Subtle noise texture overlay */
+.noise-bg {
+  position: relative;
+}
+.noise-bg::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 0.015;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Rich markdown rendering */
+.markdown-body {
+  line-height: 1.75;
+  font-size: 0.9375rem;
+  color: #d6d3d1;
+}
+
+.markdown-body h1 {
+  font-family: var(--font-display, "Playfair Display", Georgia, serif);
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #fafaf9;
+  margin-top: 2rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #44403c;
+}
+
+.markdown-body h2 {
+  font-family: var(--font-display, "Playfair Display", Georgia, serif);
+  font-size: 1.35rem;
+  font-weight: 600;
+  color: #fafaf9;
+  margin-top: 1.75rem;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.375rem;
+  border-bottom: 1px solid #292524;
+}
+
+.markdown-body h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #fafaf9;
+  margin-top: 1.5rem;
+  margin-bottom: 0.625rem;
+}
+
+.markdown-body h4 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #d6d3d1;
+  margin-top: 1.25rem;
+  margin-bottom: 0.5rem;
+}
+
+.markdown-body p {
+  margin-top: 0;
+  margin-bottom: 1rem;
+  color: #d6d3d1;
+}
+
+.markdown-body strong {
+  color: #fafaf9;
+  font-weight: 600;
+}
+
+.markdown-body em {
+  color: #a8a29e;
+}
+
+.markdown-body a {
+  color: #d97706;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-color: #d9770640;
+  transition: text-decoration-color 0.15s;
+}
+
+.markdown-body a:hover {
+  text-decoration-color: #d97706;
+}
+
+.markdown-body ul,
+.markdown-body ol {
+  margin-top: 0;
+  margin-bottom: 1rem;
+  padding-left: 1.5rem;
+}
+
+.markdown-body li {
+  margin-bottom: 0.375rem;
+}
+
+.markdown-body li::marker {
+  color: #57534e;
+}
+
+.markdown-body ol > li::marker {
+  color: #d97706;
+  font-weight: 500;
+}
+
+.markdown-body blockquote {
+  margin: 1rem 0;
+  padding: 0.75rem 1rem;
+  border-left: 3px solid #d97706;
+  background: #292524;
+  border-radius: 0 0.375rem 0.375rem 0;
+  color: #d6d3d1;
+}
+
+.markdown-body blockquote p:last-child {
+  margin-bottom: 0;
+}
+
+.markdown-body code {
+  font-family: var(--font-mono, "JetBrains Mono", monospace);
+  font-size: 0.825rem;
+  color: #d97706;
+  background: #292524;
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+  border: 1px solid #44403c;
+}
+
+.markdown-body pre {
+  margin: 1rem 0;
+  padding: 1rem;
+  background: #1c1917;
+  border: 1px solid #44403c;
+  border-radius: 0.5rem;
+  overflow-x: auto;
+}
+
+.markdown-body pre code {
+  background: none;
+  border: none;
+  padding: 0;
+  color: #d6d3d1;
+  font-size: 0.8125rem;
+  line-height: 1.6;
+}
+
+.markdown-body hr {
+  margin: 1.5rem 0;
+  border: none;
+  border-top: 1px solid #44403c;
+}
+
+.markdown-body table {
+  width: 100%;
+  margin: 1rem 0;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.markdown-body thead {
+  border-bottom: 2px solid #44403c;
+}
+
+.markdown-body th {
+  padding: 0.625rem 0.75rem;
+  text-align: left;
+  font-weight: 600;
+  color: #fafaf9;
+  font-size: 0.8125rem;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+}
+
+.markdown-body td {
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid #292524;
+  color: #d6d3d1;
+}
+
+.markdown-body tbody tr:hover {
+  background: #29252480;
+}
+
+.markdown-body img {
+  max-width: 100%;
+  border-radius: 0.5rem;
+  margin: 1rem 0;
+}
+
+/* First h1 in markdown body should have no top margin */
+.markdown-body > h1:first-child {
+  margin-top: 0;
 }
