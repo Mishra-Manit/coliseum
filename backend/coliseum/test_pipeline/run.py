@@ -43,6 +43,7 @@ if str(backend_path) not in sys.path:
 
 from coliseum.test_pipeline.config import TEST_DATA_DIR
 from coliseum.agents.analyst import run_analyst
+from coliseum.agents.guardian import run_guardian
 from coliseum.agents.guardian.main import (
     _find_positions_without_opportunity_id,
     reconcile_closed_positions,
@@ -524,7 +525,6 @@ async def run_guardian_test() -> "GuardianResult | None":
         logger.info(f"   Entries inspected: {stats.entries_inspected}")
         logger.info(f"   Kept open: {stats.kept_open}")
         logger.info(f"   Newly closed: {stats.newly_closed}")
-        logger.info(f"   Skipped (no trade): {stats.skipped_no_trade}")
         logger.info(f"   Reconciliation warnings: {stats.warnings}")
         if result.warnings:
             logger.info(f"   Missing opportunity_id: {', '.join(result.warnings)}")
@@ -553,7 +553,7 @@ async def run_full_pipeline() -> None:
     logger.info("\n" + "=" * 70)
     logger.info("FULL PIPELINE TEST")
     logger.info("=" * 70)
-    logger.info("   Running: Scout -> (Analyst -> Trader) for each opportunity")
+    logger.info("   Running: Guardian -> Scout -> (Analyst -> Trader) for each -> Guardian")
     logger.info("=" * 70)
 
     # Initialize test data structure
@@ -565,12 +565,26 @@ async def run_full_pipeline() -> None:
     # Initialize Logfire BEFORE agent imports
     _initialize_test_logfire()
 
-    # Step 1: Scout - Find opportunities
-    logger.info("\n" + "=" * 70)
-    logger.info("STEP 1: Scout - Discovering opportunities")
-    logger.info("=" * 70)
-    
     settings = get_settings()
+
+    # Step 1: Guardian - Pre-trade sync
+    logger.info("\n" + "=" * 70)
+    logger.info("STEP 1: Guardian - Pre-trade reconciliation")
+    logger.info("=" * 70)
+    try:
+        guardian_result = await run_guardian(settings=settings)
+        logger.info(
+            f"Guardian (pre-trade) complete: synced={guardian_result.positions_synced} "
+            f"closed={guardian_result.reconciliation.newly_closed}"
+        )
+    except Exception as e:
+        logger.error(f"Guardian (pre-trade) failed: {e}")
+
+    # Step 2: Scout - Find opportunities
+    logger.info("\n" + "=" * 70)
+    logger.info("STEP 2: Scout - Discovering opportunities")
+    logger.info("=" * 70)
+
     scout_output = await run_scout(strategy=settings.strategy)
     
     if not scout_output or not scout_output.opportunities:
@@ -589,7 +603,7 @@ async def run_full_pipeline() -> None:
         logger.info(f"PROCESSING OPPORTUNITY {i}/{total_opps}: {opp.market_ticker}")
         logger.info("=" * 70)
         
-        # Step 2: Analyst - Research this opportunity
+        # Analyst - Research this opportunity
         logger.info(f"\n--- Analyst Agent ({i}/{total_opps}) ---")
         try:
             analyzed_opp = await run_analyst(
@@ -603,7 +617,7 @@ async def run_full_pipeline() -> None:
             logger.error(f"   Analyst failed for {opp.id}: {e}")
             continue
         
-        # Step 3: Trader - Execute trade decision for this opportunity
+        # Trader - Execute trade decision for this opportunity
         logger.info(f"\n--- Trader Agent ({i}/{total_opps}) ---")
         try:
             trader_output = await run_trader(
@@ -619,51 +633,26 @@ async def run_full_pipeline() -> None:
         
         logger.info(f"\nCompleted opportunity {i}/{total_opps}")
 
-    # Step 4: Guardian - Reconcile positions
+    # Step 5: Guardian - Post-trade reconciliation
     logger.info("\n" + "=" * 70)
-    logger.info("STEP 4: Guardian - Reconciling positions")
+    logger.info("STEP 5: Guardian - Reconciling positions")
     logger.info("=" * 70)
-
-    kalshi_config = KalshiConfig(paper_mode=True)
-    private_key_pem = ""
-    if not settings.trading.paper_mode and settings.get_rsa_private_key():
-        private_key_pem = settings.get_rsa_private_key()
-
     try:
-        async with KalshiClient(
-            config=kalshi_config,
-            api_key=settings.kalshi_api_key if private_key_pem else None,
-            private_key_pem=private_key_pem or None,
-        ) as client:
-            pre_sync_state = load_state()
-            state = await sync_portfolio_from_kalshi(client)
-            fills = await client.get_fills()
-            state, guardian_stats = await reconcile_closed_positions(
-                old_open=pre_sync_state.open_positions,
-                new_state=state,
-                fills=fills,
-                client=client,
-            )
-
-        missing = _find_positions_without_opportunity_id(state)
-
-        logger.info(f"   Positions synced: {len(state.open_positions)}")
+        guardian_result = await run_guardian(settings=settings)
         logger.info(
-            f"   Reconciliation: inspected={guardian_stats.entries_inspected} "
-            f"kept_open={guardian_stats.kept_open} "
-            f"closed={guardian_stats.newly_closed} "
-            f"skipped={guardian_stats.skipped_no_trade}"
+            f"Guardian (post-trade) complete: synced={guardian_result.positions_synced} "
+            f"closed={guardian_result.reconciliation.newly_closed}"
         )
-        if missing:
-            logger.warning(f"   Missing opportunity_id: {', '.join(missing)}")
+        if guardian_result.warnings:
+            logger.warning(f"   Missing opportunity_id: {', '.join(guardian_result.warnings)}")
     except Exception as e:
-        logger.error(f"   Guardian failed: {e}")
+        logger.error(f"Guardian (post-trade) failed: {e}")
 
     logger.info("\n" + "=" * 70)
     logger.info("FULL PIPELINE TEST COMPLETE")
     logger.info("=" * 70)
     logger.info(f"   Processed {total_opps} opportunities sequentially")
-    logger.info("   Flow: Scout -> (Analyst -> Trader) for each -> Guardian")
+    logger.info("   Flow: Guardian -> Scout -> (Analyst -> Trader) for each -> Guardian")
     logger.info("=" * 70 + "\n")
 
 
