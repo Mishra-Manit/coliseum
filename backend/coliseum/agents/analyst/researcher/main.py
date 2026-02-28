@@ -4,7 +4,7 @@ import logging
 import time
 from datetime import datetime, timezone
 from typing import Literal
-from pydantic_ai import Agent, RunContext, WebSearchTool
+from pydantic_ai import Agent, WebSearchTool
 
 from coliseum.agents.agent_factory import AgentFactory
 from coliseum.agents.analyst.researcher.models import (
@@ -12,7 +12,6 @@ from coliseum.agents.analyst.researcher.models import (
     ResearcherOutput,
 )
 from coliseum.agents.analyst.researcher.prompts import RESEARCHER_SYSTEM_PROMPT, RESEARCHER_SURE_THING_PROMPT
-from coliseum.agents.shared_tools import register_load_opportunity
 from coliseum.config import Settings, get_settings
 from coliseum.llm_providers import OpenAIModel, get_model_string
 from coliseum.storage.files import (
@@ -36,18 +35,12 @@ def _create_agent(strategy: str = "edge") -> Agent[ResearcherDependencies, Resea
     )
 
 
-def _register_tools(agent: Agent[ResearcherDependencies, ResearcherOutput]) -> None:
-    register_load_opportunity(agent)
-
-
 _edge_factory = AgentFactory(
     create_fn=lambda: _create_agent("edge"),
-    register_tools_fn=_register_tools,
 )
 
 _sure_thing_factory = AgentFactory(
     create_fn=lambda: _create_agent("sure_thing"),
-    register_tools_fn=_register_tools,
 )
 
 
@@ -138,19 +131,23 @@ def _build_research_prompt(opportunity: OpportunitySignal, settings: Settings) -
 
 ## Opportunity Details
 
+**ID**: {opportunity.id}
+**Event Ticker**: {opportunity.event_ticker}
+**Market Ticker**: {opportunity.market_ticker}
 **Market**: {opportunity.title}
 {subtitle_info}**Current YES Price**: {opportunity.yes_price:.2f} ({opportunity.yes_price * 100:.1f}¢)
 **Current NO Price**: {opportunity.no_price:.2f} ({opportunity.no_price * 100:.1f}¢)
 **Market Closes**: {opportunity.close_time.isoformat()}
+**Status**: {opportunity.status}
+**Discovered**: {opportunity.discovered_at.isoformat()}
 
 **Scout's Rationale**: {opportunity.rationale}
 
 ## Your Task
 
-1. Use `load_opportunity` to get full opportunity data
-2. Formulate 2-4 specific research questions about this event
-3. Use web search for each question to gather grounded information
-4. Synthesize findings into a coherent analysis with embedded sources
+1. Formulate 2-4 specific research questions about this event
+2. Use web search for each question to gather grounded information
+3. Synthesize findings into a coherent analysis with embedded sources
 
 ## Research Standards
 

@@ -27,7 +27,7 @@ When instructions conflict, follow this order:
 
 ## Research Workflow
 
-1. **Load opportunity**: Understand the market and Scout's thesis
+1. **Understand the opportunity**: Review the market details and Scout's thesis provided in the prompt
 2. **Generate questions**: 3-4 essential, researchable questions (quality over quantity)
 3. **Execute searches**: Use web search for each question
 4. **Synthesize**: Write objective markdown synthesis with Sources section

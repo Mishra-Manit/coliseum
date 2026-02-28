@@ -9,7 +9,6 @@ from pydantic_ai import Agent, RunContext
 from coliseum.agents.agent_factory import AgentFactory
 from coliseum.agents.shared_tools import (
     register_get_current_time,
-    register_load_opportunity_with_research,
 )
 from coliseum.agents.analyst.recommender.models import (
     RecommenderDependencies,
@@ -45,8 +44,6 @@ def _create_agent(strategy: str = "edge") -> Agent[RecommenderDependencies, Reco
 
 
 def _register_tools(agent: Agent[RecommenderDependencies, RecommenderOutput]) -> None:
-    register_load_opportunity_with_research(agent, include_metrics=False)
-
     @agent.tool
     def calculate_edge_ev(
         ctx: RunContext[RecommenderDependencies],
@@ -269,9 +266,12 @@ def _build_decision_prompt(opportunity: OpportunitySignal, markdown_body: str) -
 
 ## Opportunity Details
 
-**Market**: {opportunity.event_ticker}
+**ID**: {opportunity.id}
+**Event Ticker**: {opportunity.event_ticker}
+**Market Ticker**: {opportunity.market_ticker}
 **YES Price**: {opportunity.yes_price:.2f} ({opportunity.yes_price * 100:.1f}¢)
 **NO Price**: {opportunity.no_price:.2f} ({opportunity.no_price * 100:.1f}¢)
+**Market Closes**: {opportunity.close_time.isoformat() if opportunity.close_time else 'N/A'}
 
 ## Full Research Context
 
@@ -314,9 +314,12 @@ def _build_sure_thing_decision_prompt(
 
 ## Opportunity Details
 
-**Market**: {opportunity.event_ticker}
+**ID**: {opportunity.id}
+**Event Ticker**: {opportunity.event_ticker}
+**Market Ticker**: {opportunity.market_ticker}
 **YES Price**: {opportunity.yes_price:.2f} ({opportunity.yes_price * 100:.1f}¢)
 **NO Price**: {opportunity.no_price:.2f} ({opportunity.no_price * 100:.1f}¢)
+**Market Closes**: {opportunity.close_time.isoformat() if opportunity.close_time else 'N/A'}
 
 ## Full Research Context
 
