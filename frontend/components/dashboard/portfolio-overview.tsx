@@ -10,21 +10,18 @@ import {
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { usePortfolioState, useKalshiBalance } from "@/hooks/use-api";
+import { usePortfolioState } from "@/hooks/use-api";
 
 export function PortfolioOverview() {
-  const { data: state, isLoading: stateLoading } = usePortfolioState();
-  const { data: balance, isLoading: balanceLoading } = useKalshiBalance();
+  const { data: state, isLoading } = usePortfolioState();
 
-  const isLoading = stateLoading || balanceLoading;
-
-  const totalValue = state?.portfolio.total_value ?? 0;
-  const cashBalance = balance?.balance_usd ?? state?.portfolio.cash_balance ?? 0;
-  const positionsValue = state?.portfolio.positions_value ?? 0;
-  const openCount = state?.open_positions.length ?? 0;
-  const closedCount = state?.closed_positions.length ?? 0;
+  const totalValue = state?.portfolio?.total_value ?? 0;
+  const cashBalance = state?.portfolio?.cash_balance ?? 0;
+  const positionsValue = state?.portfolio?.positions_value ?? 0;
+  const openCount = state?.open_positions?.length ?? 0;
+  const closedCount = state?.closed_positions?.length ?? 0;
   const totalPnl =
-    state?.closed_positions.reduce((sum, p) => sum + p.pnl, 0) ?? 0;
+    state?.closed_positions?.reduce((sum, p) => sum + p.pnl, 0) ?? 0;
 
   const cards = [
     {

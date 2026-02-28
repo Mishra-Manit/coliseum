@@ -4,15 +4,17 @@ import type {
   PortfolioState,
   OpportunitySummary,
   OpportunityDetail,
-  AgentStatusResponse,
-  AgentActivity,
-  KalshiBalance,
-  KalshiPosition,
-  KalshiOrder,
+  ColiseumConfig,
 } from "@/lib/types";
 
+export function useConfig() {
+  return useSWR<ColiseumConfig>("/api/config", fetcher, {
+    refreshInterval: 30000,
+  });
+}
+
 export function usePortfolioState() {
-  return useSWR<PortfolioState>("/api/status", fetcher, {
+  return useSWR<PortfolioState>("/api/state", fetcher, {
     refreshInterval: 15000,
   });
 }
@@ -29,34 +31,4 @@ export function useOpportunityDetail(id: string | null) {
     fetcher,
     { refreshInterval: 30000 }
   );
-}
-
-export function useAgentStatus() {
-  return useSWR<AgentStatusResponse>("/api/agents", fetcher, {
-    refreshInterval: 10000,
-  });
-}
-
-export function useAgentActivity() {
-  return useSWR<AgentActivity[]>("/api/agents/activity", fetcher, {
-    refreshInterval: 15000,
-  });
-}
-
-export function useKalshiBalance() {
-  return useSWR<KalshiBalance>("/api/kalshi/balance", fetcher, {
-    refreshInterval: 30000,
-  });
-}
-
-export function useKalshiPositions() {
-  return useSWR<KalshiPosition[]>("/api/kalshi/positions", fetcher, {
-    refreshInterval: 15000,
-  });
-}
-
-export function useKalshiOrders() {
-  return useSWR<KalshiOrder[]>("/api/kalshi/orders", fetcher, {
-    refreshInterval: 15000,
-  });
 }
