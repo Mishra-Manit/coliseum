@@ -13,7 +13,6 @@ from pydantic_ai import Agent, RunContext
 from pydantic_ai.messages import ModelMessage
 
 from coliseum.agents.agent_factory import AgentFactory
-from coliseum.agents.shared_tools import register_load_opportunity_with_research
 from coliseum.agents.trader.models import (
     OrderResult,
     TraderDependencies,
@@ -37,6 +36,7 @@ from coliseum.storage.files import (
     generate_trade_id,
     load_opportunity_from_file,
     log_trade,
+    update_opportunity_frontmatter,
 )
 from coliseum.storage.state import (
     Position,
@@ -91,7 +91,6 @@ def _create_sure_thing_agent(settings: Settings) -> Agent[TraderDependencies, Tr
 
 def _register_edge_tools(agent: Agent[TraderDependencies, TraderOutput]) -> None:
     """Register tools with the Trader agent for edge trading."""
-    register_load_opportunity_with_research(agent, include_metrics=True)
 
     @agent.tool
     async def check_portfolio_state(
@@ -211,7 +210,6 @@ def _register_edge_tools(agent: Agent[TraderDependencies, TraderOutput]) -> None
 
 def _register_sure_thing_tools(agent: Agent[TraderDependencies, TraderOutput]) -> None:
     """Register minimal tools for sure thing trading (no portfolio/slippage calculations)."""
-    register_load_opportunity_with_research(agent, include_metrics=False)
 
     @agent.tool
     async def get_current_market_price(
@@ -388,6 +386,15 @@ async def execute_working_order(
                 await client.cancel_order(order_id)
                 logger.info(f"Cancelled order {order_id} after {max_attempts} attempts")
 
+                # Final poll — catch any fills that landed during the cancel window
+                refreshed = None
+                try:
+                    refreshed = await client.get_order_status(order_id)
+                except Exception as exc:
+                    logger.warning(f"Final status poll failed for {order_id}: {exc}")
+
+                order = refreshed if refreshed is not None else order
+
                 # Return partial fill if any
                 if order.fill_count > 0:
                     fill_price_decimal = (
@@ -516,6 +523,15 @@ async def run_trader(
 
         # Handle execution based on decision
         if output.decision.action == "REJECT":
+            output.execution_status = "skipped"
+            try:
+                update_opportunity_frontmatter(
+                    opp_file,
+                    {"status": "skipped"},
+                )
+            except Exception as e:
+                # Skip outcome should still be returned even if persistence fails.
+                logger.error(f"Failed to persist skipped status for {opportunity_id}: {e}")
             logger.info(f"Trader REJECTED trade: {output.decision.reasoning}")
             return output
 
@@ -640,11 +656,7 @@ def _update_state_after_trade(
         contracts=contracts,
         average_entry=fill_price,
         current_price=fill_price,
-        unrealized_pnl=0.0,
         opportunity_id=opportunity.id,
-        strategy=opportunity.strategy,
-        traded_at=datetime.now(timezone.utc),
-        reasoning=reasoning,
     )
     state.open_positions.append(position)
 
