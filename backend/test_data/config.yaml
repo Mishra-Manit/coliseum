@@ -5,7 +5,7 @@ strategy: sure_thing
 trading:
   paper_mode: true
   initial_bankroll: 100.00
-  sure_thing_contracts: 1
+  sure_thing_contracts: 5
 
 risk:
   max_position_pct: 0.10
@@ -26,10 +26,10 @@ scout:
   edge_min_price: 10
   edge_max_price: 90
   sure_thing_min_close_hours: 0
-  sure_thing_max_close_hours: 12
+  sure_thing_max_close_hours: 48
   sure_thing_min_price: 92
   sure_thing_max_price: 96
-  sure_thing_max_spread_cents: 3
+  sure_thing_max_spread_cents: 5
   sure_thing_min_volume: 1000
 
 analyst:

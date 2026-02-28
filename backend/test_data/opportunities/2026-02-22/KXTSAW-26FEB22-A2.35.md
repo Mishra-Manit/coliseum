@@ -6,7 +6,7 @@ yes_price: 0.96
 no_price: 0.06
 close_time: '2026-02-23T04:59:00Z'
 discovered_at: '2026-02-22T20:22:38.111353Z'
-status: recommended
+status: skipped
 research_completed_at: '2026-02-22T20:48:57.419560+00:00'
 research_duration_seconds: 17
 estimated_true_probability: null
