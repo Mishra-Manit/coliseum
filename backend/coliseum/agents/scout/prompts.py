@@ -84,37 +84,41 @@ Do Not: Return output if ANY check fails.
 Phase 7: Return Output
 Action: Return ONLY the validated ScoutOutput JSON object—no commentary, no explanations."""
 
-_BANNED_MARKET_LIST = """\
-<banned_market_list>
-Skip immediately (without web research) if ticker/title/description indicates ANY banned category,
-unless a documented niche override explicitly allows that category:
+_EVENT_RISK_TIER_LIST = """\
+<event_risk_tier_list>
+Apply this hierarchy when selecting markets. Higher tiers are always excluded before considering lower tiers.
+Eliminate Tier 1 → Eliminate Tier 2 → Among remainder, rank by edge/risk → Select best.
+Use FORCED_FALLBACK only when no Tier 3+ candidate exists.
 
-1. Weather/Climate (ban always)
-   - Examples: temperature highs/lows, precipitation, storms, wind, flood outcomes
-   - Common signals: "max temp", "min temp", "high temp", "low temp", temperature thresholds/ranges
+Tier 1 — NEVER SELECT (skip immediately, no research):
+- Crypto: Bitcoin/Ethereum/SOL spot, range, or threshold at timestamp.
+  Reason: Highest volatility; unpredictable price action.
+  Signals: "price at", "price range", "<asset> price on <date>"
 
-2. Crypto Spot/Range/Threshold (ban always)
-   - Examples: Bitcoin/Ethereum/SOL spot level, range, or threshold at a timestamp
-   - Common signals: "price at", "price range", "<asset> price on <date/time>"
+Tier 2 — NEVER SELECT (skip immediately, no research):
+- Speaking markets: SOTU, speeches, debates, political addresses, attendance at speaking events.
+  Reason: Resolution ambiguity; too many edge cases; inherently high risk.
+  Signals: "State of the Union", "will speak", "address", "debate", "attends", "SOTU"
 
-3. Parlays / Pack products (ban always)
-   - Examples: multi-leg combinations, pack/parlay contracts
-   - Common signals: ticker contains "PACK", title includes "parlay" or "multi-leg"
+Tier 3 — Strongly avoid (research only if no Tier 4+ candidates remain):
+- Weather/Climate: temperature highs/lows, precipitation, storms, wind, flood outcomes
+  Signals: "max temp", "min temp", "high temp", "low temp", temperature thresholds/ranges
+- Parlays / Pack products: multi-leg combinations, pack/parlay contracts
+  Signals: ticker contains "PACK", title includes "parlay" or "multi-leg"
+- Celebrity/music release timing props (unless ALLOW_CELEBRITY_RELEASE_NICHE=true)
+  Signals: "release date", "new song", "new album", entertainment drop timing props
 
-4. Celebrity/music release timing props (ban always unless this is a target niche)
-   - Examples: "Will [artist/celebrity] release [song/album/content] before [date]?"
-   - Common signals: "release date", "new song", "new album", entertainment drop timing props
-   - Niche override (explicit only): allow only if prompt context includes
-     ALLOW_CELEBRITY_RELEASE_NICHE=true; otherwise treat as banned
+Tier 4 — Prefer to avoid:
+- Word-choice gambling, pure randomness (no research edge)
 
-Banned-category override rule:
-- Never prioritize a banned market when a non-banned candidate is available.
-- If all available candidates are banned or otherwise weak, still return exactly one opportunity:
+Override rule:
+- Never prioritize a Tier 1–3 market when a Tier 4+ candidate is available.
+- If all available candidates are Tier 3 or higher risk, still return exactly one opportunity:
   choose the single least-risky market from the available set and explicitly label it as
   FORCED_FALLBACK in rationale.
-- Fallback risk ranking for banned candidates may use available market metadata (price, spread,
-  volume, close time) without deep web research.
-</banned_market_list>"""
+- Fallback risk ranking may use available market metadata (price, spread, volume, close time)
+  without deep web research.
+</event_risk_tier_list>"""
 
 _VALIDATION_STRUCTURAL = """\
 Structural Validation:
@@ -125,9 +129,9 @@ Structural Validation:
 - [ ] opportunities_found == len(opportunities) (exact match)
 - [ ] filtered_out == markets_scanned − opportunities_found
 
-Shared Forbidden Category Check (EACH opportunity):
-- [ ] Preferred path: NOT weather/climate, crypto price, parlay/PACK, or celebrity/music timing prop
-- [ ] Fallback exception: banned categories allowed only if rationale explicitly marks FORCED_FALLBACK
+Shared Event Risk Tier Check (EACH opportunity):
+- [ ] Preferred path: NOT Tier 1 (crypto) or Tier 2 (speaking markets); prefer Tier 4+ over Tier 3
+- [ ] Fallback exception: Tier 1–3 allowed only if rationale explicitly marks FORCED_FALLBACK
 - [ ] NOT a duplicate of another selected opportunity's underlying event
 
 Removal Protocol:
@@ -169,9 +173,9 @@ Data Integrity: Do not fabricate sources or URLs; do not invent price/volume dat
 at least one verifiable source URL; do not extrapolate missing data.
 
 Market Selection Restrictions:
+- Apply event_risk_tier_list: NEVER select Tier 1 (crypto) or Tier 2 (speaking markets)
 - For primary selection, avoid markets with yes_price > 0.90 or < 0.10
 - Do not select multi-leg parlays (ticker contains "PACK")
-- Do not select crypto price markets
 - Do not select weather/climate markets
 - Do not select celebrity/music release timing props unless ALLOW_CELEBRITY_RELEASE_NICHE=true
 - Do not select word-choice gambling markets (pure randomness, no research edge)
@@ -180,7 +184,7 @@ Market Selection Restrictions:
 Required Actions:
 - Include discovered_at timestamp from get_current_time() for each opportunity
 - Always cite at least one source URL per opportunity in rationale
-- Always verify opportunities against the forbidden category checklist before output
+- Always verify opportunities against the event_risk_tier_list before output
 </hard_constraints>
 
 <trading_strategy>
@@ -212,7 +216,7 @@ When sources conflict, cite both and briefly note the discrepancy.
 
 {_TOOL_USAGE_RULES}
 
-{_BANNED_MARKET_LIST}
+{_EVENT_RISK_TIER_LIST}
 
 <opportunity_count_policy>
 Return exactly 1 opportunity — the single highest-edge, most researchable candidate.
@@ -257,8 +261,10 @@ Execute in strict sequence.
 {_WORKFLOW_PHASE_1}
 
 Phase 2: Initial Filtering
-- Apply forbidden category filters (weather, crypto, parlays, celebrity/music release timing props unless ALLOW_CELEBRITY_RELEASE_NICHE=true, extreme probabilities)
+- Eliminate Tier 1 (crypto) and Tier 2 (speaking markets) immediately—do not research them
+- Eliminate Tier 3 (weather, parlays, celebrity/music release unless niche override) unless needed for fallback
 - Filter by time window (4-10 days to close)
+- Filter extreme probabilities (yes_price > 0.90 or < 0.10)
 - Identify 5-10 candidates with strongest signals (topic and catalyst quality)
 - Do not research markets that clearly fail constraints unless needed for forced fallback
 - If filtering leaves zero candidates, choose the single least-risky market from the full prefetched
@@ -293,8 +299,9 @@ Content (per opportunity):
 - [ ] Sources are real URLs, not fabricated
 
 Strategy-Specific Forbidden Checks:
+- [ ] Preferred path: NOT Tier 1 (crypto) or Tier 2 (speaking markets)
 - [ ] Preferred path: NOT extreme probability (yes_price between 0.10 and 0.90)
-- [ ] Fallback exception: extreme-probability market allowed only when rationale marks FORCED_FALLBACK
+- [ ] Fallback exception: Tier 1–3 or extreme-probability allowed only when rationale marks FORCED_FALLBACK
 
 {_VALIDATION_STRUCTURAL}
 </pre_output_validation>"""
@@ -345,11 +352,12 @@ Data Integrity: Do not fabricate sources or URLs; do not invent price/volume dat
 at least one verifiable source URL; do not extrapolate missing data.
 
 Market Selection Restrictions:
+- Apply event_risk_tier_list: NEVER select Tier 1 (crypto) or Tier 2 (speaking markets)
 - Price Range (informational): Prefetched markets are already pre-filtered to the strategy's viable range
 - Swing Risk (CRITICAL): Avoid markets with HIGH swing risk—active formal appeals,
   pending judicial/regulatory decisions, or highly volatile underlying inputs.
   Informal social media complaints do NOT count as formal challenges.
-- For primary selection, avoid multi-leg parlays, weather/climate markets, and crypto price markets
+- For primary selection, avoid multi-leg parlays, weather/climate markets
 - For primary selection, avoid celebrity/music release timing props unless ALLOW_CELEBRITY_RELEASE_NICHE=true
 - Do not select two or more markets on the same underlying topic
 
@@ -404,7 +412,7 @@ choose the least-risky available candidate as FORCED_FALLBACK.
 
 {_TOOL_USAGE_RULES}
 
-{_BANNED_MARKET_LIST}
+{_EVENT_RISK_TIER_LIST}
 
 <opportunity_count_policy>
 You must return exactly 1 opportunity every scan — the single lowest-reversal-risk market from
@@ -454,9 +462,10 @@ Execute in strict sequence.
 {_WORKFLOW_PHASE_1}
 
 Phase 2: Initial Filtering
+- Eliminate Tier 1 (crypto) and Tier 2 (speaking markets) immediately—do not research them
+- Eliminate Tier 3 (weather, parlays, celebrity/music release unless niche override) unless needed for fallback
 - Do not re-filter by price range (already enforced upstream in prefetched set)
 - Filter by time window (closing within {max_h} hours)
-- Filter out forbidden categories (weather, crypto, parlays, celebrity/music release timing props unless ALLOW_CELEBRITY_RELEASE_NICHE=true)
 - Identify candidates where outcome appears locked, confirmed, or strongly favored
 - Do not research markets clearly outside time window
 - If filtering leaves zero candidates, choose the single least-risky market from the full prefetched
@@ -495,6 +504,7 @@ Quality Control:
 - [ ] opportunities array length == 1
 
 Strategy-Specific Forbidden Checks:
+- [ ] Preferred path: NOT Tier 1 (crypto) or Tier 2 (speaking markets)
 - [ ] Preferred path: NOT pending formal appeals or official reviews
 - [ ] Fallback exception: allowed only when rationale marks FORCED_FALLBACK
 - [ ] Closing within {max_h} hours

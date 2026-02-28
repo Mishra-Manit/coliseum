@@ -297,7 +297,7 @@ def cmd_guardian(args: argparse.Namespace) -> int:
         print(f"Entries Inspected: {result.reconciliation.entries_inspected}")
         print(f"Kept Open: {result.reconciliation.kept_open}")
         print(f"Closed: {result.reconciliation.newly_closed}")
-        print(f"Skipped (no trade): {result.reconciliation.skipped_no_trade}\n")
+        print(f"Warnings: {result.reconciliation.warnings}\n")
 
         if result.warnings:
             print("Warnings:")
@@ -376,6 +376,36 @@ def cmd_trader(args: argparse.Namespace) -> int:
         return 1
 
 
+def cmd_serve(args: argparse.Namespace) -> int:
+    """Start the dashboard API server."""
+    try:
+        import uvicorn
+
+        print(f"\n=== Coliseum Dashboard API ===\n")
+        print(f"Starting server on http://{args.host}:{args.port}")
+        print(f"Auto-reload: {'enabled' if args.reload else 'disabled'}\n")
+
+        uvicorn.run(
+            "coliseum.api.server:app",
+            host=args.host,
+            port=args.port,
+            reload=args.reload,
+        )
+
+        return 0
+
+    except KeyboardInterrupt:
+        print("\n\nServer stopped.\n")
+        return 0
+    except ImportError:
+        print("\n❌ uvicorn is not installed. Install it with: pip install uvicorn\n")
+        return 1
+    except Exception as e:
+        logger.error(f"Failed to start server: {e}", exc_info=True)
+        print(f"\n❌ Failed to start server: {e}\n")
+        return 1
+
+
 def cmd_run(args: argparse.Namespace) -> int:
     """Start the autonomous trading system."""
     try:
@@ -392,7 +422,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         print(f"Data Directory: {settings.data_dir}\n")
 
         if args.once:
-            print("Running full pipeline once (Scout -> Analyst -> Trader)...\n")
+            print("Running full pipeline once (Guardian -> Scout -> Analyst -> Trader)...\n")
             asyncio.run(run_pipeline(settings))
             print("\nPipeline run complete.\n")
             return 0
@@ -478,6 +508,28 @@ def main() -> int:
     )
     parser_trader.set_defaults(func=cmd_trader)
 
+    parser_serve = subparsers.add_parser(
+        "serve",
+        help="Start the dashboard API server",
+    )
+    parser_serve.add_argument(
+        "--host",
+        default="0.0.0.0",
+        help="Host to bind to (default: 0.0.0.0)",
+    )
+    parser_serve.add_argument(
+        "--port",
+        type=int,
+        default=8000,
+        help="Port to bind to (default: 8000)",
+    )
+    parser_serve.add_argument(
+        "--reload",
+        action="store_true",
+        help="Enable auto-reload for development",
+    )
+    parser_serve.set_defaults(func=cmd_serve)
+
     parser_run = subparsers.add_parser(
         "run",
         help="Start the autonomous trading system",
@@ -490,7 +542,7 @@ def main() -> int:
     parser_run.add_argument(
         "--once",
         action="store_true",
-        help="Run the full pipeline once (Scout -> Analyst -> Trader) then exit",
+        help="Run the full pipeline once (Guardian -> Scout -> Analyst -> Trader) then exit",
     )
     parser_run.set_defaults(func=cmd_run)
 

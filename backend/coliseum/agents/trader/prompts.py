@@ -140,6 +140,8 @@ def _build_trader_prompt(
 
 ## Opportunity Details
 
+**ID**: {opportunity.id}
+**Event Ticker**: {opportunity.event_ticker}
 **Market**: {opportunity.market_ticker}
 **Title**: {opportunity.title}
 **Outcome**: {opportunity.subtitle or "N/A"}
@@ -259,6 +261,8 @@ def _build_trader_sure_thing_prompt(
 
 ## Opportunity Details
 
+**ID**: {opportunity.id}
+**Event Ticker**: {opportunity.event_ticker}
 **Market**: {opportunity.market_ticker}
 **Title**: {opportunity.title}
 **Outcome**: {opportunity.subtitle or "N/A"}

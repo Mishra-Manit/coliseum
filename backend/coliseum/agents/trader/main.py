@@ -336,19 +336,22 @@ async def execute_working_order(
             order = await client.get_order_status(order_id)
 
             if order.is_filled:
-                # Fully filled
-                fill_price_decimal = (
-                    (order.taker_fill_cost + order.maker_fill_cost)
-                    / (order.fill_count * 100)
-                    if order.fill_count > 0
-                    else current_price / 100
-                )
-                total_cost = (order.taker_fill_cost + order.maker_fill_cost) / 100
+                # Fully filled — fall back to `contracts` if Kalshi omits fill counts
+                actual_fill_count = order.fill_count if order.fill_count > 0 else contracts
+                if order.fill_count > 0:
+                    fill_price_decimal = (
+                        (order.taker_fill_cost + order.maker_fill_cost)
+                        / (order.fill_count * 100)
+                    )
+                    total_cost = (order.taker_fill_cost + order.maker_fill_cost) / 100
+                else:
+                    fill_price_decimal = current_price / 100
+                    total_cost = actual_fill_count * fill_price_decimal
 
                 return OrderResult(
                     order_id=order_id,
                     fill_price=fill_price_decimal,
-                    contracts_filled=order.fill_count,
+                    contracts_filled=actual_fill_count,
                     total_cost_usd=total_cost,
                     status="filled",
                 )
