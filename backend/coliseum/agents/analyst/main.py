@@ -4,8 +4,7 @@ This module orchestrates the two-agent pipeline:
 - Researcher: Conducts research, appends to opportunity file
 - Recommender: Makes trade decisions based on research, appends recommendation
 
-The original monolithic Analyst agent is split into specialized agents for improved
-reliability and separation of concerns. All stages write to a single opportunity file.
+All stages write to a single opportunity file.
 """
 
 import logging
@@ -18,7 +17,6 @@ from coliseum.storage.files import OpportunitySignal, get_opportunity_strategy_b
 logger = logging.getLogger(__name__)
 
 
-# Re-export for backward compatibility and convenience
 __all__ = [
     "run_analyst",
     "run_researcher",

@@ -4,47 +4,42 @@ import logging
 import time
 from datetime import datetime, timezone
 from typing import Literal
+
 from pydantic_ai import Agent, WebSearchTool
 
 from coliseum.agents.agent_factory import AgentFactory
-from coliseum.agents.analyst.researcher.models import (
-    ResearcherDependencies,
-    ResearcherOutput,
+from coliseum.agents.analyst.models import AnalystDependencies, ResearcherOutput
+from coliseum.agents.analyst.prompts import (
+    RESEARCHER_SURE_THING_PROMPT,
+    RESEARCHER_SYSTEM_PROMPT,
 )
-from coliseum.agents.analyst.researcher.prompts import RESEARCHER_SYSTEM_PROMPT, RESEARCHER_SURE_THING_PROMPT
-from coliseum.config import Settings, get_settings
+from coliseum.agents.analyst.shared import (
+    format_opportunity_header,
+    load_and_validate_opportunity,
+)
+from coliseum.config import Settings
 from coliseum.llm_providers import OpenAIModel, get_model_string
-from coliseum.storage.files import (
-    OpportunitySignal,
-    append_to_opportunity,
-    find_opportunity_file_by_id,
-    load_opportunity_from_file,
-)
+from coliseum.storage.files import OpportunitySignal, append_to_opportunity
 
 logger = logging.getLogger(__name__)
 
 
-def _create_agent(strategy: str = "edge") -> Agent[ResearcherDependencies, ResearcherOutput]:
+def _create_agent(strategy: str = "edge") -> Agent[AnalystDependencies, ResearcherOutput]:
     prompt = RESEARCHER_SURE_THING_PROMPT if strategy == "sure_thing" else RESEARCHER_SYSTEM_PROMPT
     return Agent(
         model=get_model_string(OpenAIModel.GPT_5_2),
         output_type=ResearcherOutput,
-        deps_type=ResearcherDependencies,
+        deps_type=AnalystDependencies,
         system_prompt=prompt,
         builtin_tools=[WebSearchTool()],
     )
 
 
-_edge_factory = AgentFactory(
-    create_fn=lambda: _create_agent("edge"),
-)
-
-_sure_thing_factory = AgentFactory(
-    create_fn=lambda: _create_agent("sure_thing"),
-)
+_edge_factory = AgentFactory(create_fn=lambda: _create_agent("edge"))
+_sure_thing_factory = AgentFactory(create_fn=lambda: _create_agent("sure_thing"))
 
 
-def get_agent(strategy: str = "edge") -> Agent[ResearcherDependencies, ResearcherOutput]:
+def get_agent(strategy: str = "edge") -> Agent[AnalystDependencies, ResearcherOutput]:
     """Get the singleton Researcher agent instance for the given strategy."""
     if strategy == "sure_thing":
         return _sure_thing_factory.get_agent()
@@ -60,23 +55,14 @@ async def run_researcher(
     start_time = time.time()
     logger.info(f"Starting Researcher for opportunity: {opportunity_id}")
 
-    # Find opportunity file
-    opp_file = find_opportunity_file_by_id(opportunity_id)
-    if not opp_file:
-        raise FileNotFoundError(f"Opportunity file not found: {opportunity_id}")
-
-    opportunity = load_opportunity_from_file(opp_file)
-    resolved_strategy = strategy or opportunity.strategy
-    if strategy and opportunity.strategy != strategy:
-        raise ValueError(
-            f"Strategy mismatch for {opportunity_id}: expected {strategy}, found {opportunity.strategy}"
-        )
+    opp_file, opportunity, resolved_strategy = load_and_validate_opportunity(
+        opportunity_id, strategy
+    )
     logger.info(
         f"Researcher strategy resolved: {resolved_strategy} (file={opportunity.strategy})"
     )
 
-    # Run research
-    deps = ResearcherDependencies(
+    deps = AnalystDependencies(
         opportunity_id=opportunity_id,
         config=settings.analyst,
     )
@@ -89,20 +75,17 @@ async def run_researcher(
     duration = time.time() - start_time
     completed_at = datetime.now(timezone.utc)
 
-    # Prepare research section for append (synthesis now includes embedded sources)
     research_section = f"""---
 
 ## Research Synthesis
 
 {output.synthesis}"""
 
-    # Prepare frontmatter updates
     frontmatter_updates = {
         "research_completed_at": completed_at.isoformat(),
         "research_duration_seconds": int(duration),
     }
 
-    # Append to opportunity file
     append_to_opportunity(
         market_ticker=opportunity.market_ticker,
         frontmatter_updates=frontmatter_updates,
@@ -115,37 +98,24 @@ async def run_researcher(
         f"Appended to {opportunity.market_ticker}"
     )
 
-    # Return output (sources are now embedded in synthesis)
     return output
 
 
 def _build_research_prompt(opportunity: OpportunitySignal, settings: Settings) -> str:
     """Build the research prompt for the agent."""
-    subtitle_info = (
-        f"**Specific Outcome**: {opportunity.subtitle}\n\n"
-        if opportunity.subtitle
-        else ""
-    )
+    header = format_opportunity_header(opportunity)
 
-    prompt = f"""Research this prediction market opportunity and synthesize your findings.
+    return f"""Research this prediction market opportunity and synthesize your findings.
 
 ## Opportunity Details
 
-**ID**: {opportunity.id}
-**Event Ticker**: {opportunity.event_ticker}
-**Market Ticker**: {opportunity.market_ticker}
-**Market**: {opportunity.title}
-{subtitle_info}**Current YES Price**: {opportunity.yes_price:.2f} ({opportunity.yes_price * 100:.1f}¢)
-**Current NO Price**: {opportunity.no_price:.2f} ({opportunity.no_price * 100:.1f}¢)
-**Market Closes**: {opportunity.close_time.isoformat()}
-**Status**: {opportunity.status}
-**Discovered**: {opportunity.discovered_at.isoformat()}
+{header}
 
 **Scout's Rationale**: {opportunity.rationale}
 
 ## Your Task
 
-1. Formulate 2-4 specific research questions about this event
+1. Formulate 2-4 very specific research questions about this event
 2. Use web search for each question to gather grounded information
 3. Synthesize findings into a coherent analysis with embedded sources
 
@@ -164,5 +134,3 @@ You are ONLY responsible for research. Do NOT:
 
 The Recommender agent will handle the trading decision based on your research.
 """
-
-    return prompt

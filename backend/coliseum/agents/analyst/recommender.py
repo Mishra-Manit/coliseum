@@ -4,49 +4,51 @@ import logging
 import time
 from datetime import datetime, timezone
 from typing import Literal
+
 from pydantic_ai import Agent, RunContext
 
 from coliseum.agents.agent_factory import AgentFactory
-from coliseum.agents.shared_tools import (
-    register_get_current_time,
+from coliseum.agents.shared_tools import register_get_current_time
+from coliseum.agents.analyst.models import AnalystDependencies, RecommenderOutput
+from coliseum.agents.analyst.prompts import (
+    RECOMMENDER_SURE_THING_PROMPT,
+    RECOMMENDER_SYSTEM_PROMPT,
 )
-from coliseum.agents.analyst.recommender.models import (
-    RecommenderDependencies,
-    RecommenderOutput,
+from coliseum.agents.analyst.shared import (
+    format_opportunity_header,
+    load_and_validate_opportunity,
 )
-from coliseum.agents.analyst.recommender.prompts import RECOMMENDER_SYSTEM_PROMPT, RECOMMENDER_SURE_THING_PROMPT
-from coliseum.agents.analyst.recommender.calculations import (
+from coliseum.agents.analyst.calculations import (
     calculate_edge,
     calculate_expected_value,
     calculate_position_size_pct,
 )
-from coliseum.config import Settings, get_settings
+from coliseum.config import Settings
 from coliseum.llm_providers import OpenAIModel, get_model_string
 from coliseum.storage.files import (
     OpportunitySignal,
     append_to_opportunity,
     get_opportunity_markdown_body,
-    find_opportunity_file_by_id,
     load_opportunity_from_file,
 )
 
 logger = logging.getLogger(__name__)
 
 
-def _create_agent(strategy: str = "edge") -> Agent[RecommenderDependencies, RecommenderOutput]:
+def _create_agent(strategy: str = "edge") -> Agent[AnalystDependencies, RecommenderOutput]:
     prompt = RECOMMENDER_SURE_THING_PROMPT if strategy == "sure_thing" else RECOMMENDER_SYSTEM_PROMPT
     return Agent(
         model=get_model_string(OpenAIModel.GPT_5_2),
         output_type=RecommenderOutput,
-        deps_type=RecommenderDependencies,
+        deps_type=AnalystDependencies,
         system_prompt=prompt,
     )
 
 
-def _register_tools(agent: Agent[RecommenderDependencies, RecommenderOutput]) -> None:
+def _register_tools(agent: Agent[AnalystDependencies, RecommenderOutput]) -> None:
     @agent.tool
     def calculate_edge_ev(
-        ctx: RunContext[RecommenderDependencies],
+        ctx: RunContext[AnalystDependencies],
         estimated_true_probability: float,
         current_market_price: float,
     ) -> dict:
@@ -67,7 +69,7 @@ def _register_tools(agent: Agent[RecommenderDependencies, RecommenderOutput]) ->
 
     @agent.tool
     def calculate_position_size(
-        ctx: RunContext[RecommenderDependencies],
+        ctx: RunContext[AnalystDependencies],
         estimated_true_probability: float,
         current_market_price: float,
     ) -> dict:
@@ -98,7 +100,7 @@ _sure_thing_factory = AgentFactory(
 )
 
 
-def get_agent(strategy: str = "edge") -> Agent[RecommenderDependencies, RecommenderOutput]:
+def get_agent(strategy: str = "edge") -> Agent[AnalystDependencies, RecommenderOutput]:
     """Get the singleton Recommender agent instance for the given strategy."""
     if strategy == "sure_thing":
         return _sure_thing_factory.get_agent()
@@ -110,41 +112,23 @@ async def run_recommender(
     settings: Settings,
     strategy: Literal["edge", "sure_thing"] | None = None,
 ) -> tuple[RecommenderOutput, OpportunitySignal]:
-    """Run Recommender agent - appends recommendation to opportunity file.
-
-    Args:
-        opportunity_id: Opportunity ID to evaluate
-        settings: System settings
-
-    Returns:
-        tuple of (RecommenderOutput, updated OpportunitySignal)
-    """
+    """Run Recommender agent - appends recommendation to opportunity file."""
     start_time = time.time()
     logger.info(f"Starting Recommender for opportunity: {opportunity_id}")
 
-    # Find opportunity file
-    opp_file = find_opportunity_file_by_id(opportunity_id)
-    if not opp_file:
-        raise FileNotFoundError(f"Opportunity file not found: {opportunity_id}")
-    opportunity = load_opportunity_from_file(opp_file)
-    resolved_strategy = strategy or opportunity.strategy
-    if strategy and opportunity.strategy != strategy:
-        raise ValueError(
-            f"Strategy mismatch for {opportunity_id}: expected {strategy}, found {opportunity.strategy}"
-        )
+    opp_file, opportunity, resolved_strategy = load_and_validate_opportunity(
+        opportunity_id, strategy
+    )
     logger.info(
         f"Recommender strategy resolved: {resolved_strategy} (file={opportunity.strategy})"
     )
 
-    # Verify research exists
     if not opportunity.research_completed_at:
         raise ValueError(f"Research not completed for {opportunity_id}")
 
-    # Get full markdown body for context
     markdown_body = get_opportunity_markdown_body(opp_file)
 
-    # Run recommendation
-    deps = RecommenderDependencies(
+    deps = AnalystDependencies(
         opportunity_id=opportunity_id,
         config=settings.analyst,
     )
@@ -162,20 +146,16 @@ async def run_recommender(
     # Calculate NO-side metrics (derived from p_no = 1 - p_yes)
     p_no = 1 - output.estimated_true_probability
     no_price = opportunity.no_price
-    
+
     edge_no = calculate_edge(p_no, no_price)
-    
-    # Handle edge cases where p_no is exactly 0 or 1 (expected_value will raise ValueError)
+
     try:
         ev_no = calculate_expected_value(p_no, no_price)
     except ValueError:
-        # If p_no is 0 or 1, EV is undefined, set to 0
         ev_no = 0.0
-    
-    # calculate_position_size_pct handles edge cases gracefully (returns 0.0)
+
     size_no = calculate_position_size_pct(p_no, no_price)
-    
-    # Update output with NO-side values
+
     output = output.model_copy(update={
         "edge_no": edge_no,
         "expected_value_no": ev_no,
@@ -185,7 +165,6 @@ async def run_recommender(
     duration = time.time() - start_time
     completed_at = datetime.now(timezone.utc)
 
-    # Prepare recommendation section/frontmatter updates
     if resolved_strategy == "sure_thing":
         recommendation_section = f"""---
 
@@ -243,7 +222,6 @@ async def run_recommender(
             "status": "recommended",
         }
 
-    # Append to opportunity file
     append_to_opportunity(
         market_ticker=opportunity.market_ticker,
         frontmatter_updates=frontmatter_updates,
@@ -255,23 +233,19 @@ async def run_recommender(
     ev_str = f"{output.expected_value:+.0%}" if output.expected_value is not None else "N/A"
     logger.info(f"Recommender completed in {duration:.1f}s - Edge: {edge_str}, EV: {ev_str}")
 
-    # Return updated opportunity
     updated_opp = load_opportunity_from_file(opp_file)
     return output, updated_opp
 
 
 def _build_decision_prompt(opportunity: OpportunitySignal, markdown_body: str) -> str:
     """Build the evaluation prompt for the agent."""
-    prompt = f"""Evaluate this research and compute trade metrics (no final trade decision).
+    header = format_opportunity_header(opportunity)
+
+    return f"""Evaluate this research and compute trade metrics (no final trade decision).
 
 ## Opportunity Details
 
-**ID**: {opportunity.id}
-**Event Ticker**: {opportunity.event_ticker}
-**Market Ticker**: {opportunity.market_ticker}
-**YES Price**: {opportunity.yes_price:.2f} ({opportunity.yes_price * 100:.1f}¢)
-**NO Price**: {opportunity.no_price:.2f} ({opportunity.no_price * 100:.1f}¢)
-**Market Closes**: {opportunity.close_time.isoformat() if opportunity.close_time else 'N/A'}
+{header}
 
 ## Full Research Context
 
@@ -303,23 +277,18 @@ Consider:
 - If confidence or edge is low, say so explicitly
 """
 
-    return prompt
-
 
 def _build_sure_thing_decision_prompt(
     opportunity: OpportunitySignal, markdown_body: str
 ) -> str:
     """Build the evaluation prompt for sure-thing strategy."""
-    prompt = f"""Evaluate this sure-thing research and set risk-based trade metrics (no final trade decision).
+    header = format_opportunity_header(opportunity)
+
+    return f"""Evaluate this sure-thing research and set risk-based trade metrics (no final trade decision).
 
 ## Opportunity Details
 
-**ID**: {opportunity.id}
-**Event Ticker**: {opportunity.event_ticker}
-**Market Ticker**: {opportunity.market_ticker}
-**YES Price**: {opportunity.yes_price:.2f} ({opportunity.yes_price * 100:.1f}¢)
-**NO Price**: {opportunity.no_price:.2f} ({opportunity.no_price * 100:.1f}¢)
-**Market Closes**: {opportunity.close_time.isoformat() if opportunity.close_time else 'N/A'}
+{header}
 
 ## Full Research Context
 
@@ -340,5 +309,3 @@ def _build_sure_thing_decision_prompt(
 - Always set suggested_position_pct to 0.0 in sure-thing mode
 - Be disciplined and conservative. When in doubt, downgrade risk
 """
-
-    return prompt

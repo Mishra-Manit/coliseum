@@ -5,8 +5,7 @@ from coliseum.agents.analyst.main import (
     run_recommender,
     run_researcher,
 )
-from coliseum.agents.analyst.recommender import RecommenderOutput
-from coliseum.agents.analyst.researcher import ResearcherOutput
+from coliseum.agents.analyst.models import RecommenderOutput, ResearcherOutput
 
 __all__ = [
     "run_analyst",
