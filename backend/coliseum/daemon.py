@@ -101,10 +101,16 @@ class ColiseumDaemon:
             self._log_error(
                 component="pipeline",
                 error=str(e),
-                resolution="auto_retry" if self._consecutive_failures < self.settings.daemon.max_consecutive_failures else "paused",
+                resolution="auto_retry"
+                if self._consecutive_failures
+                < self.settings.daemon.max_consecutive_failures
+                else "paused",
                 attempts=self._consecutive_failures,
             )
-            if self._consecutive_failures >= self.settings.daemon.max_consecutive_failures:
+            if (
+                self._consecutive_failures
+                >= self.settings.daemon.max_consecutive_failures
+            ):
                 logger.critical(
                     "Max consecutive failures reached (%d). Pausing daemon.",
                     self._consecutive_failures,
@@ -171,15 +177,23 @@ class ColiseumDaemon:
         if not self.settings.telegram.send_alerts:
             return
         if not self.settings.telegram_bot_token or not self.settings.telegram_chat_id:
-            logger.warning("Telegram escalation skipped: bot_token or chat_id not configured")
+            logger.warning(
+                "Telegram escalation skipped: bot_token or chat_id not configured"
+            )
             return
 
         recurring, pattern_desc = detect_recurring_error(hours=1, threshold=3)
-        pattern_line = f"Recurring pattern: {pattern_desc}" if recurring else "No recurring pattern detected"
+        pattern_line = (
+            f"Recurring pattern: {pattern_desc}"
+            if recurring
+            else "No recurring pattern detected"
+        )
 
         uptime_h = 0.0
         if self._started_at:
-            uptime_h = (datetime.now(timezone.utc) - self._started_at).total_seconds() / 3600
+            uptime_h = (
+                datetime.now(timezone.utc) - self._started_at
+            ).total_seconds() / 3600
 
         msg = (
             "COLISEUM ALERT\n\n"
@@ -191,18 +205,15 @@ class ColiseumDaemon:
             "Action: Pipeline paused. Manual intervention required or daemon will retry after next heartbeat interval."
         )
 
-        try:
-            async with TelegramClient(
-                bot_token=self.settings.telegram_bot_token,
-                default_chat_id=self.settings.telegram_chat_id,
-            ) as tg:
-                result = await tg.send_alert(msg)
-                if result.success:
-                    logger.info("Escalation alert sent via Telegram")
-                else:
-                    logger.warning("Telegram escalation alert failed: %s", result.error)
-        except Exception as exc:
-            logger.error("Failed to send Telegram escalation alert: %s", exc)
+        async with TelegramClient(
+            bot_token=self.settings.telegram_bot_token,
+            default_chat_id=self.settings.telegram_chat_id,
+        ) as tg:
+            result = await tg.send_alert(msg)
+            if result.success:
+                logger.info("Escalation alert sent via Telegram")
+            else:
+                logger.warning("Telegram escalation alert failed: %s", result.error)
 
     def _log_error(
         self,
@@ -235,5 +246,7 @@ class ColiseumDaemon:
             "uptime_seconds": int(uptime),
             "cycles_completed": self._cycle_count,
             "consecutive_failures": self._consecutive_failures,
-            "last_cycle": self._last_cycle_at.isoformat() if self._last_cycle_at else None,
+            "last_cycle": self._last_cycle_at.isoformat()
+            if self._last_cycle_at
+            else None,
         }
