@@ -21,9 +21,6 @@ class TradingConfig(BaseModel):
 class RiskConfig(BaseModel):
     """Risk management limits and thresholds."""
 
-    max_position_pct: float = 0.10
-    max_single_trade_usd: float = 10.0
-
 
 class ScoutConfig(BaseModel):
     """Scout agent market filtering parameters."""
@@ -75,6 +72,7 @@ class TelegramConfig(BaseModel):
     """Telegram notification configuration."""
 
     send_alerts: bool = True
+    heartbeat_interval_minutes: int = 360  # 6 hours
 
 
 class Settings(BaseSettings):

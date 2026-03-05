@@ -20,7 +20,6 @@ from coliseum.agents.guardian import run_guardian
 from coliseum.agents.scout import run_scout
 from coliseum.agents.trader import run_trader
 from coliseum.config import get_settings
-from coliseum.daemon import ColiseumDaemon
 from coliseum.pipeline import run_pipeline
 
 # Configure logging
@@ -73,10 +72,6 @@ trading:
   paper_mode: true
   contracts: 5
 
-risk:
-  max_position_pct: 0.10
-  max_single_trade_usd: 10.00
-
 scout:
   market_fetch_limit: 20000
   min_close_hours: 0
@@ -110,6 +105,7 @@ daemon:
 
 telegram:
   send_alerts: true
+  heartbeat_interval_minutes: 360
 """
             config_path.write_text(config_template)
             logger.info(f"Created config template: {config_path}")
@@ -169,11 +165,6 @@ def cmd_config(args: argparse.Namespace) -> int:
 
         print("Trading:")
         print(f"  Paper Mode: {settings.trading.paper_mode}\n")
-
-        print("Risk Management:")
-        print(f"  Max Position: {settings.risk.max_position_pct:.0%}")
-        print(f"  Max Single Trade: ${settings.risk.max_single_trade_usd:,.2f}")
-        print()
 
         print("Scout:")
         print(f"  Price Band: {settings.scout.min_price}-{settings.scout.max_price}¢")
@@ -419,14 +410,19 @@ def cmd_serve(args: argparse.Namespace) -> int:
 
 
 def cmd_daemon(args: argparse.Namespace) -> int:
-    """Start the long-lived autonomous daemon."""
+    """Start the autonomous daemon with integrated dashboard API."""
     try:
+        import os
+
+        import uvicorn
+
         _init_logfire()
 
         if args.debug:
             logging.getLogger().setLevel(logging.DEBUG)
 
         settings = get_settings()
+        os.environ["COLISEUM_START_DAEMON"] = "1"
 
         print("\n=== Coliseum Autonomous Daemon ===")
         print(f"\nVersion: {__version__}")
@@ -435,10 +431,16 @@ def cmd_daemon(args: argparse.Namespace) -> int:
         print(f"Heartbeat Interval: {settings.daemon.heartbeat_interval_minutes}m")
         print(f"Guardian Interval: {settings.daemon.guardian_interval_minutes}m")
         print(f"Max Consecutive Failures: {settings.daemon.max_consecutive_failures}")
-        print("\nStarting daemon... (Ctrl+C to stop)\n")
+        print(f"Dashboard: http://{args.host}:{args.port}")
+        print("\nStarting daemon + dashboard... (Ctrl+C to stop)\n")
 
-        daemon = ColiseumDaemon(settings)
-        asyncio.run(daemon.start())
+        uvicorn.run(
+            "coliseum.api.server:app",
+            host=args.host,
+            port=args.port,
+            reload=False,
+            log_level="warning",
+        )
 
         print("\nDaemon stopped cleanly.\n")
         return 0
@@ -446,6 +448,9 @@ def cmd_daemon(args: argparse.Namespace) -> int:
     except KeyboardInterrupt:
         print("\n\nReceived interrupt signal. Shutting down...\n")
         return 0
+    except ImportError:
+        print("\n❌ uvicorn is not installed. Install it with: pip install uvicorn\n")
+        return 1
     except Exception as e:
         logger.error(f"Daemon failed: {e}", exc_info=True)
         print(f"\n❌ Daemon failed: {e}\n")
@@ -580,7 +585,18 @@ def main() -> int:
 
     parser_daemon = subparsers.add_parser(
         "daemon",
-        help="Start the long-lived autonomous daemon",
+        help="Start the autonomous daemon with integrated dashboard API",
+    )
+    parser_daemon.add_argument(
+        "--host",
+        default="0.0.0.0",
+        help="Host to bind dashboard to (default: 0.0.0.0)",
+    )
+    parser_daemon.add_argument(
+        "--port",
+        type=int,
+        default=8000,
+        help="Port to bind dashboard to (default: 8000)",
     )
     parser_daemon.add_argument(
         "--debug",

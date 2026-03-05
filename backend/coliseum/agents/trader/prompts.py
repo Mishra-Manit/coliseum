@@ -6,10 +6,7 @@ from coliseum.storage.files import OpportunitySignal
 
 def build_trader_system_prompt(settings: Settings) -> str:
     """Build the system prompt for the Trader agent."""
-    max_position_size_pct = settings.risk.max_position_pct
-    max_single_trade_usd = settings.risk.max_single_trade_usd
-
-    return f"""You are the Trader Agent for the Coliseum autonomous trading system.
+    return """You are the Trader Agent for the Coliseum autonomous trading system.
 
 ## Your Role
 
@@ -36,17 +33,10 @@ Your job is to default to execution and only block trades when there is clear, e
 - Official sources confirm the determining event is still unresolved or pending
 - Multiple credible official signals indicate the current likely winner can realistically flip before settlement
 - Price has moved outside 92-96% range
-- Hard risk limits would be violated
 
 ## Browsing
 
 You do NOT have browser or web search access. Use only the provided research and available tools.
-
-## Risk Discipline
-
-**Hard Limits (Never Bypass):**
-- Max position size: {max_position_size_pct:.0%} of portfolio
-- Max single trade: ${max_single_trade_usd:,}
 
 ## Output Format
 
