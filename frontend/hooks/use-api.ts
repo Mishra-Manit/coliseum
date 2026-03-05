@@ -5,6 +5,7 @@ import type {
   OpportunitySummary,
   OpportunityDetail,
   ColiseumConfig,
+  DaemonStatus,
 } from "@/lib/types";
 
 export function useConfig() {
@@ -36,5 +37,11 @@ export function useOpportunityDetail(id: string | null) {
 export function usePipelineStatus() {
   return useSWR<{ running: boolean }>("/api/pipeline/status", fetcher, {
     refreshInterval: 3000,
+  });
+}
+
+export function useDaemonStatus() {
+  return useSWR<DaemonStatus>("/api/daemon/status", fetcher, {
+    refreshInterval: 10000,
   });
 }

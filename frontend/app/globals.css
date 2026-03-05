@@ -334,7 +334,9 @@
   margin: 1rem 0;
 }
 
-/* First h1 in markdown body should have no top margin */
-.markdown-body > h1:first-child {
+/* First heading in markdown body should have no top margin */
+.markdown-body > h1:first-child,
+.markdown-body > h2:first-child,
+.markdown-body > h3:first-child {
   margin-top: 0;
 }

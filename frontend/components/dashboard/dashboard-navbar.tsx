@@ -2,12 +2,25 @@
 
 import { RefreshCw, Settings } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { useConfig } from "@/hooks/use-api";
+import { useConfig, useDaemonStatus } from "@/hooks/use-api";
 
 export function DashboardNavbar() {
   const { data: config, mutate } = useConfig();
+  const { data: daemon } = useDaemonStatus();
 
   const paperMode = (config?.trading as Record<string, unknown>)?.paper_mode ?? true;
+
+  const dotColor = !daemon?.available
+    ? "bg-zinc-500"
+    : daemon.paused
+      ? "bg-yellow-500"
+      : "bg-emerald-500";
+
+  const dotLabel = !daemon?.available
+    ? "Offline"
+    : daemon.paused
+      ? "Paused"
+      : "Running";
 
   return (
     <nav className="sticky top-0 z-50 h-16 bg-card/80 backdrop-blur-xl border-b border-border flex items-center justify-between px-8">
@@ -60,11 +73,13 @@ export function DashboardNavbar() {
         </button>
         <div className="flex items-center gap-2 ml-3 pl-3 border-l border-border">
           <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            {daemon?.available && !daemon.paused && (
+              <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${dotColor} opacity-75`} />
+            )}
+            <span className={`relative inline-flex rounded-full h-2 w-2 ${dotColor}`} />
           </span>
           <span className="text-xs text-muted-foreground font-medium">
-            Connected
+            {dotLabel}
           </span>
         </div>
       </div>

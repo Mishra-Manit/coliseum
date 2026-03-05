@@ -76,6 +76,14 @@ export function OpportunityDetailView({
   }
 
   const { summary, markdown_body } = data;
+
+  const strippedMarkdown = markdown_body
+    .replace(/^#\s+.+\n?/, "")
+    .replace(/^\*\*Outcome\*\*:.*\n?/m, "")
+    .replace(/^Outcome:.*\n?/m, "")
+    .replace(/^\n+/, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trimStart();
   const yesPercent = Math.round(summary.yes_price * 100);
   const noPercent = Math.round(summary.no_price * 100);
 
@@ -166,11 +174,20 @@ export function OpportunityDetailView({
 
       <Separator className="bg-border" />
 
-      <CardContent className="pt-5">
+      <CardContent className="pt-4">
         <ScrollArea className="h-[calc(100vh-420px)] min-h-[400px] pr-3">
           <div className="markdown-body">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>
-              {markdown_body}
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              components={{
+                a: ({ href, children }) => (
+                  <a href={href} target="_blank" rel="noopener noreferrer">
+                    {children}
+                  </a>
+                ),
+              }}
+            >
+              {strippedMarkdown}
             </ReactMarkdown>
           </div>
         </ScrollArea>

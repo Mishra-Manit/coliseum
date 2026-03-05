@@ -48,16 +48,16 @@ export function KalshiAccount() {
             <Table>
               <TableHeader>
                 <TableRow className="border-border hover:bg-transparent">
-                  <TableHead className="text-[10px] text-muted-foreground font-semibold h-8 uppercase tracking-wider">
+                  <TableHead className="text-[10px] text-muted-foreground font-semibold h-8 uppercase tracking-wider w-full">
                     Market
                   </TableHead>
-                  <TableHead className="text-[10px] text-muted-foreground font-semibold h-8 uppercase tracking-wider">
+                  <TableHead className="text-[10px] text-muted-foreground font-semibold h-8 uppercase tracking-wider whitespace-nowrap">
                     Side
                   </TableHead>
-                  <TableHead className="text-[10px] text-muted-foreground font-semibold h-8 text-right uppercase tracking-wider">
+                  <TableHead className="text-[10px] text-muted-foreground font-semibold h-8 text-right uppercase tracking-wider whitespace-nowrap">
                     Qty
                   </TableHead>
-                  <TableHead className="text-[10px] text-muted-foreground font-semibold h-8 text-right uppercase tracking-wider">
+                  <TableHead className="text-[10px] text-muted-foreground font-semibold h-8 text-right uppercase tracking-wider whitespace-nowrap">
                     Entry
                   </TableHead>
                 </TableRow>
@@ -68,8 +68,10 @@ export function KalshiAccount() {
                     key={pos.id}
                     className="border-border hover:bg-secondary/40"
                   >
-                    <TableCell className="text-xs text-foreground font-mono py-2.5">
-                      {pos.market_ticker}
+                    <TableCell className="text-xs text-foreground font-mono py-2.5 max-w-0 w-full">
+                      <span className="block truncate" title={pos.market_ticker}>
+                        {pos.market_ticker}
+                      </span>
                     </TableCell>
                     <TableCell className="py-2.5">
                       <Badge
@@ -85,10 +87,10 @@ export function KalshiAccount() {
                         {pos.side}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-xs text-foreground text-right py-2.5 font-mono">
+                    <TableCell className="text-xs text-foreground text-right py-2.5 font-mono whitespace-nowrap">
                       {pos.contracts}
                     </TableCell>
-                    <TableCell className="text-xs text-foreground text-right py-2.5 font-mono">
+                    <TableCell className="text-xs text-foreground text-right py-2.5 font-mono whitespace-nowrap">
                       {Math.round(pos.average_entry * 100)}c
                     </TableCell>
                   </TableRow>
