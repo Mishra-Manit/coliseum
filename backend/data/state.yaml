@@ -1,9 +1,16 @@
-last_updated: '2026-03-05T05:24:05.151726Z'
+last_updated: '2026-03-05T18:40:02.012753Z'
 portfolio:
-  total_value: 26.75
-  cash_balance: 22.0
-  positions_value: 4.75
+  total_value: 26.63
+  cash_balance: 17.18
+  positions_value: 9.45
 open_positions:
+- id: pos_6cfbd928
+  market_ticker: KXWTIW-26MAR06-T73.99
+  side: 'YES'
+  contracts: 5
+  average_entry: 0.96
+  current_price: 0.94
+  opportunity_id: opp_c6e324cb
 - id: pos_216ac396
   market_ticker: KXPAYROLLS-26FEB-T-25000
   side: 'YES'
@@ -84,3 +91,4 @@ seen_tickers:
 - KXNASCARRACE-ONLGF1AS26-ADAN
 - KXNASCARRACE-ONLGF1AS26-LARI
 - KXPAYROLLS-26FEB-T-25000
+- KXWTIW-26MAR06-T73.99
