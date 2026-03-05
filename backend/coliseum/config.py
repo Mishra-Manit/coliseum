@@ -3,8 +3,6 @@
 import logging
 from functools import lru_cache
 from pathlib import Path
-from enum import Enum
-from typing import Literal
 
 import yaml
 from pydantic import BaseModel, Field, field_validator
@@ -17,7 +15,7 @@ class TradingConfig(BaseModel):
     """Trading operational parameters."""
 
     paper_mode: bool = True
-    sure_thing_contracts: int = Field(default=1, ge=1)
+    contracts: int = Field(default=1, ge=1)
 
 
 class RiskConfig(BaseModel):
@@ -25,28 +23,17 @@ class RiskConfig(BaseModel):
 
     max_position_pct: float = 0.10
     max_single_trade_usd: float = 10.0
-    min_edge_threshold: float = 0.05
-    min_ev_threshold: float = 0.10
-    kelly_fraction: float = 0.50  # 1/2 Kelly for edge trading
 
 
 class ScoutConfig(BaseModel):
     """Scout agent market filtering parameters."""
 
-    min_volume: int = 10000  # Minimum 24h volume (contracts)
-    min_liquidity_cents: int = 10  # Minimum bid-ask spread tolerance (cents)
-    min_close_hours: int = 96   # Minimum hours until close (4 days for edge trading)
-    max_close_hours: int = 240  # Maximum hours until close (10 days for edge trading)
-    edge_min_close_hours: int = 96   # Edge scan minimum hours until close (4 days)
-    edge_max_close_hours: int = 240  # Edge scan maximum hours until close (10 days)
-    edge_min_price: int = 10         # Edge min YES/NO price (cents)
-    edge_max_price: int = 90         # Edge max YES/NO price (cents)
-    sure_thing_min_close_hours: int = 0  # Sure-thing scan minimum hours until close
-    sure_thing_max_close_hours: int = 48  # Sure-thing scan maximum hours until close
-    sure_thing_min_price: int = 92  # Sure-thing min YES/NO price (cents)
-    sure_thing_max_price: int = 96  # Sure-thing max YES/NO price (cents)
-    sure_thing_max_spread_cents: int = 3  # Sure-thing max spread (cents)
-    sure_thing_min_volume: int = 5000  # Sure-thing min 24h volume (contracts)
+    min_close_hours: int = 0
+    max_close_hours: int = 48
+    min_price: int = 92
+    max_price: int = 96
+    max_spread_cents: int = 3
+    min_volume: int = 5000
     market_fetch_limit: int = 10000
 
 
@@ -59,17 +46,9 @@ class AnalystConfig(BaseModel):
 class GuardianConfig(BaseModel):
     """Guardian agent monitoring parameters."""
 
-    profit_target_pct: float = 0.70    # Take profit at 70% of edge captured
-    stop_loss_pct: float = 0.10        # Cut loss at 10% down (tight stop)
+    profit_target_pct: float = 0.70
+    stop_loss_pct: float = 0.10
     max_hold_days: int = 5             # Maximum days to hold any position
-    edge_capture_pct: float = 0.70     # Target: capture 70% of identified edge
-
-
-class Strategy(str, Enum):
-    """Available trading strategies."""
-
-    EDGE = "edge"
-    SURE_THING = "sure_thing"
 
 
 class ExecutionConfig(BaseModel):
@@ -119,7 +98,6 @@ class Settings(BaseSettings):
     guardian: GuardianConfig = Field(default_factory=GuardianConfig)
     execution: ExecutionConfig = Field(default_factory=ExecutionConfig)
     telegram: TelegramConfig = Field(default_factory=TelegramConfig)
-    strategy: Strategy = Strategy.EDGE
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -190,9 +168,6 @@ class Settings(BaseSettings):
 
                     new_section = section.__class__(**section_dict)
                     setattr(self, section_name, new_section)
-
-            if "strategy" in yaml_config:
-                self.strategy = Strategy(yaml_config["strategy"])
 
             logger.info(f"Loaded configuration from {config_path}")
 

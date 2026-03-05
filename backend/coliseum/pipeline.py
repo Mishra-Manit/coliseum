@@ -27,7 +27,7 @@ async def run_pipeline(settings: Settings) -> None:
         logger.error(f"Guardian failed: {e}")
 
     # Step 2: Scout
-    scout_output = await run_scout(strategy=settings.strategy)
+    scout_output = await run_scout(settings=settings)
 
     if not scout_output or not scout_output.opportunities:
         logger.info("Scout found no opportunities. Pipeline complete.")
@@ -46,11 +46,7 @@ async def run_pipeline(settings: Settings) -> None:
                 opportunity_id=opp.id,
                 settings=settings,
             )
-            logger.info(
-                f"Analyst complete for {opp.id}: "
-                f"edge={analyzed.edge:+.2%}" if analyzed.edge is not None
-                else f"Analyst complete for {opp.id}: edge=N/A"
-            )
+            logger.info(f"Analyst complete for {opp.id}: status={analyzed.status}")
         except Exception as e:
             logger.error(f"Analyst failed for {opp.id}: {e}")
             continue

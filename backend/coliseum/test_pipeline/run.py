@@ -58,7 +58,6 @@ from coliseum.services.kalshi import KalshiClient
 from coliseum.services.kalshi.config import KalshiConfig
 from coliseum.storage.files import (
     find_opportunity_file_by_id,
-    get_opportunity_strategy_by_id,
     load_opportunity_from_file,
 )
 from coliseum.storage.state import load_state
@@ -257,7 +256,7 @@ async def run_scout_test() -> "ScoutOutput | None":
     logger.info("-" * 70)
 
     try:
-        output = await run_scout(strategy=settings.strategy)
+        output = await run_scout(settings=settings)
 
         logger.info("\n" + "=" * 70)
         logger.info("Results")
@@ -335,9 +334,7 @@ async def run_analyst_test(opportunity_id: str | None = None) -> None:
     opp_file = find_opportunity_file_by_id(opportunity_id)
     if not opp_file:
         raise FileNotFoundError(f"Opportunity file not found: {opportunity_id}")
-    strategy = get_opportunity_strategy_by_id(opportunity_id)
     logger.info(f"   Opportunity file: {opp_file}")
-    logger.info(f"   Detected strategy: {strategy}")
 
     try:
         opportunity = await run_analyst(
@@ -353,16 +350,13 @@ async def run_analyst_test(opportunity_id: str | None = None) -> None:
     logger.info("=" * 70)
     logger.info(f"   Market: {opportunity.market_ticker}")
     logger.info(f"   Status: {opportunity.status}")
-    logger.info(f"   Edge: {opportunity.edge:+.2%}" if opportunity.edge is not None else "   Edge: N/A")
     logger.info(
-        f"   Expected Value: {opportunity.expected_value:+.2%}"
-        if opportunity.expected_value is not None
-        else "   Expected Value: N/A"
+        "   Research complete: %s",
+        "yes" if opportunity.research_completed_at else "no",
     )
     logger.info(
-        f"   Suggested Size: {opportunity.suggested_position_pct:.1%}"
-        if opportunity.suggested_position_pct is not None
-        else "   Suggested Size: N/A"
+        "   Recommendation complete: %s",
+        "yes" if opportunity.recommendation_completed_at else "no",
     )
 
     logger.info("\n" + "=" * 70)
@@ -585,7 +579,7 @@ async def run_full_pipeline() -> None:
     logger.info("STEP 2: Scout - Discovering opportunities")
     logger.info("=" * 70)
 
-    scout_output = await run_scout(strategy=settings.strategy)
+    scout_output = await run_scout(settings=settings)
     
     if not scout_output or not scout_output.opportunities:
         logger.warning("Scout found no opportunities. Pipeline complete.")
@@ -611,8 +605,6 @@ async def run_full_pipeline() -> None:
                 settings=settings,
             )
             logger.info(f"   Status: {analyzed_opp.status}")
-            logger.info(f"   Edge: {analyzed_opp.edge:+.2%}" if analyzed_opp.edge else "   Edge: N/A")
-            logger.info(f"   EV: {analyzed_opp.expected_value:+.2%}" if analyzed_opp.expected_value else "   EV: N/A")
         except Exception as e:
             logger.error(f"   Analyst failed for {opp.id}: {e}")
             continue

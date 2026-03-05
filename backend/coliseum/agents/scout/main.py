@@ -5,9 +5,8 @@ import logging
 
 from pydantic_ai import Agent, RunContext, WebSearchTool
 
-from coliseum.agents.agent_factory import AgentFactory
 from coliseum.agents.shared_tools import register_get_current_time
-from coliseum.config import Settings, Strategy, get_settings
+from coliseum.config import Settings, get_settings
 from coliseum.llm_providers import OpenAIModel, get_model_string
 from coliseum.services.kalshi.client import KalshiClient
 from coliseum.services.kalshi.config import KalshiConfig
@@ -15,7 +14,7 @@ from coliseum.storage.files import save_opportunity, generate_opportunity_id
 from coliseum.storage.state import add_seen_ticker, get_seen_tickers
 
 from .models import ScoutDependencies, ScoutOutput
-from .prompts import SCOUT_SYSTEM_PROMPT, build_scout_sure_thing_prompt
+from .prompts import build_scout_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +30,7 @@ def _create_scout_agent(prompt: str) -> Agent[ScoutDependencies, ScoutOutput]:
     )
 
 
-def _register_tools(agent: Agent[ScoutDependencies, ScoutOutput], strategy: Strategy = Strategy.EDGE) -> None:
+def _register_tools(agent: Agent[ScoutDependencies, ScoutOutput]) -> None:
     """Register tools with the Scout agent."""
 
     @agent.tool
@@ -45,25 +44,16 @@ def _register_tools(agent: Agent[ScoutDependencies, ScoutOutput], strategy: Stra
 async def _prefetch_markets_for_scan(
     client: KalshiClient,
     settings: Settings,
-    strategy: Strategy,
     seen_tickers: set[str] | None = None,
 ) -> list[dict]:
     """Fetch and pre-filter market dataset once before Scout agent run."""
     scout_settings = settings.scout
-    if strategy == Strategy.SURE_THING:
-        min_close_hours = scout_settings.sure_thing_min_close_hours
-        max_close_hours = scout_settings.sure_thing_max_close_hours
-        min_price = scout_settings.sure_thing_min_price
-        max_price = scout_settings.sure_thing_max_price
-        min_volume = scout_settings.sure_thing_min_volume
-        max_spread = scout_settings.sure_thing_max_spread_cents
-    else:
-        min_close_hours = scout_settings.edge_min_close_hours
-        max_close_hours = scout_settings.edge_max_close_hours
-        min_price = scout_settings.edge_min_price
-        max_price = scout_settings.edge_max_price
-        min_volume = scout_settings.min_volume
-        max_spread = None
+    min_close_hours = scout_settings.min_close_hours
+    max_close_hours = scout_settings.max_close_hours
+    min_price = scout_settings.min_price
+    max_price = scout_settings.max_price
+    min_volume = scout_settings.min_volume
+    max_spread = scout_settings.max_spread_cents
 
     markets = await client.get_markets_closing_in_range(
         min_hours=min_close_hours,
@@ -155,35 +145,24 @@ def _build_market_context_prompt(prefetched_markets: list[dict]) -> str:
     )
 
 
-_edge_factory = AgentFactory(
-    create_fn=lambda: _create_scout_agent(SCOUT_SYSTEM_PROMPT),
-    register_tools_fn=lambda agent: _register_tools(agent, Strategy.EDGE),
-)
-
-
-def get_scout_agent(
-    strategy: Strategy = Strategy.EDGE, settings: Settings | None = None
-) -> Agent[ScoutDependencies, ScoutOutput]:
-    """Get the singleton Scout agent instance for the given strategy."""
-    if strategy == Strategy.SURE_THING:
-        if settings is None:
-            settings = get_settings()
-        prompt = build_scout_sure_thing_prompt(settings)
-        agent = _create_scout_agent(prompt)
-        _register_tools(agent, Strategy.SURE_THING)
-        return agent
-    return _edge_factory.get_agent()
+def get_scout_agent(settings: Settings | None = None) -> Agent[ScoutDependencies, ScoutOutput]:
+    """Build a Scout agent configured for market scanning."""
+    if settings is None:
+        settings = get_settings()
+    prompt = build_scout_prompt(settings)
+    agent = _create_scout_agent(prompt)
+    _register_tools(agent)
+    return agent
 
 
 async def run_scout(
     settings: Settings | None = None,
-    strategy: Strategy = Strategy.EDGE,
 ) -> ScoutOutput:
     """Execute a Scout scan and save opportunities."""
     if settings is None:
         settings = get_settings()
 
-    logger.info(f"Starting Scout scan (strategy={strategy.value})...")
+    logger.info("Starting Scout scan...")
 
     seen_tickers = get_seen_tickers()
 
@@ -193,30 +172,22 @@ async def run_scout(
         prefetched_markets = await _prefetch_markets_for_scan(
             client,
             settings,
-            strategy,
             seen_tickers=set(seen_tickers),
         )
         deps = ScoutDependencies(settings=settings, prefetched_markets=prefetched_markets)
 
         # Run the agent with seen markets context
-        agent = get_scout_agent(strategy, settings)
-        if strategy == Strategy.SURE_THING:
-            sure_thing_settings = settings.scout
-            prompt = (
-                f"Scan Kalshi markets for SURE THING opportunities—markets at "
-                f"{sure_thing_settings.sure_thing_min_price}-{sure_thing_settings.sure_thing_max_price}% where the outcome "
-                f"is strongly favored with negligible or low reversal risk. "
-                f"Find exactly 1 opportunity—the single least-risky qualifying market. "
-                f"Select markets that pass the Risk Assessment Checklist. Remember: residual uncertainty is normal for open markets—do not skip a market just because the outcome is not yet 100% official. "
-                f"CRITICAL: You MUST return at least 1 opportunity. If no market meets the ideal risk threshold, select the single least-risky available market as a fallback and label it clearly in the rationale."
-                f"{_build_market_context_prompt(prefetched_markets)}"
-            )
-        else:
-            prompt = (
-                f"Scan Kalshi markets and identify exactly 1 high-quality trading opportunity—the single best candidate. "
-                f"Only include markets with significant volume (>10,000 contracts) to ensure liquidity."
-                f"{_build_market_context_prompt(prefetched_markets)}"
-            )
+        agent = get_scout_agent(settings)
+        scout_cfg = settings.scout
+        prompt = (
+            f"Scan Kalshi markets for near-decided opportunities—markets at "
+            f"{scout_cfg.min_price}-{scout_cfg.max_price}% where the outcome "
+            f"is strongly favored with negligible or low reversal risk. "
+            f"Find exactly 1 opportunity—the single least-risky qualifying market. "
+            f"Select markets that pass the Risk Assessment Checklist. Remember: residual uncertainty is normal for open markets—do not skip a market just because the outcome is not yet 100% official. "
+            f"CRITICAL: You MUST return at least 1 opportunity. If no market meets the ideal risk threshold, select the single least-risky available market as a fallback and label it clearly in the rationale."
+            f"{_build_market_context_prompt(prefetched_markets)}"
+        )
         result = await agent.run(prompt, deps=deps)
 
         output: ScoutOutput = result.output
@@ -225,8 +196,6 @@ async def run_scout(
 
         for opp in output.opportunities:
             try:
-                opp.strategy = strategy.value
-
                 save_opportunity(opp)
                 logger.info(f"Saved opportunity: {opp.market_ticker}")
 

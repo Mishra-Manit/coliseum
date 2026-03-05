@@ -3,19 +3,15 @@
 import logging
 import time
 from datetime import datetime, timezone
-from typing import Literal
 
 from pydantic_ai import Agent, WebSearchTool
 
 from coliseum.agents.agent_factory import AgentFactory
 from coliseum.agents.analyst.models import AnalystDependencies, ResearcherOutput
-from coliseum.agents.analyst.prompts import (
-    RESEARCHER_SURE_THING_PROMPT,
-    RESEARCHER_SYSTEM_PROMPT,
-)
+from coliseum.agents.analyst.prompts import RESEARCHER_PROMPT
 from coliseum.agents.analyst.shared import (
     format_opportunity_header,
-    load_and_validate_opportunity,
+    load_opportunity,
 )
 from coliseum.config import Settings
 from coliseum.llm_providers import OpenAIModel, get_model_string
@@ -24,43 +20,33 @@ from coliseum.storage.files import OpportunitySignal, append_to_opportunity
 logger = logging.getLogger(__name__)
 
 
-def _create_agent(strategy: str = "edge") -> Agent[AnalystDependencies, ResearcherOutput]:
-    prompt = RESEARCHER_SURE_THING_PROMPT if strategy == "sure_thing" else RESEARCHER_SYSTEM_PROMPT
+def _create_agent() -> Agent[AnalystDependencies, ResearcherOutput]:
     return Agent(
         model=get_model_string(OpenAIModel.GPT_5_2),
         output_type=ResearcherOutput,
         deps_type=AnalystDependencies,
-        system_prompt=prompt,
+        system_prompt=RESEARCHER_PROMPT,
         builtin_tools=[WebSearchTool()],
     )
 
 
-_edge_factory = AgentFactory(create_fn=lambda: _create_agent("edge"))
-_sure_thing_factory = AgentFactory(create_fn=lambda: _create_agent("sure_thing"))
+_agent_factory = AgentFactory(create_fn=_create_agent)
 
 
-def get_agent(strategy: str = "edge") -> Agent[AnalystDependencies, ResearcherOutput]:
-    """Get the singleton Researcher agent instance for the given strategy."""
-    if strategy == "sure_thing":
-        return _sure_thing_factory.get_agent()
-    return _edge_factory.get_agent()
+def get_agent() -> Agent[AnalystDependencies, ResearcherOutput]:
+    """Get the singleton Researcher agent instance."""
+    return _agent_factory.get_agent()
 
 
 async def run_researcher(
     opportunity_id: str,
     settings: Settings,
-    strategy: Literal["edge", "sure_thing"] | None = None,
 ) -> ResearcherOutput:
     """Run Researcher agent - appends research to opportunity file."""
     start_time = time.time()
     logger.info(f"Starting Researcher for opportunity: {opportunity_id}")
 
-    opp_file, opportunity, resolved_strategy = load_and_validate_opportunity(
-        opportunity_id, strategy
-    )
-    logger.info(
-        f"Researcher strategy resolved: {resolved_strategy} (file={opportunity.strategy})"
-    )
+    opp_file, opportunity = load_opportunity(opportunity_id)
 
     deps = AnalystDependencies(
         opportunity_id=opportunity_id,
@@ -68,7 +54,7 @@ async def run_researcher(
     )
     prompt = _build_research_prompt(opportunity, settings)
 
-    agent = get_agent(resolved_strategy)
+    agent = get_agent()
     result = await agent.run(prompt, deps=deps)
     output = result.output
 
@@ -129,7 +115,7 @@ def _build_research_prompt(opportunity: OpportunitySignal, settings: Settings) -
 
 You are ONLY responsible for research. Do NOT:
 - Estimate probability of YES outcome
-- Calculate edge or expected value
+- Include pricing metrics or sizing outputs
 - Make trade recommendations (BUY/SELL/ABSTAIN)
 
 The Recommender agent will handle the trading decision based on your research.

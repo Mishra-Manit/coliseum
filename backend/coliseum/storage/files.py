@@ -1,8 +1,6 @@
 """File I/O operations for opportunities and trades."""
 
-import json
 import logging
-import re
 import shutil
 import tempfile
 from datetime import datetime
@@ -13,12 +11,9 @@ from uuid import uuid4
 import yaml
 from pydantic import BaseModel, Field
 
-from coliseum.llm_providers import FireworksModel
 from coliseum.storage.state import get_data_dir
 
 logger = logging.getLogger(__name__)
-
-OpportunityStrategy = Literal["edge", "sure_thing"]
 
 
 class OpportunitySignal(BaseModel):
@@ -67,18 +62,8 @@ class OpportunitySignal(BaseModel):
     research_duration_seconds: int | None = None
 
     # Recommendation fields
-    estimated_true_probability: float | None = None
-    current_market_price: float | None = None
-    expected_value: float | None = None
-    edge: float | None = None
-    suggested_position_pct: float | None = None
-    # NO-side metrics
-    edge_no: float | None = None
-    expected_value_no: float | None = None
-    suggested_position_pct_no: float | None = None
     recommendation_completed_at: datetime | None = None
     action: Literal["BUY_YES", "BUY_NO", "ABSTAIN"] | None = None
-    strategy: Literal["edge", "sure_thing"] = "edge"
 
 
 class TradeExecution(BaseModel):
@@ -93,12 +78,8 @@ class TradeExecution(BaseModel):
     contracts: int
     price: float
     total: float
-    portfolio_pct: float
-    edge: float
-    ev: float
     paper: bool
     executed_at: datetime
-    strategy: str = "research_driven"
 
 
 def _ensure_date_dir(base_dir: Path, date: datetime) -> Path:
@@ -315,33 +296,6 @@ def load_opportunity_from_file(file_path: Path) -> OpportunitySignal:
     return _parse_opportunity_from_parts(frontmatter, body)
 
 
-def _load_opportunity_frontmatter(file_path: Path) -> dict:
-    """Load and parse YAML frontmatter from an opportunity markdown file."""
-    content = file_path.read_text(encoding="utf-8")
-
-    if not content.startswith("---"):
-        raise ValueError(f"Invalid frontmatter in {file_path}")
-
-    parts = content.split("---", 2)
-    if len(parts) < 3:
-        raise ValueError(f"Could not parse frontmatter in {file_path}")
-
-    return yaml.safe_load(parts[1]) or {}
-
-
-def get_opportunity_strategy_from_file(file_path: Path) -> OpportunityStrategy:
-    """Read and validate strategy directly from opportunity frontmatter."""
-    frontmatter = _load_opportunity_frontmatter(file_path)
-    strategy = frontmatter.get("strategy")
-
-    if strategy not in {"edge", "sure_thing"}:
-        raise ValueError(
-            f"Opportunity {file_path} must define strategy as 'edge' or 'sure_thing'"
-        )
-
-    return strategy
-
-
 def find_opportunity_file_by_id(
     opportunity_id: str, lookback_days: int = 7
 ) -> Path | None:
@@ -378,16 +332,6 @@ def find_opportunity_file_by_id(
                 continue
 
     return None
-
-
-def get_opportunity_strategy_by_id(
-    opportunity_id: str, lookback_days: int = 7
-) -> OpportunityStrategy:
-    """Find an opportunity by ID and return its validated strategy."""
-    opp_file = find_opportunity_file_by_id(opportunity_id, lookback_days=lookback_days)
-    if not opp_file:
-        raise FileNotFoundError(f"Opportunity file not found: {opportunity_id}")
-    return get_opportunity_strategy_from_file(opp_file)
 
 
 def load_opportunity_with_all_stages(

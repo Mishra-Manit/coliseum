@@ -1,30 +1,21 @@
 # Coliseum Test Configuration
 
-strategy: sure_thing
-
 trading:
-  paper_mode: false
-  sure_thing_contracts: 5
+  paper_mode: true
+  contracts: 5
 
 risk:
   max_position_pct: 0.10
   max_single_trade_usd: 10.00
-  min_edge_threshold: 0.05
-  min_ev_threshold: 0.05
-  kelly_fraction: 0.50
 
 scout:
   market_fetch_limit: 20000
-  edge_min_close_hours: 96
-  edge_max_close_hours: 240
-  edge_min_price: 10
-  edge_max_price: 90
-  sure_thing_min_close_hours: 0
-  sure_thing_max_close_hours: 24
-  sure_thing_min_price: 92
-  sure_thing_max_price: 96
-  sure_thing_max_spread_cents: 5
-  sure_thing_min_volume: 1000
+  min_close_hours: 0
+  max_close_hours: 24
+  min_price: 92
+  max_price: 96
+  max_spread_cents: 5
+  min_volume: 1000
 
 analyst:
   max_research_time_seconds: 300
@@ -33,7 +24,6 @@ guardian:
   profit_target_pct: 0.70
   stop_loss_pct: 0.10
   max_hold_days: 5
-  edge_capture_pct: 0.70
 
 execution:
   use_limit_orders_only: true

@@ -1,39 +1,29 @@
 # Coliseum Configuration
 
-strategy: sure_thing  # Options: edge, sure_thing
-
 trading:
-  paper_mode: false
-  sure_thing_contracts: 5
+  paper_mode: true
+  contracts: 5
 
 risk:
   max_position_pct: 0.10          # Max 10% of portfolio per position
   max_single_trade_usd: 10.00     # Hard cap per trade
-  min_edge_threshold: 0.05        # Only trade if edge > 5%
-  min_ev_threshold: 0.05          # Only trade if EV > 5%
-  kelly_fraction: 0.50            # Use 1/2 Kelly (more aggressive for edge trading)
 
 scout:
   market_fetch_limit: 20000
-  edge_min_close_hours: 96
-  edge_max_close_hours: 240
-  edge_min_price: 10
-  edge_max_price: 90
-  sure_thing_min_close_hours: 0
-  sure_thing_max_close_hours: 48
-  sure_thing_min_price: 92
-  sure_thing_max_price: 96
-  sure_thing_max_spread_cents: 3
-  sure_thing_min_volume: 1000
+  min_close_hours: 0
+  max_close_hours: 48
+  min_price: 92
+  max_price: 96
+  max_spread_cents: 3
+  min_volume: 1000
 
 analyst:
   max_research_time_seconds: 300
 
 guardian:
-  profit_target_pct: 0.70         # Take profit at 70% of edge captured
-  stop_loss_pct: 0.10             # Cut loss at 10% down (tighter stop for edge trading)
+  profit_target_pct: 0.70
+  stop_loss_pct: 0.10
   max_hold_days: 5                # Maximum days to hold any position
-  edge_capture_pct: 0.70          # Target: capture 70% of identified edge
 
 execution:
   use_limit_orders_only: true     # NEVER change to false

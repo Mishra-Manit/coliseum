@@ -69,38 +69,40 @@ def cmd_init(args: argparse.Namespace) -> int:
 
 trading:
   paper_mode: true
+  contracts: 5
 
 risk:
   max_position_pct: 0.10
-  max_single_trade_usd: 1000.00
-  min_edge_threshold: 0.05
-  min_ev_threshold: 0.10
-  kelly_fraction: 0.25
+  max_single_trade_usd: 10.00
 
 scout:
-  min_volume: 10000
-  min_liquidity_cents: 10
-  max_close_hours: 72
-  edge_min_close_hours: 96
-  edge_max_close_hours: 240
-  edge_min_price: 10
-  edge_max_price: 90
+  market_fetch_limit: 20000
+  min_close_hours: 0
+  max_close_hours: 48
+  min_price: 92
+  max_price: 96
+  max_spread_cents: 3
+  min_volume: 1000
 
 analyst:
   max_research_time_seconds: 300
 
 guardian:
-  profit_target_pct: 0.50
-  stop_loss_pct: 0.30
+  profit_target_pct: 0.70
+  stop_loss_pct: 0.10
+  max_hold_days: 5
 
 execution:
   use_limit_orders_only: true
   max_slippage_pct: 0.05
-  order_check_interval_seconds: 300
+  order_check_interval_seconds: 120
   max_reprice_attempts: 3
   reprice_aggression: 0.02
   min_fill_pct_to_keep: 0.25
   max_order_age_minutes: 60
+
+telegram:
+  send_alerts: true
 """
             config_path.write_text(config_template)
             logger.info(f"Created config template: {config_path}")
@@ -156,21 +158,24 @@ def cmd_config(args: argparse.Namespace) -> int:
         print("Risk Management:")
         print(f"  Max Position: {settings.risk.max_position_pct:.0%}")
         print(f"  Max Single Trade: ${settings.risk.max_single_trade_usd:,.2f}")
-        print(f"  Min Edge: {settings.risk.min_edge_threshold:.0%}")
-        print(f"  Min EV: {settings.risk.min_ev_threshold:.0%}")
-        print(f"  Kelly Fraction: {settings.risk.kelly_fraction}\n")
+        print()
 
         print("Scout:")
-        print(f"  Min Volume: {settings.scout.min_volume:,} contracts")
-        print(f"  Min Liquidity: {settings.scout.min_liquidity_cents}¢ spread")
-        print(f"  Max Close Hours: {settings.scout.max_close_hours}h\n")
+        print(f"  Price Band: {settings.scout.min_price}-{settings.scout.max_price}¢")
+        print(
+            "  Close Window: "
+            f"{settings.scout.min_close_hours}-{settings.scout.max_close_hours}h"
+        )
+        print(f"  Max Spread: {settings.scout.max_spread_cents}¢")
+        print(f"  Min Volume: {settings.scout.min_volume:,} contracts\n")
 
         print("Analyst:")
         print(f"  Max Research Time: {settings.analyst.max_research_time_seconds}s\n")
 
         print("Guardian:")
         print(f"  Profit Target: {settings.guardian.profit_target_pct:.0%}")
-        print(f"  Stop Loss: {settings.guardian.stop_loss_pct:.0%}\n")
+        print(f"  Stop Loss: {settings.guardian.stop_loss_pct:.0%}")
+        print(f"  Max Hold Days: {settings.guardian.max_hold_days}d\n")
 
         print("Execution:")
         print(f"  Use Limit Orders Only: {settings.execution.use_limit_orders_only}")
@@ -315,11 +320,9 @@ def cmd_analyst(args: argparse.Namespace) -> int:
         result = asyncio.run(run_analyst(opportunity_id, settings))
 
         print(f"✓ Analyst pipeline complete\n")
-        print(f"Estimated True Probability: {result.estimated_true_probability:.0%}")
-        print(f"Current Market Price: {result.current_market_price:.0%}")
-        print(f"Edge: {result.edge:+.2%}")
-        print(f"Expected Value: {result.expected_value:+.2%}")
-        print(f"Suggested Position: {result.suggested_position_pct:.1%}\n")
+        print(f"Status: {result.status}")
+        print(f"Research Completed: {'yes' if result.research_completed_at else 'no'}")
+        print(f"Recommendation Completed: {'yes' if result.recommendation_completed_at else 'no'}\n")
         print("Trade decision pending (no BUY/NO decision made).\n")
 
         return 0

@@ -116,11 +116,7 @@ async def list_opportunities():
             "close_time": str(fm.get("close_time", "")),
             "discovered_at": str(fm.get("discovered_at", "")),
             "status": fm.get("status", "pending"),
-            "strategy": fm.get("strategy", "edge"),
             "action": fm.get("action"),
-            "estimated_true_probability": fm.get("estimated_true_probability"),
-            "edge": fm.get("edge"),
-            "expected_value": fm.get("expected_value"),
             "date_folder": opp["date_folder"],
         })
     return results
@@ -144,11 +140,7 @@ async def get_opportunity(opportunity_id: str):
                     "close_time": str(fm.get("close_time", "")),
                     "discovered_at": str(fm.get("discovered_at", "")),
                     "status": fm.get("status", "pending"),
-                    "strategy": fm.get("strategy", "edge"),
                     "action": fm.get("action"),
-                    "estimated_true_probability": fm.get("estimated_true_probability"),
-                    "edge": fm.get("edge"),
-                    "expected_value": fm.get("expected_value"),
                     "date_folder": opp["date_folder"],
                 },
                 "markdown_body": opp["body"],
