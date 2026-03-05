@@ -33,6 +33,7 @@ from coliseum.storage.files import (
     log_trade,
     update_opportunity_frontmatter,
 )
+from coliseum.memory.decisions import DecisionEntry, log_decision
 from coliseum.storage.state import (
     Position,
     load_state,
@@ -362,6 +363,7 @@ async def run_trader(
             except Exception as e:
                 # Skip outcome should still be returned even if persistence fails.
                 logger.error(f"Failed to persist skipped status for {opportunity_id}: {e}")
+            _log_trader_decision(opportunity, output)
             logger.info(f"Trader REJECTED trade: {output.decision.reasoning}")
             return output
 
@@ -439,7 +441,29 @@ async def run_trader(
                 f"{order_result.fill_price:.2%} (${order_result.total_cost_usd:.2f})"
             )
 
+        _log_trader_decision(opportunity, output)
         return output
+
+
+def _log_trader_decision(
+    opportunity,
+    output: TraderOutput,
+) -> None:
+    """Log a trading decision to the persistent decision log."""
+    try:
+        entry = DecisionEntry(
+            opportunity_id=opportunity.id,
+            ticker=opportunity.market_ticker,
+            action=output.decision.action,
+            price=output.fill_price or opportunity.yes_price,
+            contracts=output.contracts_filled,
+            confidence=output.decision.confidence,
+            reasoning=output.decision.reasoning,
+            execution_status=output.execution_status,
+        )
+        log_decision(entry)
+    except Exception as e:
+        logger.error("Failed to log decision for %s: %s", opportunity.market_ticker, e)
 
 
 def _update_state_after_trade(

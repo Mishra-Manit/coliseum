@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 
 from coliseum.agents.guardian import run_guardian
 from coliseum.config import Settings
+from coliseum.memory.errors import ErrorEntry, log_error
 from coliseum.pipeline import run_pipeline
 
 logger = logging.getLogger("coliseum.daemon")
@@ -96,6 +97,12 @@ class ColiseumDaemon:
                 e,
                 exc_info=True,
             )
+            self._log_error(
+                component="pipeline",
+                error=str(e),
+                resolution="auto_retry" if self._consecutive_failures < self.settings.daemon.max_consecutive_failures else "paused",
+                attempts=self._consecutive_failures,
+            )
             if self._consecutive_failures >= self.settings.daemon.max_consecutive_failures:
                 logger.critical(
                     "Max consecutive failures reached (%d). Pausing daemon.",
@@ -129,6 +136,11 @@ class ColiseumDaemon:
                 )
             except Exception as e:
                 logger.error("Guardian intercycle failed: %s", e)
+                self._log_error(
+                    component="guardian_intercycle",
+                    error=str(e),
+                    resolution="skipped",
+                )
 
         leftover = remaining_seconds - elapsed_in_gap
         if leftover > 0 and not self._shutdown_event.is_set():
@@ -151,6 +163,27 @@ class ColiseumDaemon:
         """Handle shutdown signal by setting the shutdown event."""
         logger.info("Received %s — initiating graceful shutdown", sig.name)
         self._shutdown_event.set()
+
+    def _log_error(
+        self,
+        component: str,
+        error: str,
+        resolution: str,
+        attempts: int = 1,
+        details: str = "",
+    ) -> None:
+        """Log an error to the persistent error history."""
+        try:
+            entry = ErrorEntry(
+                component=component,
+                error=error,
+                resolution=resolution,
+                attempts=attempts,
+                details=details,
+            )
+            log_error(entry)
+        except Exception as e:
+            logger.warning("Failed to log error to memory: %s", e)
 
     def status_summary(self) -> dict:
         """Return a snapshot of daemon state for diagnostics."""

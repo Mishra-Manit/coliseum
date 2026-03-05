@@ -55,6 +55,7 @@ def cmd_init(args: argparse.Namespace) -> int:
             "positions/open",
             "positions/closed",
             "trades",
+            "memory/journal",
         ]
 
         for subdir in subdirs:
@@ -134,6 +135,14 @@ open_positions: []
             logger.info(f"Created state template: {state_path}")
         else:
             logger.info(f"State file already exists: {state_path}")
+
+        learnings_path = data_dir / "memory" / "learnings.md"
+        if not learnings_path.exists():
+            from coliseum.memory.learnings import LEARNINGS_SEED
+            learnings_path.write_text(LEARNINGS_SEED, encoding="utf-8")
+            logger.info(f"Created learnings seed: {learnings_path}")
+        else:
+            logger.info(f"Learnings file already exists: {learnings_path}")
 
         print(f"\n✓ Data directory initialized at {data_dir}")
         print("\nNext steps:")
