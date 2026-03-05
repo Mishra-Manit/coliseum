@@ -46,6 +46,7 @@ class ClosedPosition(BaseModel):
     pnl: float
     opportunity_id: str | None = None
     closed_at: datetime | None = None
+    entry_rationale: str | None = None
 
 
 class PortfolioState(BaseModel):

@@ -16,6 +16,7 @@ from coliseum.agents.analyst.shared import (
 )
 from coliseum.config import Settings
 from coliseum.llm_providers import OpenAIModel, get_model_string
+from coliseum.memory.context import build_analyst_context
 from coliseum.storage.files import OpportunitySignal, append_to_opportunity
 
 logger = logging.getLogger(__name__)
@@ -90,9 +91,10 @@ async def run_researcher(
 def _build_research_prompt(opportunity: OpportunitySignal, settings: Settings) -> str:
     """Build the research prompt for the agent."""
     header = format_opportunity_header(opportunity)
+    memory_context = build_analyst_context()
 
     return f"""Research this prediction market opportunity and synthesize your findings.
-
+{memory_context}
 ## Opportunity Details
 
 {header}

@@ -27,6 +27,7 @@ closed_positions:
   pnl: -0.20000000000000018
   opportunity_id: sync_e047f731
   closed_at: '2026-03-05T05:21:30.724813Z'
+  entry_rationale: null
 - market_ticker: KXNASCARRACE-ONLGF1AS26-LARI
   side: 'NO'
   contracts: 4
@@ -35,6 +36,7 @@ closed_positions:
   pnl: -0.20000000000000018
   opportunity_id: sync_c8bb6634
   closed_at: '2026-03-05T05:21:30.757822Z'
+  entry_rationale: null
 - market_ticker: KXAAAGASW-26MAR02-3.008
   side: 'NO'
   contracts: 5
@@ -43,6 +45,7 @@ closed_positions:
   pnl: -0.20000000000000018
   opportunity_id: sync_e29a905c
   closed_at: '2026-03-05T05:21:30.790124Z'
+  entry_rationale: null
 - market_ticker: KXNYTHEAD-26FEB-T1
   side: 'NO'
   contracts: 5
@@ -51,6 +54,7 @@ closed_positions:
   pnl: -0.34999999999999976
   opportunity_id: sync_ee70b444
   closed_at: '2026-03-05T05:21:30.823812Z'
+  entry_rationale: null
 - market_ticker: KXTRUTHSOCIAL-26FEB28-B129
   side: 'NO'
   contracts: 10
@@ -59,6 +63,7 @@ closed_positions:
   pnl: -0.40000000000000036
   opportunity_id: sync_58a784af
   closed_at: '2026-03-05T05:21:30.854613Z'
+  entry_rationale: null
 - market_ticker: KXTRUMPSAYMONTH-26MAR01-TURN
   side: 'NO'
   contracts: 1
@@ -67,6 +72,7 @@ closed_positions:
   pnl: -0.040000000000000036
   opportunity_id: sync_627a95c7
   closed_at: '2026-03-05T05:21:30.889148Z'
+  entry_rationale: null
 seen_tickers:
 - KXWOHOCKEY-MEN26CGOLD-USA
 - KXNCAABBGAME-26FEB201400LSUIND-LSU

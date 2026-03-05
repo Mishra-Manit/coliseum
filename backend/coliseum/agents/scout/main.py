@@ -9,6 +9,7 @@ from pydantic_ai import Agent, RunContext, WebSearchTool
 from coliseum.agents.shared_tools import register_get_current_time
 from coliseum.config import Settings, get_settings
 from coliseum.llm_providers import OpenAIModel, get_model_string
+from coliseum.memory.context import build_scout_context
 from coliseum.services.kalshi.client import KalshiClient
 from coliseum.services.kalshi.config import KalshiConfig
 from coliseum.storage.files import save_opportunity, generate_opportunity_id
@@ -182,6 +183,7 @@ async def run_scout(
             with logfire.span("agent run", markets=len(prefetched_markets)):
                 agent = get_scout_agent(settings)
                 scout_cfg = settings.scout
+                memory_context = build_scout_context()
                 prompt = (
                     f"Scan Kalshi markets for near-decided opportunities—markets at "
                     f"{scout_cfg.min_price}-{scout_cfg.max_price}% where the outcome "
@@ -189,6 +191,7 @@ async def run_scout(
                     f"Find exactly 1 opportunity—the single least-risky qualifying market. "
                     f"Select markets that pass the Risk Assessment Checklist. Remember: residual uncertainty is normal for open markets—do not skip a market just because the outcome is not yet 100% official. "
                     f"CRITICAL: You MUST return at least 1 opportunity. If no market meets the ideal risk threshold, select the single least-risky available market as a fallback and label it clearly in the rationale."
+                    f"{memory_context}"
                     f"{_build_market_context_prompt(prefetched_markets)}"
                 )
                 result = await agent.run(prompt, deps=deps)

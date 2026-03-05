@@ -374,7 +374,7 @@ The most impactful change: agents get **accumulated context** instead of startin
 | **Scout** | Recent decisions (skip reasons for seen markets), current portfolio snapshot, learnings about market patterns |
 | **Analyst** | Current portfolio state (to assess concentration risk), recent similar analyses, relevant learnings |
 | **Trader** | Full portfolio state, recent trade outcomes, execution learnings (fill rates, spread behavior) |
-| **Guardian** | Position age, original entry rationale (from opportunity file), recent PnL trend |
+| **Guardian** | No prompt injection — Guardian is fully deterministic (no LLM). Instead: **output enrichment**. When reconciling a newly closed position, Guardian reads the opportunity file via `opportunity_id` and embeds the original entry rationale into the `ClosedPosition` record for audit trail purposes. |
 
 #### Implementation:
 
@@ -474,19 +474,19 @@ Last trade: BUY_YES KXWEATHER-NYC-SNOW @ 93¢ (2h ago)
 2. Inject into Scout prompt (recent decisions, portfolio state)
 3. Inject into Analyst prompt (portfolio concentration, similar analyses)
 4. Inject into Trader prompt (execution history, fill rate patterns)
-5. Inject into Guardian prompt (position age, entry rationale)
+5. Enrich Guardian output (on close, read opportunity file via `opportunity_id` and embed original entry rationale into `ClosedPosition` record — no LLM prompt, pure deterministic output enrichment)
 
-### Phase 5: Auto-Start via systemd + CLI
+### Phase 5: Health & Observability
+1. Add lightweight health HTTP server to daemon
+2. Add Telegram heartbeat (periodic summary)
+3. Add dashboard integration (surface daemon status in frontend)
+
+### Phase 6: Auto-Start via systemd + CLI
 1. Create `scripts/coliseum.service` systemd unit file
 2. Add `sdnotify` to `requirements.txt` and wire watchdog pings into heartbeat loop
 3. Add `daemon install/uninstall/status/logs` CLI commands (wrapping `systemctl` / `journalctl`)
 4. Create setup script for Raspberry Pi (user creation, venv, service install)
 5. Write deployment documentation for Raspberry Pi
-
-### Phase 6: Health & Observability
-1. Add lightweight health HTTP server to daemon
-2. Add Telegram heartbeat (periodic summary)
-3. Add dashboard integration (surface daemon status in frontend)
 
 ---
 

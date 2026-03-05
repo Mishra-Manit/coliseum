@@ -15,6 +15,7 @@ from coliseum.agents.analyst.shared import (
     load_opportunity,
 )
 from coliseum.config import Settings
+from coliseum.memory.context import build_analyst_context
 from coliseum.llm_providers import OpenAIModel, get_model_string
 from coliseum.storage.files import (
     OpportunitySignal,
@@ -90,9 +91,10 @@ def _build_decision_prompt(
 ) -> str:
     """Build the evaluation prompt for execution readiness."""
     header = format_opportunity_header(opportunity)
+    memory_context = build_analyst_context()
 
     return f"""Evaluate this research for execution readiness (no final trade decision).
-
+{memory_context}
 ## Opportunity Details
 
 {header}

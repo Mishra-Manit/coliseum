@@ -10,6 +10,7 @@ import logfire
 from coliseum.config import Settings, get_settings
 from coliseum.services.kalshi import KalshiClient
 from coliseum.services.kalshi.config import KalshiConfig
+from coliseum.storage.files import find_opportunity_file_by_id, get_opportunity_markdown_body
 from coliseum.storage.state import ClosedPosition, PortfolioState, Position, load_state, save_state
 from coliseum.storage.sync import (
     extract_fill_count,
@@ -104,6 +105,24 @@ async def _compute_exit_outcome(
     return exit_price, pnl
 
 
+def _extract_entry_rationale(opportunity_id: str | None) -> str | None:
+    """Read opportunity file and extract the original Scout rationale."""
+    if not opportunity_id:
+        return None
+    try:
+        opp_file = find_opportunity_file_by_id(opportunity_id)
+        if not opp_file:
+            return None
+        body = get_opportunity_markdown_body(opp_file)
+        for line in body.splitlines():
+            if line.startswith("**Rationale**:"):
+                return line.removeprefix("**Rationale**:").strip()
+        return None
+    except Exception as exc:
+        logger.warning("Could not extract entry rationale for %s: %s", opportunity_id, exc)
+        return None
+
+
 async def reconcile_closed_positions(
     old_open: list[Position],
     new_state: PortfolioState,
@@ -133,6 +152,7 @@ async def reconcile_closed_positions(
                 pnl=pnl,
                 opportunity_id=pos.opportunity_id,
                 closed_at=datetime.now(timezone.utc),
+                entry_rationale=_extract_entry_rationale(pos.opportunity_id),
             )
         )
         stats.newly_closed += 1

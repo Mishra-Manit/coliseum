@@ -1,6 +1,7 @@
 """System prompts for the Trader agent."""
 
 from coliseum.config import Settings
+from coliseum.memory.context import build_trader_context
 from coliseum.storage.files import OpportunitySignal
 
 def build_trader_system_prompt(settings: Settings) -> str:
@@ -77,7 +78,9 @@ def _build_trader_prompt(
     settings: Settings,
 ) -> str:
     """Construct trading decision prompt."""
-    prompt = f"""You are evaluating a trade for execution.
+    memory_context = build_trader_context()
+
+    return f"""You are evaluating a trade for execution.
 
 ## Opportunity Details
 
@@ -89,7 +92,7 @@ def _build_trader_prompt(
 **YES Price**: {opportunity.yes_price:.2%} ({opportunity.yes_price * 100:.1f}¢)
 **NO Price**: {opportunity.no_price:.2%} ({opportunity.no_price * 100:.1f}¢)
 **Closes**: {opportunity.close_time.strftime('%Y-%m-%d %H:%M UTC') if opportunity.close_time else 'N/A'}
-
+{memory_context}
 ## Full Research Context
 
 {markdown_body}
@@ -108,5 +111,3 @@ def _build_trader_prompt(
 
 Default to EXECUTE. REJECT only if official evidence shows a credible crazy flip path.
 """
-
-    return prompt
