@@ -1,6 +1,6 @@
 # Coliseum: Autonomous Quant Agent System
 
-## Specification Document v2.2 (Edge Trading)
+## Specification Document v2.4
 
 ---
 
@@ -9,7 +9,7 @@
 **Coliseum** is an autonomous quantitative trading system that deploys AI agents to trade on Kalshi prediction markets. The system operates as a fully autonomous pipeline where specialized agents collaborate to research events, identify trading opportunities, execute positions, and continuously monitor the portfolio.
 
 ### Vision Statement
-> *Build a self-sustaining AI trading system that can independently identify market mispricings, capture edge through disciplined entry and exit, and adapt to changing market conditions—all with minimal human intervention.*
+> *Build a self-sustaining AI trading system that can independently identify near-decided markets, execute with disciplined risk controls, and adapt to changing market conditions—all with minimal human intervention.*
 
 ### Core Principles
 
@@ -19,51 +19,38 @@
 | **Research-Driven** | Every trade is backed by deep, grounded research |
 | **Risk-First** | Hard limits and circuit breakers prevent catastrophic losses |
 | **Transparent** | Full audit trail of every decision and trade |
-| **Edge Capture** | Exit before resolution—capture mispricings, not outcomes |
+| **Resolution-Focused Execution** | Favor markets with clear resolution paths and low reversal risk |
 
 ---
 
-## Trading Strategy
+## Trading Model
 
-### Edge Trading vs Resolution Trading
+### Trading Workflow
 
-Coliseum uses an **Edge Trading** strategy, which differs fundamentally from traditional resolution-based trading:
+Coliseum targets low-reversal-risk opportunities in near-decided markets.
 
-| Aspect | Resolution Trading | Edge Trading (Coliseum) |
-|--------|-------------------|-------------------------|
-| **Win Condition** | Correctly predict outcome | Identify market mispricing |
-| **Exit Trigger** | Event resolves | Market corrects toward true probability |
-| **Hold Period** | Until resolution | Maximum 5 days |
-| **Risk Profile** | Binary (win/lose at resolution) | Continuous (P&L from price movement) |
-| **Variance** | High (100% or 0%) | Lower (capture partial edge) |
+| Aspect | Description |
+|--------|-------------|
+| **Win Condition** | Choose markets that are structurally near-decided |
+| **Entry Trigger** | Price band + research-backed low reversal risk |
+| **Hold Profile** | Resolution-oriented with strict execution controls |
+| **Risk Profile** | Minimize reversal and procedural uncertainty |
 
-### Strategy Parameters
+### Active Parameters
 
-| Parameter | Value | Rationale |
-|-----------|-------|-----------|
-| **Min Days to Close** | 4 days | Allows time for market to reprice |
-| **Max Days to Close** | 10 days | Capital efficiency; avoid long-dated positions |
-| **Profit Target** | 70% edge capture | Take profits before full edge realized |
-| **Stop Loss** | 10% of position | Tight stops; cut losses quickly |
-| **Max Hold Days** | 5 days | Force exit regardless of P&L |
-| **Kelly Fraction** | 0.50 (half Kelly) | More aggressive sizing for shorter holds |
-| **Min Edge Threshold** | 5% | Only trade significant mispricings |
+| Parameter | Source | Purpose |
+|-----------|--------|---------|
+| **Price band** | `scout.min_price` / `max_price` | Focus on highly likely outcomes |
+| **Close horizon** | `scout.max_close_hours` | Restrict to near-term resolutions |
+| **Max position** | `risk.max_position_pct` | Portfolio concentration cap |
+| **Max single trade** | `risk.max_single_trade_usd` | Per-trade hard cap |
+| **Order controls** | `execution.*` | Limit-order repricing discipline |
 
-### Exit Rules
+### Historical Note
 
-Guardian agent (when implemented) will enforce these exit rules:
+Legacy model details were retired from runtime behavior and are documented in:
 
-1. **Profit Target**: Exit when 70% of identified edge is captured
-2. **Stop Loss**: Exit if position loses 10% of entry value
-3. **Time Stop**: Exit after 5 days regardless of P&L
-4. **Resolution Warning**: Exit 24 hours before event resolution (never hold to expiry)
-
-### Why Edge Trading?
-
-1. **Reduced Variance**: Don't need to be "right" about outcomes, just about mispricings
-2. **Capital Efficiency**: Shorter hold times = more trades = more edge capture
-3. **Risk Management**: Can cut losses before resolution; not locked into binary outcome
-4. **Research Value**: Focus on "what does the market not know?" not "what will happen?"
+- `backend/docs/archived/edge_strategy.md`
 
 ---
 
@@ -163,20 +150,20 @@ Guardian ◀──(OpenPosition)────────────────
 
 ### 1. Scout Agent 🔍 (IMPLEMENTED)
 
-**Mission**: Discover market mispricings—opportunities where research reveals the true probability differs from the market price.
+**Mission**: Discover near-decided opportunities with clear resolution pathways and low reversal risk.
 
-#### Edge Trading Focus
+#### Market Focus
 Scout filters for markets with:
-- **4-10 day time horizon**: Enough time for market to reprice, not too far out
-- **Mispricing potential**: Research can reveal information asymmetry
-- **Repricing catalyst**: Clear reason why market will correct
+- **Configured certainty band**: YES/NO price within configured thresholds
+- **Short time horizon**: Closes within configured window
+- **Low procedural reversal risk**: No active formal challenge path
 
 #### Responsibilities
 - Scan Kalshi API for events closing in 4-10 days
 - Filter events by liquidity, volume, and time horizon
-- Conduct deep web research to identify mispricings
-- Create opportunity files with mispricing thesis
-- Identify WHY the market will reprice (not just predict outcome)
+- Conduct targeted web research to validate resolution status
+- Create opportunity files with risk rationale and source evidence
+- Prioritize the single lowest-risk candidate in the scan set
 
 #### Execution Schedule
 - **Market Scan**: Every 60 minutes (comprehensive market sweep)
@@ -193,10 +180,10 @@ Scout filters for markets with:
 
 #### Output Format
 Creates opportunity file at `data/opportunities/{ticker}.md` with:
-- Mispricing thesis and repricing catalyst
+- Resolution-thesis rationale and supporting catalyst
 - Market snapshot (prices, volume, liquidity)
 - Research findings with sources
-- Target exit price and expected edge capture
+- Resolution risk rationale and validation checklist status
 
 ---
 
@@ -233,26 +220,25 @@ Appends to opportunity file:
 
 #### 2B. Recommender Sub-Agent ⚖️
 
-**Mission**: Evaluate trading opportunity and compute metrics based on research.
+**Mission**: Evaluate execution readiness from research context.
 
 ##### Responsibilities
-- Calculate edge and expected value using research insights
-- Assess trade quality (confidence, uncertainty, opportunity cost)
-- Determine position sizing
+- Evaluate flip risk and resolution confidence
+- Summarize readiness for Trader decisioning
+- Provide directional action guidance when appropriate
 - Append recommendation section to opportunity file
 
 ##### Tools Available
 
 | Tool | Purpose | Implementation |
 |------|---------|----------------|
-| `calculate_edge` | Compute market inefficiency | `agents/calculations.py` |
-| `calculate_ev` | Expected value calculation | `agents/calculations.py` |
-| `kelly_criterion` | Optimal position sizing | `agents/calculations.py` |
+| `read_opportunity_research` | Load consolidated research context | `agents/analyst/recommender.py` |
+| `format_opportunity_header` | Build structured opportunity summary | `agents/analyst/recommender.py` |
 
 ##### Output Format
 Appends to opportunity file:
-- Trade evaluation metrics (edge, EV, estimated probability)
-- Position sizing (Kelly fraction, contract quantity)
+- Readiness assessment and risk narrative
+- Optional action (`BUY_YES`, `BUY_NO`, `ABSTAIN`)
 - Concise reasoning (~100 words)
 
 ---
@@ -282,7 +268,7 @@ Opportunity File (Scout)
 
 #### Planned Responsibilities
 - Validate recommendations against current portfolio state
-- Calculate slippage-adjusted edge before execution
+- Validate recommendation against live market conditions
 - Execute trades using limit orders only (never market orders)
 - Use "working order" strategy (place → wait → reprice → cancel after 3 attempts)
 - Update portfolio state and create position files
@@ -300,20 +286,20 @@ The Trader agent will use limit orders only (never market orders) with slippage 
 
 ### 4. Guardian Agent 🛡️ (NOT YET IMPLEMENTED)
 
-**Mission**: Enforce exit discipline for edge trading—capture profits, cut losses, never hold to resolution.
+**Mission**: Monitor open positions and enforce resolution-risk discipline.
 
-#### Edge Trading Exit Rules
-Guardian enforces these exit conditions:
+#### Planned Exit Rules
+Guardian is designed to enforce these exit conditions:
 
 | Exit Type | Trigger | Action |
 |-----------|---------|--------|
-| **Profit Target** | 70% of identified edge captured | Close position, lock in gains |
+| **Profit Target** | Configured threshold | Close position, lock in gains |
 | **Stop Loss** | Position down 10% | Close position, cut losses |
 | **Time Stop** | 5 days since entry | Close position regardless of P&L |
 | **Resolution Warning** | <24 hours to event close | FORCE close (never hold to expiry) |
 
 #### Planned Responsibilities
-- Monitor price movements and calculate edge capture percentage
+- Monitor price and resolution-risk changes
 - Track hold duration against max_hold_days limit
 - Watch for resolution approaching (time-to-close warnings)
 - Generate exit signals for Trader to execute
@@ -326,7 +312,7 @@ Guardian enforces these exit conditions:
 
 #### Monitoring (TODO)
 
-Position monitoring and exit signal generation will be implemented in `agents/guardian/`. Critical for edge trading strategy—without Guardian, positions could be held to resolution (violating strategy).
+Position monitoring and exit signal generation will be implemented in `agents/guardian/`.
 
 ---
 
@@ -462,43 +448,25 @@ Data quality is excellent with multiple corroborating sources.
 status: recommendation_complete
 recommender_completed_at: 2025-01-14T11:00:00Z
 recommendation: BUY_YES
-edge: 0.12
-expected_value: 0.18
-position_size_pct: 0.025
-contract_quantity: 25
+action: BUY_YES
 ---
 
 # ... (Scout + Researcher content preserved)
 
 ## Trade Evaluation
 
-**Recommendation**: BUY YES (25 contracts)
+**Recommendation**: BUY YES
 
 ### Reasoning
 
-Market is pricing 58% probability, but research suggests 70% chance of S&P reaching 4,621:
-- Historical patterns favor January gains
-- Current momentum is positive (+1.8% YTD)
-- No major risk events on calendar
-- Volatility is moderate and stable
-
-**True Probability Estimate**: 70%
-**Market Implied Probability**: 58%
-**Edge**: +12 percentage points
-
-### Position Sizing
-
-- **Edge**: 12%
-- **Expected Value**: +18%
-- **Kelly Fraction**: 1/4 Kelly = 2.5% of portfolio
-- **Contract Quantity**: 25 contracts ($14.50 cost basis)
-- **Max Loss**: $14.50 (if S&P fails to reach target)
-- **Max Gain**: $10.50 (if S&P reaches 4,621)
+Research confirms a clear resolution authority and no active formal challenges.
+Current price remains in configured price range.
+Primary risk factors are low and documented in sources.
 
 ### Risk Assessment
 
 - Within position size limits (2.5% < 10% max)
-- Positive expected value (+18%)
+- Price band and risk checks remain valid
 - Acceptable liquidity for entry/exit
 - **APPROVED FOR TRADING**
 ```
@@ -517,15 +485,15 @@ These limits are **never bypassed** under any circumstances:
 | **Max Single Trade** | $1,000 | Reject trade immediately |
 | **Max Open Positions** | 10 concurrent | Reject trade until position closes |
 | **Daily Loss Limit** | 10% of portfolio | Halt all trading for 24 hours |
-| **Min Edge Threshold** | 5% | Skip trade (insufficient edge) |
-| **Min EV Threshold** | 5% | Skip trade (insufficient expected value) |
+| **Price Band Gate** | Scout-configured thresholds | Skip markets outside configured band |
+| **Reversal-Risk Gate** | Must pass required checks | Skip unresolved or formally challenged setups |
 
-### Edge Trading Exit Rules
+### Resolution Exit Rules
 
 | Rule | Threshold | Rationale |
 |------|-----------|-----------|
-| **Profit Target** | 70% edge capture | Lock in gains before market overshoots |
-| **Stop Loss** | 10% position loss | Tight stops for edge trading |
+| **Profit Target** | Configured target | Lock in gains systematically |
+| **Stop Loss** | Configured loss cap | Cap downside on adverse moves |
 | **Max Hold Time** | 5 days | Force exit; capital efficiency |
 | **Resolution Buffer** | Exit 24h before close | NEVER hold to resolution |
 
@@ -533,18 +501,15 @@ These limits are **never bypassed** under any circumstances:
 
 | Rule | Logic | Rationale |
 |------|-------|-----------|
-| **Slippage Protection** | Reject if slippage destroys 50%+ of edge | Preserve profitable trades only |
+| **Slippage Protection** | Reject if slippage violates execution limits | Preserve disciplined fills |
 | **Liquidity Check** | Require 5x position size in open interest | Ensure ability to exit |
 | **Time Stop** | Exit after max_hold_days regardless of P&L | Force capital turnover |
 | **Resolution Warning** | Alert at 48h, force exit at 24h | Never hold to binary outcome |
 
-### Trading Calculations
+### Trading Evaluation
 
-All position sizing uses Kelly Criterion (1/2 Kelly for edge trading). See [`calculations.md`](./calculations.md) for mathematical foundations including:
-- Edge calculation
-- Expected value (EV) calculation
-- Kelly Criterion formula
-- Slippage-adjusted sizing
+Execution uses configured limits and order controls from `risk` and `execution` sections.
+See [`calculations.md`](./calculations.md) for current evaluation guidance.
 
 ---
 
@@ -605,7 +570,7 @@ Configuration: Set `LOGFIRE_TOKEN` in `.env`
 | Metric | Purpose |
 |--------|---------|
 | **Win Rate** | % of profitable trades |
-| **Average Edge** | Mean edge across all trades |
+| **Average Trade Return** | Mean return across completed trades |
 | **Sharpe Ratio** | Risk-adjusted returns |
 | **Max Drawdown** | Largest peak-to-trough decline |
 | **Daily P&L** | Track against loss limits |
@@ -678,24 +643,23 @@ Configuration: Set `LOGFIRE_TOKEN` in `.env`
 #### 2.2 Analyst Pipeline (`coliseum/agents/analyst/`)
 - [ ] Create Pydantic models:
   - `ResearcherConfig` (timeout, required sources)
-  - `RecommenderConfig` (min edge threshold)
+  - `RecommenderConfig` (readiness constraints)
   - Extended `OpportunitySignal` (with research + recommendation fields)
 - [ ] Implement Researcher agent (`coliseum/agents/analyst/researcher/main.py`)
 - [ ] Implement Recommender agent (`coliseum/agents/analyst/recommender/main.py`)
 - [ ] Add tools:
   - Researcher: `WebSearchTool()` → Native web search via OpenAI
   - Recommender: `read_opportunity_research()` → Extract research from opportunity file
-  - Recommender: `calculate_edge_ev(probability, market_price)` → Edge and EV
+  - Recommender: summarize execution readiness from research context
 - [ ] Implement append-based workflow:
   1. Receive opportunity_id from Scout queue
   2. **Researcher**: Load opportunity file, conduct research, append research section
   3. **Recommender**: Load same opportunity file, extract research, append evaluation section
   4. Result: Single opportunity file with all three stages (Scout → Researcher → Recommender)
 
-#### 2.3 Edge/EV Calculations (`coliseum/agents/calculations.py`)
-- [ ] `calculate_edge(true_prob, market_prob)` → Edge percentage
-- [ ] `calculate_expected_value(win_prob, payout, cost)` → EV per dollar
-- [ ] `calculate_kelly_fraction(win_prob, odds, fraction=0.25)` → Position size %
+#### 2.3 Evaluation Guidance (`coliseum/agents/analyst/`)
+- [ ] Finalize flip-risk and readiness schema
+- [ ] Ensure recommendation output aligns with Trader input expectations
 
 #### 2.4 Analyst Queue Processing
 - [ ] Implement `process_analyst_queue()`:
@@ -716,7 +680,7 @@ Configuration: Set `LOGFIRE_TOKEN` in `.env`
 |------|--------|
 | Web search integration | Unit test: verify WebSearchTool returns search results |
 | Research brief quality | Manual: inspect generated briefs for source quality and citation accuracy |
-| Edge/EV calculations | Unit test: verify math against known examples |
+| Readiness output validation | Unit test: verify analyst output schema and constraints |
 | Full pipeline | Integration: opportunity → research → recommendation |
 
 ---
@@ -731,15 +695,15 @@ Configuration: Set `LOGFIRE_TOKEN` in `.env`
   - `check_daily_loss(portfolio)` → Max 5% daily loss
   - `check_open_positions(portfolio)` → Max 10 concurrent positions
   - `check_single_trade_cap(trade)` → Max $1,000 per trade
-  - `check_edge_threshold(trade)` → Min 5% edge
-  - `check_ev_threshold(trade)` → Min 10% EV
+  - `check_price_band(trade)` → Price band compliance
+  - `check_reversal_risk(trade)` → Formal challenge / resolution risk gate
 - [ ] Implement `validate_trade(trade, portfolio)` → `(passed: bool, reason: str)`
 
 #### 3.2 Order Execution Models (`coliseum/agents/execution.py`)
 - [ ] Create Pydantic models:
   - `OrderBookLevel` (price, contracts available)
   - `OrderBookDepth` (bid/ask levels, spreads, aggregate liquidity)
-  - `SlippageEstimate` (fill simulation, adjusted edge/EV)
+  - `SlippageEstimate` (fill simulation, adjusted execution quality)
   - `ExecutionConfig` (slippage tolerance, reprice settings, timeouts)
   - `OrderState` enum (initialized, placed, partial, completed, cancelled)
   - `WorkingOrder` (order tracking through execution loop)
@@ -749,8 +713,8 @@ Configuration: Set `LOGFIRE_TOKEN` in `.env`
 - [ ] Implement `calculate_slippage(order_book, side, contracts, max_price)`:
   - Walk order book levels
   - Calculate volume-weighted average fill price
-  - Return `SlippageEstimate` with adjusted edge/EV
-- [ ] Implement `size_with_liquidity(kelly_size, order_book, max_slippage)`:
+  - Return `SlippageEstimate` with adjusted execution feasibility
+- [ ] Implement `size_with_liquidity(base_size, order_book, max_slippage)`:
   - Binary search for max size within slippage tolerance
   - Return reduced position size if order book is thin
 
@@ -763,7 +727,7 @@ Configuration: Set `LOGFIRE_TOKEN` in `.env`
   - `get_portfolio_state()` → Current positions and P&L
   - `get_order_book_depth(ticker)` → Fetch bid/ask levels
   - `calculate_slippage(order_book, size)` → Estimate fill quality
-  - `calculate_position_size(recommendation, order_book)` → Kelly + liquidity
+  - `calculate_position_size(recommendation, order_book)` → limits + liquidity
   - `place_limit_order(ticker, side, contracts, limit_price)` → Execute limit order
   - `reprice_order(order_id, new_limit)` → Cancel and replace
   - `record_trade(execution)` → Log to JSONL ledger
@@ -777,7 +741,7 @@ Configuration: Set `LOGFIRE_TOKEN` in `.env`
   3. Poll fill status from Kalshi
   4. If filled → complete and record
   5. If partial → decide: accept partial or reprice remainder
-  6. If unfilled → re-check edge, reprice or cancel
+  6. If unfilled → re-check fill conditions, reprice or cancel
   7. After `max_reprice_attempts` → cancel and log
 - [ ] Track all state transitions in `WorkingOrder.state_history`
 
@@ -790,7 +754,7 @@ Configuration: Set `LOGFIRE_TOKEN` in `.env`
 
 #### 3.7 Trade Journaling
 - [ ] Append all trades to `data/trades/YYYY-MM-DD.jsonl`
-- [ ] Include: position ID, recommendation ID, side, contracts, price, edge, EV, slippage, fill_type
+- [ ] Include: position ID, recommendation ID, side, contracts, price, slippage, fill_type
 - [ ] Store working order history for audit trail
 - [ ] Atomically append (no corruption on crash)
 
@@ -799,11 +763,11 @@ Configuration: Set `LOGFIRE_TOKEN` in `.env`
 |------|--------|
 | Order book parsing | Unit test: parse sample Kalshi order book response |
 | Slippage calculation | Unit test: verify avg fill price against manual calculation |
-| Slippage edge rejection | Unit test: trade rejected when slippage destroys edge |
+| Slippage rejection | Unit test: trade rejected when slippage violates limits |
 | Liquidity sizing | Unit test: position size reduced for thin books |
 | Working order loop | Integration: mock partial fill, verify reprice triggered |
 | Risk manager blocks bad trades | Unit test: trades exceeding limits are rejected |
-| Kelly sizing is correct | Unit test: verify against manual calculations |
+| Sizing logic is correct | Unit test: verify limits + liquidity behavior |
 | Paper trades logged correctly | Integration: execute paper trade, verify ledger entry |
 | State updates correctly | Integration: paper trade, verify `state.yaml` reflects position |
 
@@ -876,7 +840,7 @@ Configuration: Set `LOGFIRE_TOKEN` in `.env`
 - [ ] Run full system in paper mode for 2-4 weeks
 - [ ] Track metrics:
   - Hit rate (% of analyses that resolve profitably)
-  - Edge accuracy (estimated edge vs actual outcome)
+  - Outcome-confidence calibration (analyst risk vs realized outcome)
   - Average P&L per trade
   - Sharpe ratio simulation
 - [ ] Create `data/metrics/` for performance tracking
@@ -884,9 +848,9 @@ Configuration: Set `LOGFIRE_TOKEN` in `.env`
 #### 5.3 Parameter Tuning
 - [ ] Analyze paper trading results
 - [ ] Adjust thresholds based on data:
-  - Min edge threshold (currently 5%)
-  - Min EV threshold (currently 10%)
-  - Kelly fraction (currently 0.25)
+  - Price band thresholds
+  - Reversal-risk gating strictness
+  - Execution reprice settings
   - Profit target (currently 50%)
   - Stop loss (currently 30%)
 - [ ] Document optimal parameters in `config.yaml`
@@ -975,7 +939,7 @@ See [`IMPLEMENTATION_SUMMARY.md`](./IMPLEMENTATION_SUMMARY.md) for detailed mile
 
 ### Related Documentation
 
-- **[`calculations.md`](./calculations.md)** - Mathematical foundations for edge, EV, and Kelly Criterion
+- **[`calculations.md`](./calculations.md)** - Evaluation guidance
 - **[`Research_agent_pipeline.md`](./Research_agent_pipeline.md)** - Detailed Analyst agent (Researcher + Recommender) specification
 - **[`IMPLEMENTATION_SUMMARY.md`](./IMPLEMENTATION_SUMMARY.md)** - Completed milestones and progress tracking
 - **[`../CLAUDE.md`](../CLAUDE.md)** - Project instructions for AI assistants
@@ -1014,6 +978,6 @@ LOGFIRE_TOKEN=your_token
 
 ---
 
-**Document Version**: 2.1 (Streamlined)
+**Document Version**: 2.4
 **Last Updated**: 2025-01-23
 **Purpose**: High-level system design and architecture reference

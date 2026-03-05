@@ -71,8 +71,7 @@ Ticker: MARKET-ABC
 Side: YES
 Contracts: 100
 Price: $0.52
-Total Cost: $52.00
-Edge: +8.0%"""
+Total Cost: $52.00"""
 
 await client.send_alert(message)
 ```

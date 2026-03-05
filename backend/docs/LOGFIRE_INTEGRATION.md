@@ -177,8 +177,8 @@ with logfire.span(
 2. **Analyst Pipeline**
    - Researcher agent with Exa API calls
    - Recommender agent with calculations
-   - Edge/EV computation
-   - Position sizing
+   - Flip-risk recommendation output
+   - Readiness assessment output
 
 3. **External API Calls**
    - Kalshi: GET requests with timing

@@ -2,7 +2,7 @@
 
 ## Spec Version
 
-- Current version: `1.1.0`
+- Current version: `1.1.1`
 - Versioning scheme: `MAJOR.MINOR.PATCH` (semantic versioning)
 - Keep `CLAUDE.md` and `AGENTS.md` on the exact same version at all times
 
@@ -32,8 +32,7 @@ backend/
 │   │   ├── scout/           # Market discovery agent
 │   │   ├── analyst/         # Research + recommendation agent
 │   │   │   ├── researcher/  # Web research sub-agent
-│   │   │   └── recommender/ # EV/edge recommendation sub-agent
-│   │   │       └── calculations.py  # Edge/EV/Kelly math
+│   │   │   └── recommender/ # Flip-risk recommendation sub-agent
 │   │   ├── trader/          # Trade execution agent
 │   │   └── guardian/        # Position monitoring agent
 │   ├── api/
