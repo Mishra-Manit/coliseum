@@ -2,21 +2,50 @@
 
 import asyncio
 import logging
+import os
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
 import yaml
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from coliseum.config import get_settings
+from coliseum.daemon import ColiseumDaemon
 from coliseum.pipeline import run_pipeline
 
 logger = logging.getLogger(__name__)
 
 DATA_DIR = Path(__file__).resolve().parent.parent.parent / "data"
 
-app = FastAPI(title="Coliseum Dashboard API", version="0.1.0")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Start daemon as a background task when COLISEUM_START_DAEMON is set."""
+    if os.environ.get("COLISEUM_START_DAEMON") == "1":
+        settings = get_settings()
+        try:
+            from coliseum.observability import initialize_logfire
+            initialize_logfire(settings)
+        except Exception as e:
+            logger.warning("Failed to initialize Logfire in lifespan: %s", e)
+        daemon = ColiseumDaemon(settings)
+        task = asyncio.create_task(daemon.start(install_signal_handlers=False))
+        app.state.daemon = daemon
+        logger.info("Daemon started as background task alongside API server")
+        yield
+        daemon._shutdown_event.set()
+        try:
+            await asyncio.wait_for(task, timeout=10.0)
+        except asyncio.TimeoutError:
+            logger.warning("Daemon did not stop within 10s timeout")
+    else:
+        app.state.daemon = None
+        yield
+
+
+app = FastAPI(title="Coliseum Dashboard API", version="0.1.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -105,20 +134,22 @@ async def list_opportunities():
     results = []
     for opp in _get_all_opportunities():
         fm = opp["frontmatter"]
-        results.append({
-            "id": fm.get("id", ""),
-            "event_ticker": fm.get("event_ticker", ""),
-            "market_ticker": fm.get("market_ticker", ""),
-            "title": opp["title"],
-            "subtitle": opp["subtitle"],
-            "yes_price": fm.get("yes_price", 0.0),
-            "no_price": fm.get("no_price", 0.0),
-            "close_time": str(fm.get("close_time", "")),
-            "discovered_at": str(fm.get("discovered_at", "")),
-            "status": fm.get("status", "pending"),
-            "action": fm.get("action"),
-            "date_folder": opp["date_folder"],
-        })
+        results.append(
+            {
+                "id": fm.get("id", ""),
+                "event_ticker": fm.get("event_ticker", ""),
+                "market_ticker": fm.get("market_ticker", ""),
+                "title": opp["title"],
+                "subtitle": opp["subtitle"],
+                "yes_price": fm.get("yes_price", 0.0),
+                "no_price": fm.get("no_price", 0.0),
+                "close_time": str(fm.get("close_time", "")),
+                "discovered_at": str(fm.get("discovered_at", "")),
+                "status": fm.get("status", "pending"),
+                "action": fm.get("action"),
+                "date_folder": opp["date_folder"],
+            }
+        )
     return results
 
 
@@ -146,7 +177,9 @@ async def get_opportunity(opportunity_id: str):
                 "markdown_body": opp["body"],
                 "raw_frontmatter": fm,
             }
-    raise HTTPException(status_code=404, detail=f"Opportunity {opportunity_id} not found")
+    raise HTTPException(
+        status_code=404, detail=f"Opportunity {opportunity_id} not found"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -185,3 +218,27 @@ async def trigger_pipeline():
 async def pipeline_status():
     """Check whether a pipeline cycle is currently in progress."""
     return {"running": _pipeline_running}
+
+
+# ---------------------------------------------------------------------------
+# Daemon status
+# ---------------------------------------------------------------------------
+
+_DAEMON_OFFLINE: dict = {
+    "available": False,
+    "running": False,
+    "paused": False,
+    "uptime_seconds": 0,
+    "cycles_completed": 0,
+    "consecutive_failures": 0,
+    "last_cycle": None,
+}
+
+
+@app.get("/api/daemon/status")
+async def daemon_status(request: Request):
+    """Return live daemon state, or offline sentinel when daemon is not running."""
+    daemon = getattr(request.app.state, "daemon", None)
+    if daemon is None:
+        return _DAEMON_OFFLINE
+    return {"available": True, **daemon.status_summary()}

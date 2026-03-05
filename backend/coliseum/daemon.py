@@ -25,6 +25,7 @@ class ColiseumDaemon:
         self._consecutive_failures = 0
         self._started_at: datetime | None = None
         self._last_cycle_at: datetime | None = None
+        self._last_heartbeat_at: datetime | None = None
         self._paused = False
 
     @property
@@ -35,11 +36,12 @@ class ColiseumDaemon:
     def guardian_interval_seconds(self) -> float:
         return self.settings.daemon.guardian_interval_minutes * 60
 
-    async def start(self) -> None:
-        """Start the daemon: install signal handlers and enter heartbeat loop."""
+    async def start(self, install_signal_handlers: bool = True) -> None:
+        """Start the daemon: optionally install signal handlers and enter heartbeat loop."""
         self.running = True
         self._started_at = datetime.now(timezone.utc)
-        self._install_signal_handlers()
+        if install_signal_handlers:
+            self._install_signal_handlers()
 
         logger.info(
             "Daemon starting — heartbeat=%dm, guardian=%dm, max_failures=%d",
@@ -71,6 +73,7 @@ class ColiseumDaemon:
             cycle_start = datetime.now(timezone.utc)
 
             await self._run_full_cycle()
+            await self._maybe_send_heartbeat()
 
             elapsed = (datetime.now(timezone.utc) - cycle_start).total_seconds()
             remaining = max(0, self.heartbeat_interval_seconds - elapsed)
@@ -172,6 +175,54 @@ class ColiseumDaemon:
         logger.info("Received %s — initiating graceful shutdown", sig.name)
         self._shutdown_event.set()
 
+    async def _maybe_send_heartbeat(self) -> None:
+        """Send a Telegram heartbeat if the configured interval has elapsed."""
+        if not self.settings.telegram.send_alerts:
+            return
+        interval_seconds = self.settings.telegram.heartbeat_interval_minutes * 60
+        now = datetime.now(timezone.utc)
+        if (
+            self._last_heartbeat_at is None
+            or (now - self._last_heartbeat_at).total_seconds() >= interval_seconds
+        ):
+            await self._send_heartbeat()
+            self._last_heartbeat_at = now
+
+    async def _send_heartbeat(self) -> None:
+        """Send a periodic Telegram status summary."""
+        if not self.settings.telegram_bot_token or not self.settings.telegram_chat_id:
+            logger.warning("Telegram heartbeat skipped: bot_token or chat_id not configured")
+            return
+
+        uptime_h = 0.0
+        if self._started_at:
+            uptime_h = (datetime.now(timezone.utc) - self._started_at).total_seconds() / 3600
+
+        status = "PAUSED" if self._paused else "RUNNING"
+        last_cycle = self._last_cycle_at.isoformat() if self._last_cycle_at else "never"
+
+        msg = (
+            f"COLISEUM HEARTBEAT\n\n"
+            f"Status: {status}\n"
+            f"Uptime: {uptime_h:.1f}h\n"
+            f"Cycles completed: {self._cycle_count}\n"
+            f"Last cycle: {last_cycle}\n"
+            f"Consecutive failures: {self._consecutive_failures}"
+        )
+
+        try:
+            async with TelegramClient(
+                bot_token=self.settings.telegram_bot_token,
+                default_chat_id=self.settings.telegram_chat_id,
+            ) as tg:
+                result = await tg.send_alert(msg)
+                if result.success:
+                    logger.info("Heartbeat sent via Telegram")
+                else:
+                    logger.warning("Telegram heartbeat failed: %s", result.error)
+        except Exception as exc:
+            logger.error("Failed to send Telegram heartbeat: %s", exc)
+
     async def _send_escalation_alert(self, error: str) -> None:
         """Send a Telegram alert when the daemon pauses due to repeated failures."""
         if not self.settings.telegram.send_alerts:
@@ -205,15 +256,18 @@ class ColiseumDaemon:
             "Action: Pipeline paused. Manual intervention required or daemon will retry after next heartbeat interval."
         )
 
-        async with TelegramClient(
-            bot_token=self.settings.telegram_bot_token,
-            default_chat_id=self.settings.telegram_chat_id,
-        ) as tg:
-            result = await tg.send_alert(msg)
-            if result.success:
-                logger.info("Escalation alert sent via Telegram")
-            else:
-                logger.warning("Telegram escalation alert failed: %s", result.error)
+        try:
+            async with TelegramClient(
+                bot_token=self.settings.telegram_bot_token,
+                default_chat_id=self.settings.telegram_chat_id,
+            ) as tg:
+                result = await tg.send_alert(msg)
+                if result.success:
+                    logger.info("Escalation alert sent via Telegram")
+                else:
+                    logger.warning("Telegram escalation alert failed: %s", result.error)
+        except Exception as exc:
+            logger.error("Failed to send Telegram escalation alert: %s", exc)
 
     def _log_error(
         self,
