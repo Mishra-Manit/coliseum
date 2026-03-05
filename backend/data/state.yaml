@@ -1,22 +1,22 @@
-last_updated: '2026-03-05T22:11:48.424549Z'
+last_updated: '2026-03-05T23:05:37.913025Z'
 portfolio:
-  total_value: 26.509999999999998
+  total_value: 26.41
   cash_balance: 12.41
-  positions_value: 14.1
+  positions_value: 14.0
 open_positions:
 - id: pos_3b8e51e9
   market_ticker: KXU3-26FEB-T4.1
   side: 'YES'
   contracts: 5
   average_entry: 0.95
-  current_price: 0.93
+  current_price: 0.92
   opportunity_id: opp_398a3bbf
 - id: pos_6cfbd928
   market_ticker: KXWTIW-26MAR06-T73.99
   side: 'YES'
   contracts: 5
   average_entry: 0.96
-  current_price: 0.95
+  current_price: 0.94
   opportunity_id: opp_c6e324cb
 - id: pos_216ac396
   market_ticker: KXPAYROLLS-26FEB-T-25000

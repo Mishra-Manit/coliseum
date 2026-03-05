@@ -4,10 +4,6 @@ trading:
   paper_mode: false
   contracts: 5
 
-risk:
-  max_position_pct: 0.10 # Max 10% of portfolio per position
-  max_single_trade_usd: 10.00 # Hard cap per trade
-
 scout:
   market_fetch_limit: 20000
   min_close_hours: 0
@@ -41,3 +37,4 @@ daemon:
 
 telegram:
   send_alerts: true
+  heartbeat_interval_minutes: 360  # 6 hours

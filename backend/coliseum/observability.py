@@ -19,6 +19,7 @@ def initialize_logfire(settings: Settings) -> None:
     """
     if not settings.logfire_token:
         logger.warning("Logfire token not set - observability disabled")
+        logfire.configure(send_to_logfire=False)
         return
 
     try:
