@@ -7,8 +7,9 @@ from datetime import datetime, timezone
 
 from coliseum.agents.guardian import run_guardian
 from coliseum.config import Settings
-from coliseum.memory.errors import ErrorEntry, log_error
+from coliseum.memory.errors import ErrorEntry, detect_recurring_error, log_error
 from coliseum.pipeline import run_pipeline
+from coliseum.services.telegram import TelegramClient
 
 logger = logging.getLogger("coliseum.daemon")
 
@@ -109,6 +110,7 @@ class ColiseumDaemon:
                     self._consecutive_failures,
                 )
                 self._paused = True
+                await self._send_escalation_alert(str(e))
 
     async def _run_guardian_intercycles(self, remaining_seconds: float) -> None:
         """Run guardian-only checks in the gap between full pipeline cycles."""
@@ -163,6 +165,44 @@ class ColiseumDaemon:
         """Handle shutdown signal by setting the shutdown event."""
         logger.info("Received %s — initiating graceful shutdown", sig.name)
         self._shutdown_event.set()
+
+    async def _send_escalation_alert(self, error: str) -> None:
+        """Send a Telegram alert when the daemon pauses due to repeated failures."""
+        if not self.settings.telegram.send_alerts:
+            return
+        if not self.settings.telegram_bot_token or not self.settings.telegram_chat_id:
+            logger.warning("Telegram escalation skipped: bot_token or chat_id not configured")
+            return
+
+        recurring, pattern_desc = detect_recurring_error(hours=1, threshold=3)
+        pattern_line = f"Recurring pattern: {pattern_desc}" if recurring else "No recurring pattern detected"
+
+        uptime_h = 0.0
+        if self._started_at:
+            uptime_h = (datetime.now(timezone.utc) - self._started_at).total_seconds() / 3600
+
+        msg = (
+            "COLISEUM ALERT\n\n"
+            f"Daemon paused after {self._consecutive_failures} consecutive failures.\n"
+            f"Last error: {error}\n"
+            f"{pattern_line}\n"
+            f"Uptime: {uptime_h:.1f}h | Cycles completed: {self._cycle_count}\n"
+            f"Last success: {self._last_cycle_at.isoformat() if self._last_cycle_at else 'never'}\n\n"
+            "Action: Pipeline paused. Manual intervention required or daemon will retry after next heartbeat interval."
+        )
+
+        try:
+            async with TelegramClient(
+                bot_token=self.settings.telegram_bot_token,
+                default_chat_id=self.settings.telegram_chat_id,
+            ) as tg:
+                result = await tg.send_alert(msg)
+                if result.success:
+                    logger.info("Escalation alert sent via Telegram")
+                else:
+                    logger.warning("Telegram escalation alert failed: %s", result.error)
+        except Exception as exc:
+            logger.error("Failed to send Telegram escalation alert: %s", exc)
 
     def _log_error(
         self,

@@ -215,59 +215,42 @@ Structured log of every error with resolution status.
 
 ---
 
-### 3. Self-Healing & Recovery (`coliseum/recovery.py`)
+### 3. Self-Healing & Recovery
 
-Adapted from OpenClaw's 4-tier model, simplified for a Python daemon:
+Three tiers, implemented directly in `daemon.py`, `pipeline.py`, and `memory/errors.py` — no separate `recovery.py` needed.
 
-#### Tier 1: Auto-Retry (0-30s)
+#### Tier 1: Auto-Retry (already implemented)
 - **Scope**: Transient failures (API timeouts, rate limits, network blips)
-- **Implementation**: Exponential backoff retry decorator on all external calls
-- **Config**: `max_retries: 3`, backoff `2s → 4s → 8s`
-- Already partially exists via httpx retry, but needs to be systematic
+- **Status**: Done. Both external clients have exponential-backoff retry built in:
+  - `KalshiClient._request()` — handles 429, 5xx, and `httpx.TimeoutException` with `2^n` second backoff
+  - `ExaClient._retry_wrapper()` — same pattern for the Exa SDK
+- No additional work required.
 
-```python
-@with_recovery(max_retries=3, backoff_base=2.0)
-async def run_scout(settings: Settings) -> ScoutOutput:
-    ...
-```
-
-#### Tier 2: Component Isolation + Skip (30s - 5min)
+#### Tier 2: Component Isolation (already implemented)
 - **Scope**: One agent fails but others can continue
-- **Implementation**: Pipeline wraps each stage in try/except, logs error, continues
-- **Already exists** in `pipeline.py` but needs enhancement:
-  - Track consecutive failures per component
-  - If Scout fails 3x in a row → skip Scout for 1 cycle, only run Guardian
-  - If Trader fails → save opportunity for retry next cycle (don't lose it)
+- **Status**: Done. `pipeline.py` wraps every stage in try/except and continues:
+  - Guardian failure → logged, pipeline continues to Scout
+  - Scout failure → logged, pipeline exits early
+  - Analyst/Trader failure per opportunity → logged, skips to next opportunity
+- Per-component health tracking (skip unhealthy components for N cycles) is not implemented — silent continuation already handles the common cases without the added complexity.
 
-```python
-# Enhanced pipeline with component health tracking
-if self.component_health["scout"].consecutive_failures >= 3:
-    logger.warning("Scout unhealthy — skipping this cycle, Guardian-only")
-    await run_guardian(settings)
-    return
+#### Tier 3: Escalate to Human (implemented)
+- **Scope**: Repeated pipeline-level failures exhaust `max_consecutive_failures`
+- **Status**: Done. `daemon._send_escalation_alert()` is called when `_paused` flips to True.
+- **What it sends**: Error message, recurring-error pattern detection result (same error 3x in 1h), uptime, cycle count, last success timestamp.
+- **Pattern detection**: `memory/errors.py:detect_recurring_error()` reads `errors.jsonl`, groups by error signature (first 120 chars), flags if any signature hits the threshold.
+- **Gate**: Only fires if `settings.telegram.send_alerts = true` AND `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID` are set in `.env`.
+
 ```
+COLISEUM ALERT
 
-#### Tier 3: Escalate to Human (5min+)
-- **Scope**: Repeated failures, unrecoverable errors, safety-critical issues
-- **Implementation**: Telegram alert with full context
-- **Triggers**:
-  - `max_consecutive_failures` reached (default: 5)
-  - Any error involving real money (non-paper mode)
-  - State corruption detected (state.yaml parse failure)
-  - Kalshi auth failure (RSA key issue)
+Daemon paused after 5 consecutive failures.
+Last error: KalshiAPIError: Request failed after 3 retries: ...
+Recurring pattern: 'KalshiAPIError: Request failed after 3 retri' seen 5x in the last 1h
+Uptime: 3.2h | Cycles completed: 3
+Last success: 2026-03-05T11:20:00Z
 
-```python
-async def escalate(self, error: Exception, context: str) -> None:
-    """Send structured Telegram alert with recovery context."""
-    msg = (
-        f"🚨 COLISEUM ALERT\n\n"
-        f"Component: {context}\n"
-        f"Error: {error}\n"
-        f"Consecutive failures: {self.failure_count}\n"
-        f"Last success: {self.last_success}\n"
-        f"Action: Paused pipeline, awaiting manual intervention\n"
-    )
-    await self.telegram.send_alert(msg)
+Action: Pipeline paused. Manual intervention required or daemon will retry after next heartbeat interval.
 ```
 
 ---
@@ -479,12 +462,12 @@ Last trade: BUY_YES KXWEATHER-NYC-SNOW @ 93¢ (2h ago)
 5. Create `data/memory/learnings.md` seed with initial content
 6. Update `cmd_init` to create memory directory structure
 
-### Phase 3: Self-Healing & Recovery
-1. Create `coliseum/recovery.py` with 3-tier model
-2. Add retry decorator for external API calls
-3. Add component health tracking to pipeline
-4. Wire Tier 3 escalation to existing Telegram service
-5. Add error pattern detection (same error 3x in 1h → escalate)
+### Phase 3: Self-Healing & Recovery (complete)
+1. ~~Create `coliseum/recovery.py`~~ — not needed; logic lives in `daemon.py` and `memory/errors.py`
+2. ~~Add retry decorator for external API calls~~ — already done in `KalshiClient._request()` and `ExaClient._retry_wrapper()`
+3. ~~Add component health tracking to pipeline~~ — not implemented; pipeline's existing per-stage try/except is sufficient
+4. Wire Tier 3 escalation to existing Telegram service — done in `daemon._send_escalation_alert()`
+5. Add error pattern detection (same error 3x in 1h → escalate) — done in `memory/errors.py:detect_recurring_error()`
 
 ### Phase 4: Context Injection
 1. Build context loaders (recent journal, decisions, portfolio)

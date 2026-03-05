@@ -38,7 +38,12 @@ def log_error(entry: ErrorEntry) -> None:
     try:
         with open(errors_path, "a", encoding="utf-8") as f:
             f.write(line)
-        logger.info("Logged error: component=%s error=%s resolution=%s", entry.component, entry.error, entry.resolution)
+        logger.info(
+            "Logged error: component=%s error=%s resolution=%s",
+            entry.component,
+            entry.error,
+            entry.resolution,
+        )
     except Exception as e:
         logger.error("Failed to log error entry: %s", e)
 
@@ -69,3 +74,19 @@ def load_recent_errors(hours: int = 24) -> list[ErrorEntry]:
         logger.error("Failed to load errors: %s", e)
 
     return entries
+
+
+def detect_recurring_error(hours: int = 1, threshold: int = 3) -> tuple[bool, str]:
+    """Return (True, description) if any error signature recurs >= threshold times in the last N hours. Groups similar errors."""
+    from collections import Counter
+
+    recent = load_recent_errors(hours=hours)
+    if not recent:
+        return False, ""
+
+    counts: Counter[str] = Counter(e.error[:120] for e in recent)
+    top_sig, top_count = counts.most_common(1)[0]
+    if top_count >= threshold:
+        return True, f"{top_sig!r} seen {top_count}x in the last {hours}h"
+
+    return False, ""
