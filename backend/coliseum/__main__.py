@@ -20,6 +20,7 @@ from coliseum.agents.guardian import run_guardian
 from coliseum.agents.scout import run_scout
 from coliseum.agents.trader import run_trader
 from coliseum.config import get_settings
+from coliseum.daemon import ColiseumDaemon
 from coliseum.pipeline import run_pipeline
 
 # Configure logging
@@ -100,6 +101,11 @@ execution:
   reprice_aggression: 0.02
   min_fill_pct_to_keep: 0.25
   max_order_age_minutes: 60
+
+daemon:
+  heartbeat_interval_minutes: 60
+  guardian_interval_minutes: 15
+  max_consecutive_failures: 5
 
 telegram:
   send_alerts: true
@@ -183,6 +189,11 @@ def cmd_config(args: argparse.Namespace) -> int:
         print(f"  Order Check Interval: {settings.execution.order_check_interval_seconds}s")
         print(f"  Max Reprice Attempts: {settings.execution.max_reprice_attempts}")
         print(f"  Max Order Age: {settings.execution.max_order_age_minutes} min\n")
+
+        print("Daemon:")
+        print(f"  Heartbeat Interval: {settings.daemon.heartbeat_interval_minutes}m")
+        print(f"  Guardian Interval: {settings.daemon.guardian_interval_minutes}m")
+        print(f"  Max Consecutive Failures: {settings.daemon.max_consecutive_failures}\n")
 
         print("API Keys:")
         print(f"  Kalshi: {'✓ Set' if settings.kalshi_api_key else '✗ Not set'}")
@@ -398,6 +409,40 @@ def cmd_serve(args: argparse.Namespace) -> int:
         return 1
 
 
+def cmd_daemon(args: argparse.Namespace) -> int:
+    """Start the long-lived autonomous daemon."""
+    try:
+        _init_logfire()
+
+        if args.debug:
+            logging.getLogger().setLevel(logging.DEBUG)
+
+        settings = get_settings()
+
+        print("\n=== Coliseum Autonomous Daemon ===")
+        print(f"\nVersion: {__version__}")
+        print(f"Mode: {'PAPER TRADING' if settings.trading.paper_mode else 'LIVE TRADING'}")
+        print(f"Data Directory: {settings.data_dir}")
+        print(f"Heartbeat Interval: {settings.daemon.heartbeat_interval_minutes}m")
+        print(f"Guardian Interval: {settings.daemon.guardian_interval_minutes}m")
+        print(f"Max Consecutive Failures: {settings.daemon.max_consecutive_failures}")
+        print("\nStarting daemon... (Ctrl+C to stop)\n")
+
+        daemon = ColiseumDaemon(settings)
+        asyncio.run(daemon.start())
+
+        print("\nDaemon stopped cleanly.\n")
+        return 0
+
+    except KeyboardInterrupt:
+        print("\n\nReceived interrupt signal. Shutting down...\n")
+        return 0
+    except Exception as e:
+        logger.error(f"Daemon failed: {e}", exc_info=True)
+        print(f"\n❌ Daemon failed: {e}\n")
+        return 1
+
+
 def cmd_run(args: argparse.Namespace) -> int:
     """Start the autonomous trading system."""
     try:
@@ -523,6 +568,17 @@ def main() -> int:
         help="Enable auto-reload for development",
     )
     parser_serve.set_defaults(func=cmd_serve)
+
+    parser_daemon = subparsers.add_parser(
+        "daemon",
+        help="Start the long-lived autonomous daemon",
+    )
+    parser_daemon.add_argument(
+        "--debug",
+        action="store_true",
+        help="Enable debug logging",
+    )
+    parser_daemon.set_defaults(func=cmd_daemon)
 
     parser_run = subparsers.add_parser(
         "run",

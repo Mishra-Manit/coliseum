@@ -2,7 +2,7 @@
 
 ## Spec Version
 
-- Current version: `1.1.1`
+- Current version: `1.2.0`
 - Versioning scheme: `MAJOR.MINOR.PATCH` (semantic versioning)
 - Keep `CLAUDE.md` and `AGENTS.md` on the exact same version at all times
 
@@ -25,7 +25,7 @@ backend/
 │   ├── llm_providers.py     # Model enums: OpenAIModel, AnthropicModel, FireworksModel
 │   ├── observability.py     # Logfire initialization
 │   ├── pipeline.py          # Full pipeline orchestration
-│   ├── scheduler.py         # APScheduler job definitions
+│   ├── daemon.py            # Long-lived autonomous daemon with heartbeat loop
 │   ├── agents/
 │   │   ├── agent_factory.py # Agent construction helpers
 │   │   ├── shared_tools.py  # Tools shared across agents
@@ -59,7 +59,7 @@ backend/
 
 ```bash
 python -m coliseum init                          # Initialize data directory
-python -m coliseum run                           # Start autonomous system (scheduler)
+python -m coliseum daemon                        # Start long-lived autonomous daemon
 python -m coliseum run --once                    # Run full pipeline once then exit
 python -m coliseum scout                         # Run market scan manually
 python -m coliseum analyst --opportunity-id <id> # Run Analyst pipeline manually

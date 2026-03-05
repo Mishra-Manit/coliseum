@@ -63,6 +63,14 @@ class ExecutionConfig(BaseModel):
     max_order_age_minutes: int = 60
 
 
+class DaemonConfig(BaseModel):
+    """Daemon process configuration."""
+
+    heartbeat_interval_minutes: int = 60
+    guardian_interval_minutes: int = 15
+    max_consecutive_failures: int = 5
+
+
 class TelegramConfig(BaseModel):
     """Telegram notification configuration."""
 
@@ -97,6 +105,7 @@ class Settings(BaseSettings):
     analyst: AnalystConfig = Field(default_factory=AnalystConfig)
     guardian: GuardianConfig = Field(default_factory=GuardianConfig)
     execution: ExecutionConfig = Field(default_factory=ExecutionConfig)
+    daemon: DaemonConfig = Field(default_factory=DaemonConfig)
     telegram: TelegramConfig = Field(default_factory=TelegramConfig)
 
     model_config = SettingsConfigDict(
@@ -157,6 +166,7 @@ class Settings(BaseSettings):
                 "analyst",
                 "guardian",
                 "execution",
+                "daemon",
                 "telegram",
             ]:
                 if section_name in yaml_config:
