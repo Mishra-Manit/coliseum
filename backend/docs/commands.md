@@ -1,4 +1,4 @@
-# Test Pipeline Commands
+# Commands
 
 Run from `backend/` with the virtual environment activated:
 
@@ -6,35 +6,19 @@ Run from `backend/` with the virtual environment activated:
 source venv/bin/activate
 ```
 
-Individual agents:
+## Individual Agents
 
 ```
-python -m coliseum.test_pipeline scout
-python -m coliseum.test_pipeline analyst --opportunity-id opp_abc12345
-python -m coliseum.test_pipeline trader --opportunity-file KXBTCD-26JAN2317-T89999.99.md
-python -m coliseum.test_pipeline trader --verbose --opportunity-file KXBTCD-26JAN2317-T89999.99.md
-python -m coliseum.test_pipeline guardian
+python -m coliseum scout
+python -m coliseum analyst --opportunity-id opp_abc12345
+python -m coliseum trader --opportunity-id opp_abc12345
+python -m coliseum guardian
 ```
 
-## Trader
-python -m coliseum.test_pipeline trader \
-  --opportunity-file KXNBAMENTION-26FEB21LACLAL-INJU.md \
-  --live
-
-
-Pipeline + cleanup:
+## Full Pipeline
 
 ```
-python -m coliseum.test_pipeline run --full
-python -m coliseum.test_pipeline clean
+python -m coliseum run --once
 ```
 
-## Full Sequential Pipeline
-
-python -m coliseum.test_pipeline run --full
-
-**Flow:**
-1. Scout scans Kalshi markets → finds N opportunities (configured in `test_data/config.yaml`)
-2. For opportunity 1: Analyst researches → Trader decides
-3. For opportunity 2: Analyst researches → Trader decides
-
+**Flow:** Guardian -> Scout -> (Analyst -> Trader for each opportunity) -> Guardian

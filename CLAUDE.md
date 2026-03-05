@@ -2,7 +2,7 @@
 
 ## Spec Version
 
-- Current version: `1.2.0`
+- Current version: `1.3.0`
 - Versioning scheme: `MAJOR.MINOR.PATCH` (semantic versioning)
 - Keep `CLAUDE.md` and `AGENTS.md` on the exact same version at all times
 
@@ -49,9 +49,6 @@ backend/
 │   ├── config.yaml          # Trading config (risk limits, schedules)
 │   ├── state.yaml           # Portfolio state (source of truth)
 │   └── opportunities/       # Opportunity markdown files
-├── test_data/
-│   ├── config.yaml          # Test environment config
-│   └── state.yaml           # Test environment state
 └── requirements.txt
 ```
 
@@ -101,7 +98,7 @@ model = get_model_string(OpenAIModel.GPT_5_MINI)  # "openai-responses:gpt-5-mini
 2. **Limit orders only**: Never use market orders
 3. **state.yaml is source of truth**: Only one process writes to it
 4. **RSA key for Kalshi**: Set `RSA_PRIVATE_KEY_PATH` in .env
-5. **Config/State sync**: After any structural change to `config.py` (Settings models) or `state.py` (state models), update both the production data files (`backend/data/config.yaml`, `backend/data/state.yaml`) and the test data files (`backend/test_data/config.yaml`, `backend/test_data/state.yaml`) to match the new schema.
+5. **Config/State sync**: After any structural change to `config.py` (Settings models) or `state.py` (state models), update `backend/data/config.yaml` and `backend/data/state.yaml` to match the new schema.
 
 ## Bash Guidelines
 
