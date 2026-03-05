@@ -3,6 +3,7 @@
 import json
 import logging
 
+import logfire
 from pydantic_ai import Agent, RunContext, WebSearchTool
 
 from coliseum.agents.shared_tools import register_get_current_time
@@ -162,53 +163,51 @@ async def run_scout(
     if settings is None:
         settings = get_settings()
 
-    logger.info("Starting Scout scan...")
-
     seen_tickers = get_seen_tickers()
 
-    # Scout always reads from production API (market data is public)
-    kalshi_config = KalshiConfig(paper_mode=False)
-    async with KalshiClient(config=kalshi_config) as client:
-        prefetched_markets = await _prefetch_markets_for_scan(
-            client,
-            settings,
-            seen_tickers=set(seen_tickers),
-        )
-        deps = ScoutDependencies(settings=settings, prefetched_markets=prefetched_markets)
+    with logfire.span("scout scan"):
+        # Scout always reads from production API (market data is public)
+        kalshi_config = KalshiConfig(paper_mode=False)
+        async with KalshiClient(config=kalshi_config) as client:
+            with logfire.span("prefetch markets"):
+                prefetched_markets = await _prefetch_markets_for_scan(
+                    client,
+                    settings,
+                    seen_tickers=set(seen_tickers),
+                )
+                logfire.info("Markets prefetched", count=len(prefetched_markets))
 
-        # Run the agent with seen markets context
-        agent = get_scout_agent(settings)
-        scout_cfg = settings.scout
-        prompt = (
-            f"Scan Kalshi markets for near-decided opportunities—markets at "
-            f"{scout_cfg.min_price}-{scout_cfg.max_price}% where the outcome "
-            f"is strongly favored with negligible or low reversal risk. "
-            f"Find exactly 1 opportunity—the single least-risky qualifying market. "
-            f"Select markets that pass the Risk Assessment Checklist. Remember: residual uncertainty is normal for open markets—do not skip a market just because the outcome is not yet 100% official. "
-            f"CRITICAL: You MUST return at least 1 opportunity. If no market meets the ideal risk threshold, select the single least-risky available market as a fallback and label it clearly in the rationale."
-            f"{_build_market_context_prompt(prefetched_markets)}"
-        )
-        result = await agent.run(prompt, deps=deps)
+            deps = ScoutDependencies(settings=settings, prefetched_markets=prefetched_markets)
 
-        output: ScoutOutput = result.output
+            with logfire.span("agent run", markets=len(prefetched_markets)):
+                agent = get_scout_agent(settings)
+                scout_cfg = settings.scout
+                prompt = (
+                    f"Scan Kalshi markets for near-decided opportunities—markets at "
+                    f"{scout_cfg.min_price}-{scout_cfg.max_price}% where the outcome "
+                    f"is strongly favored with negligible or low reversal risk. "
+                    f"Find exactly 1 opportunity—the single least-risky qualifying market. "
+                    f"Select markets that pass the Risk Assessment Checklist. Remember: residual uncertainty is normal for open markets—do not skip a market just because the outcome is not yet 100% official. "
+                    f"CRITICAL: You MUST return at least 1 opportunity. If no market meets the ideal risk threshold, select the single least-risky available market as a fallback and label it clearly in the rationale."
+                    f"{_build_market_context_prompt(prefetched_markets)}"
+                )
+                result = await agent.run(prompt, deps=deps)
 
-        added_count = 0
+            output: ScoutOutput = result.output
 
-        for opp in output.opportunities:
-            try:
-                save_opportunity(opp)
-                logger.info(f"Saved opportunity: {opp.market_ticker}")
+            added_count = 0
+            for opp in output.opportunities:
+                try:
+                    save_opportunity(opp)
+                    add_seen_ticker(opp.market_ticker)
+                    added_count += 1
+                except Exception as e:
+                    logfire.error("Failed to save opportunity", opportunity_id=opp.id, error=str(e))
 
-                add_seen_ticker(opp.market_ticker)
-                added_count += 1
-
-            except Exception as e:
-                logger.error(f"Failed to save opportunity {opp.id}: {e}")
-
-        logger.info(
-            f"Scout scan complete: "
-            f"{output.opportunities_found} opportunities found, "
-            f"{added_count} added to state"
-        )
+            logfire.info(
+                "Scout scan complete",
+                opportunities_found=output.opportunities_found,
+                added=added_count,
+            )
 
         return output

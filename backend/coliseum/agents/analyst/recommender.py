@@ -4,6 +4,7 @@ import logging
 import time
 from datetime import datetime, timezone
 
+import logfire
 from pydantic_ai import Agent
 
 from coliseum.agents.agent_factory import AgentFactory
@@ -48,7 +49,6 @@ async def run_recommender(
 ) -> tuple[RecommenderOutput, OpportunitySignal]:
     """Run Recommender agent - appends recommendation to opportunity file."""
     start_time = time.time()
-    logger.info(f"Starting Recommender for opportunity: {opportunity_id}")
 
     opp_file, opportunity = load_opportunity(opportunity_id)
 
@@ -92,7 +92,7 @@ async def run_recommender(
         section_header="## Trade Evaluation",
     )
 
-    logger.info(f"Recommender completed in {duration:.1f}s")
+    logfire.info("Recommender complete", duration_seconds=round(duration, 1))
 
     updated_opp = load_opportunity_from_file(opp_file)
     return output, updated_opp

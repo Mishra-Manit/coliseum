@@ -7,6 +7,8 @@ from datetime import datetime, timezone
 from typing import Literal
 from uuid import uuid4
 
+import logfire
+
 from pydantic_ai import Agent, RunContext
 
 from coliseum.agents.agent_factory import AgentFactory
@@ -303,8 +305,6 @@ async def run_trader(
     if settings is None:
         settings = get_settings()
 
-    logger.info(f"Starting Trader for opportunity: {opportunity_id}")
-
     # Load opportunity file
     opp_file = find_opportunity_file_by_id(opportunity_id)
     if not opp_file:
@@ -312,134 +312,141 @@ async def run_trader(
 
     opportunity = load_opportunity_from_file(opp_file)
 
-    # Verify recommendation exists
     if not opportunity.recommendation_completed_at:
         raise ValueError(f"Recommendation not completed for {opportunity_id}")
 
-    # Create Kalshi client
     kalshi_config = KalshiConfig(paper_mode=settings.trading.paper_mode)
     private_key_pem = "" if settings.trading.paper_mode else settings.get_rsa_private_key()
-    async with AsyncExitStack() as stack:
-        client = await stack.enter_async_context(
-            KalshiClient(
-                config=kalshi_config,
-                api_key=settings.kalshi_api_key,
-                private_key_pem=private_key_pem,
-            )
-        )
-        telegram_client = None
-        if settings.telegram.send_alerts:
-            telegram_client = await stack.enter_async_context(
-                create_telegram_client(
-                    bot_token=settings.telegram_bot_token,
-                    chat_id=settings.telegram_chat_id,
+
+    with logfire.span("trader", opportunity_id=opportunity_id, ticker=opportunity.market_ticker):
+        async with AsyncExitStack() as stack:
+            client = await stack.enter_async_context(
+                KalshiClient(
+                    config=kalshi_config,
+                    api_key=settings.kalshi_api_key,
+                    private_key_pem=private_key_pem,
                 )
             )
-
-        deps = TraderDependencies(
-            kalshi_client=client,
-            telegram_client=telegram_client,
-            opportunity_id=opportunity_id,
-            config=settings,
-        )
-
-        # Build prompt
-        markdown_body = get_opportunity_markdown_body(opp_file)
-        prompt = _build_trader_prompt(opportunity, markdown_body, settings)
-
-        # Run agent
-        agent = get_agent(settings)
-        result = await agent.run(prompt, deps=deps)
-        output: TraderOutput = result.output
-
-        # Handle execution based on decision
-        if output.decision.action == "REJECT":
-            output.execution_status = "skipped"
-            try:
-                update_opportunity_frontmatter(
-                    opp_file,
-                    {"status": "skipped"},
+            telegram_client = None
+            if settings.telegram.send_alerts:
+                telegram_client = await stack.enter_async_context(
+                    create_telegram_client(
+                        bot_token=settings.telegram_bot_token,
+                        chat_id=settings.telegram_chat_id,
+                    )
                 )
-            except Exception as e:
-                # Skip outcome should still be returned even if persistence fails.
-                logger.error(f"Failed to persist skipped status for {opportunity_id}: {e}")
-            _log_trader_decision(opportunity, output)
-            logger.info(f"Trader REJECTED trade: {output.decision.reasoning}")
-            return output
 
-        # Determine side and get corresponding metrics
-        if output.decision.action == "EXECUTE_BUY_YES":
-            side = "yes"
-            target_price = opportunity.yes_price
-        else:  # EXECUTE_BUY_NO
-            side = "no"
-            target_price = opportunity.no_price
-
-        # Calculate position size
-        contracts = settings.trading.contracts
-
-        # Get current market price and calculate slippage
-        market = await client.get_market(opportunity.market_ticker)
-        current_price_decimal = (
-            market.yes_ask / 100 if side == "yes" else market.no_ask / 100
-        )
-        slippage_pct = abs(current_price_decimal - target_price) / target_price if target_price > 0 else 0.0
-
-        # Final risk check - verify slippage is acceptable
-        max_slippage = settings.execution.max_slippage_pct
-        if slippage_pct > max_slippage:
-            logger.warning(f"Slippage too high: {slippage_pct:.1%} > {max_slippage:.0%}")
-            output.execution_status = "rejected"
-            return output
-
-        initial_price_cents = int(current_price_decimal * 100)
-        order_result = await execute_working_order(
-            client=client,
-            ticker=opportunity.market_ticker,
-            side=side,
-            contracts=contracts,
-            initial_price_cents=initial_price_cents,
-            config=settings,
-        )
-
-        # Update output with execution results
-        output.order_id = order_result.order_id
-        output.fill_price = order_result.fill_price
-        output.contracts_filled = order_result.contracts_filled
-        output.total_cost_usd = order_result.total_cost_usd
-        output.execution_status = order_result.status
-
-        # Update state and log trade if filled
-        if order_result.contracts_filled > 0:
-            _update_state_after_trade(
-                opportunity=opportunity,
-                side=side.upper(),
-                contracts=order_result.contracts_filled,
-                fill_price=order_result.fill_price or current_price_decimal,
-                total_cost=order_result.total_cost_usd,
+            deps = TraderDependencies(
+                kalshi_client=client,
+                telegram_client=telegram_client,
+                opportunity_id=opportunity_id,
                 config=settings,
-                reasoning=output.decision.reasoning,
             )
 
-            trade = TradeExecution(
-                id=generate_trade_id(),
-                position_id=f"pos_{uuid4().hex[:8]}",
-                opportunity_id=opportunity.id,
-                market_ticker=opportunity.market_ticker,
-                side=side.upper(),
-                action="BUY",
-                contracts=order_result.contracts_filled,
-                price=order_result.fill_price or current_price_decimal,
-                total=order_result.total_cost_usd,
-                paper=settings.trading.paper_mode,
-                executed_at=datetime.now(timezone.utc),
-            )
-            log_trade(trade)
+            markdown_body = get_opportunity_markdown_body(opp_file)
+            prompt = _build_trader_prompt(opportunity, markdown_body, settings)
 
-            logger.info(
-                f"Trade executed: {order_result.contracts_filled} {side} contracts @ "
-                f"{order_result.fill_price:.2%} (${order_result.total_cost_usd:.2f})"
-            )
+            with logfire.span("agent decision", ticker=opportunity.market_ticker):
+                agent = get_agent(settings)
+                result = await agent.run(prompt, deps=deps)
+                output: TraderOutput = result.output
+                logfire.info("Decision made", action=output.decision.action)
+
+            if output.decision.action == "REJECT":
+                output.execution_status = "skipped"
+                try:
+                    update_opportunity_frontmatter(opp_file, {"status": "skipped"})
+                except Exception as e:
+                    logfire.error("Failed to persist skipped status", opportunity_id=opportunity_id, error=str(e))
+                _log_trader_decision(opportunity, output)
+                logfire.info("Trade rejected", reasoning=output.decision.reasoning)
+                return output
+
+            if output.decision.action == "EXECUTE_BUY_YES":
+                side = "yes"
+                target_price = opportunity.yes_price
+            else:
+                side = "no"
+                target_price = opportunity.no_price
+
+            contracts = settings.trading.contracts
+
+            with logfire.span("slippage check", ticker=opportunity.market_ticker):
+                market = await client.get_market(opportunity.market_ticker)
+                current_price_decimal = (
+                    market.yes_ask / 100 if side == "yes" else market.no_ask / 100
+                )
+                slippage_pct = abs(current_price_decimal - target_price) / target_price if target_price > 0 else 0.0
+                logfire.info(
+                    "Slippage check",
+                    slippage_pct=round(slippage_pct, 4),
+                    current_price=round(current_price_decimal, 4),
+                )
+
+            max_slippage = settings.execution.max_slippage_pct
+            if slippage_pct > max_slippage:
+                logfire.warn("Slippage too high", slippage_pct=round(slippage_pct, 4), max_slippage=max_slippage)
+                output.execution_status = "rejected"
+                return output
+
+            initial_price_cents = int(current_price_decimal * 100)
+
+            with logfire.span("order execution", ticker=opportunity.market_ticker, side=side, contracts=contracts):
+                order_result = await execute_working_order(
+                    client=client,
+                    ticker=opportunity.market_ticker,
+                    side=side,
+                    contracts=contracts,
+                    initial_price_cents=initial_price_cents,
+                    config=settings,
+                )
+                logfire.info(
+                    "Order result",
+                    status=order_result.status,
+                    contracts_filled=order_result.contracts_filled,
+                    fill_price=order_result.fill_price,
+                )
+
+            output.order_id = order_result.order_id
+            output.fill_price = order_result.fill_price
+            output.contracts_filled = order_result.contracts_filled
+            output.total_cost_usd = order_result.total_cost_usd
+            output.execution_status = order_result.status
+
+            if order_result.contracts_filled > 0:
+                _update_state_after_trade(
+                    opportunity=opportunity,
+                    side=side.upper(),
+                    contracts=order_result.contracts_filled,
+                    fill_price=order_result.fill_price or current_price_decimal,
+                    total_cost=order_result.total_cost_usd,
+                    config=settings,
+                    reasoning=output.decision.reasoning,
+                )
+
+                trade = TradeExecution(
+                    id=generate_trade_id(),
+                    position_id=f"pos_{uuid4().hex[:8]}",
+                    opportunity_id=opportunity.id,
+                    market_ticker=opportunity.market_ticker,
+                    side=side.upper(),
+                    action="BUY",
+                    contracts=order_result.contracts_filled,
+                    price=order_result.fill_price or current_price_decimal,
+                    total=order_result.total_cost_usd,
+                    paper=settings.trading.paper_mode,
+                    executed_at=datetime.now(timezone.utc),
+                )
+                log_trade(trade)
+
+                logfire.info(
+                    "Trade executed",
+                    ticker=opportunity.market_ticker,
+                    side=side,
+                    contracts=order_result.contracts_filled,
+                    fill_price=round(order_result.fill_price, 4) if order_result.fill_price else None,
+                    total_cost_usd=round(order_result.total_cost_usd, 2) if order_result.total_cost_usd else None,
+                )
 
         _log_trader_decision(opportunity, output)
         return output

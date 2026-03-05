@@ -5,6 +5,8 @@ from __future__ import annotations
 import logging
 from datetime import datetime, timezone
 
+import logfire
+
 from coliseum.config import Settings, get_settings
 from coliseum.services.kalshi import KalshiClient
 from coliseum.services.kalshi.config import KalshiConfig
@@ -171,48 +173,58 @@ async def run_guardian(settings: Settings | None = None) -> GuardianResult:
     kalshi_config = KalshiConfig(paper_mode=settings.trading.paper_mode)
     private_key_pem = "" if settings.trading.paper_mode else settings.get_rsa_private_key()
 
-    async with KalshiClient(
-        config=kalshi_config,
-        api_key=settings.kalshi_api_key,
-        private_key_pem=private_key_pem,
-    ) as client:
-        # Step 1: snapshot pre-sync positions
-        pre_sync_state = load_state()
+    with logfire.span("guardian reconciliation"):
+        async with KalshiClient(
+            config=kalshi_config,
+            api_key=settings.kalshi_api_key,
+            private_key_pem=private_key_pem,
+        ) as client:
+            # Step 1: snapshot pre-sync positions
+            pre_sync_state = load_state()
 
-        # Step 2: sync portfolio from Kalshi (updates state.yaml with balances + positions)
-        state = await sync_portfolio_from_kalshi(client)
-        logger.info(
-            "Guardian synced portfolio: cash=$%.2f positions_value=$%.2f total=$%.2f open=%d",
-            state.portfolio.cash_balance,
-            state.portfolio.positions_value,
-            state.portfolio.total_value,
-            len(state.open_positions),
+            # Step 2: sync portfolio from Kalshi
+            with logfire.span("sync portfolio from Kalshi"):
+                state = await sync_portfolio_from_kalshi(client)
+                logfire.info(
+                    "Portfolio synced",
+                    cash=round(state.portfolio.cash_balance, 2),
+                    positions_value=round(state.portfolio.positions_value, 2),
+                    total=round(state.portfolio.total_value, 2),
+                    open_positions=len(state.open_positions),
+                )
+
+            # Step 3: fetch recent fills for exit price calculation
+            with logfire.span("fetch fills"):
+                fills = await client.get_fills(limit=500)
+                logfire.info("Fills fetched", count=len(fills))
+
+            # Step 4: reconcile closed positions
+            with logfire.span("reconcile closed positions", inspected=len(pre_sync_state.open_positions)):
+                updated_state, stats = await reconcile_closed_positions(
+                    old_open=pre_sync_state.open_positions,
+                    new_state=state,
+                    fills=fills,
+                    client=client,
+                )
+                logfire.info(
+                    "Reconciliation complete",
+                    inspected=stats.entries_inspected,
+                    kept_open=stats.kept_open,
+                    newly_closed=stats.newly_closed,
+                )
+
+            # Step 5: find positions not opened by our pipeline
+            missing = _find_positions_without_opportunity_id(updated_state)
+
+        for missing_key in missing:
+            logfire.warn("Position missing opportunity_id", position=missing_key)
+
+        logfire.info(
+            "Guardian complete",
+            positions_synced=len(updated_state.open_positions),
+            newly_closed=stats.newly_closed,
+            missing_opportunity_ids=len(missing),
         )
-
-        # Step 3: fetch recent fills for exit price calculation
-        fills = await client.get_fills(limit=500)
-
-        # Step 4: reconcile closed positions
-        updated_state, stats = await reconcile_closed_positions(
-            old_open=pre_sync_state.open_positions,
-            new_state=state,
-            fills=fills,
-            client=client,
-        )
-
-        # Step 5: find positions not opened by our pipeline
-        missing = _find_positions_without_opportunity_id(updated_state)
-
-    for missing_key in missing:
-        logger.warning("Guardian position missing opportunity_id: %s", missing_key)
-
-    logger.info("Guardian synced %d positions from Kalshi", len(updated_state.open_positions))
-    logger.info(
-        "Guardian reconciliation: inspected=%d kept_open=%d closed=%d",
-        stats.entries_inspected,
-        stats.kept_open,
-        stats.newly_closed,
-    )
 
     return GuardianResult(
         positions_synced=len(updated_state.open_positions),

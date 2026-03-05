@@ -4,6 +4,7 @@ import logging
 import time
 from datetime import datetime, timezone
 
+import logfire
 from pydantic_ai import Agent, WebSearchTool
 
 from coliseum.agents.agent_factory import AgentFactory
@@ -44,8 +45,6 @@ async def run_researcher(
 ) -> ResearcherOutput:
     """Run Researcher agent - appends research to opportunity file."""
     start_time = time.time()
-    logger.info(f"Starting Researcher for opportunity: {opportunity_id}")
-
     opp_file, opportunity = load_opportunity(opportunity_id)
 
     deps = AnalystDependencies(
@@ -79,9 +78,10 @@ async def run_researcher(
         section_header="## Research Synthesis",
     )
 
-    logger.info(
-        f"Researcher completed in {duration:.1f}s - "
-        f"Appended to {opportunity.market_ticker}"
+    logfire.info(
+        "Researcher complete",
+        ticker=opportunity.market_ticker,
+        duration_seconds=round(duration, 1),
     )
 
     return output

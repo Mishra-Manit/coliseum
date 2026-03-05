@@ -9,6 +9,8 @@ All stages write to a single opportunity file.
 
 import logging
 
+import logfire
+
 from coliseum.agents.analyst.recommender import run_recommender
 from coliseum.agents.analyst.researcher import run_researcher
 from coliseum.config import Settings
@@ -34,24 +36,19 @@ async def run_analyst(
     1. Researcher conducts research and appends to opportunity file
     2. Recommender evaluates research and appends recommendation
     """
-    logger.info(f"Running full Analyst pipeline for: {opportunity_id}")
+    with logfire.span("analyst pipeline", opportunity_id=opportunity_id):
+        with logfire.span("researcher", opportunity_id=opportunity_id):
+            await run_researcher(
+                opportunity_id=opportunity_id,
+                settings=settings,
+            )
+            logfire.info("Research complete")
 
-    # Phase 1: Research
-    logger.info("Phase 1: Running Researcher...")
-    await run_researcher(
-        opportunity_id=opportunity_id,
-        settings=settings,
-    )
-
-    logger.info("Research complete")
-
-    # Phase 2: Recommendation
-    logger.info("Phase 2: Running Recommender...")
-    _, opportunity = await run_recommender(
-        opportunity_id=opportunity_id,
-        settings=settings,
-    )
-
-    logger.info("Recommendation complete")
+        with logfire.span("recommender", opportunity_id=opportunity_id):
+            _, opportunity = await run_recommender(
+                opportunity_id=opportunity_id,
+                settings=settings,
+            )
+            logfire.info("Recommendation complete")
 
     return opportunity
