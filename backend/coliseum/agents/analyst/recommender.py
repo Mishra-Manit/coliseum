@@ -18,9 +18,9 @@ from coliseum.config import Settings
 from coliseum.llm_providers import OpenAIModel, get_model_string
 from coliseum.storage.files import (
     OpportunitySignal,
-    append_to_opportunity,
     get_opportunity_markdown_body,
     load_opportunity_from_file,
+    update_opportunity_frontmatter,
 )
 
 logger = logging.getLogger(__name__)
@@ -47,7 +47,7 @@ async def run_recommender(
     opportunity_id: str,
     settings: Settings,
 ) -> tuple[RecommenderOutput, OpportunitySignal]:
-    """Run Recommender agent - appends recommendation to opportunity file."""
+    """Run Recommender agent - updates opportunity frontmatter with recommendation status."""
     start_time = time.time()
 
     opp_file, opportunity = load_opportunity(opportunity_id)
@@ -70,26 +70,13 @@ async def run_recommender(
     duration = time.time() - start_time
     completed_at = datetime.now(timezone.utc)
 
-    recommendation_section = f"""---
-
-## Trade Evaluation
-
-**Status**: Pending
-
-### Reasoning
-
-{output.reasoning}"""
-    frontmatter_updates = {
-        "recommendation_completed_at": completed_at.isoformat(),
-        "action": None,
-        "status": "recommended",
-    }
-
-    append_to_opportunity(
-        market_ticker=opportunity.market_ticker,
-        frontmatter_updates=frontmatter_updates,
-        body_section=recommendation_section,
-        section_header="## Trade Evaluation",
+    update_opportunity_frontmatter(
+        opp_file,
+        {
+            "recommendation_completed_at": completed_at.isoformat(),
+            "action": None,
+            "status": "recommended",
+        },
     )
 
     logfire.info("Recommender complete", duration_seconds=round(duration, 1))

@@ -1,4 +1,4 @@
-last_updated: '2026-03-05T20:58:02.119375Z'
+last_updated: '2026-03-05T21:07:30.295442Z'
 portfolio:
   total_value: 26.63
   cash_balance: 17.18
@@ -9,14 +9,14 @@ open_positions:
   side: 'YES'
   contracts: 5
   average_entry: 0.96
-  current_price: 0.94
+  current_price: 0.95
   opportunity_id: opp_c6e324cb
 - id: pos_216ac396
   market_ticker: KXPAYROLLS-26FEB-T-25000
   side: 'YES'
   contracts: 5
   average_entry: 0.96
-  current_price: 0.95
+  current_price: 0.94
   opportunity_id: opp_70a9ee77
 closed_positions:
 - market_ticker: KXNASCARRACE-ONLGF1AS26-ADAN
