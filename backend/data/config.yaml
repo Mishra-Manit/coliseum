@@ -1,7 +1,7 @@
 # Coliseum Configuration
 
 trading:
-  paper_mode: true
+  paper_mode: false
   contracts: 5
 
 risk:
@@ -33,6 +33,11 @@ execution:
   reprice_aggression: 0.02        # Increase limit by 2 cents each reprice
   min_fill_pct_to_keep: 0.25      # Keep partial fill if > 25% filled
   max_order_age_minutes: 60       # Cancel order if open > 1 hour
+
+daemon:
+  heartbeat_interval_minutes: 60   # Full pipeline cycle interval
+  guardian_interval_minutes: 15    # Guardian-only checks between full cycles
+  max_consecutive_failures: 5      # Failures before pausing
 
 telegram:
   send_alerts: true

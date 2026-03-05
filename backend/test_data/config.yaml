@@ -28,5 +28,10 @@ guardian:
 execution:
   use_limit_orders_only: true
 
+daemon:
+  heartbeat_interval_minutes: 60
+  guardian_interval_minutes: 15
+  max_consecutive_failures: 5
+
 telegram:
   send_alerts: true
