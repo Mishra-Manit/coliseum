@@ -108,12 +108,6 @@ export function OpportunityDetailView({
           >
             {summary.status}
           </Badge>
-          <Badge
-            variant="outline"
-            className="text-[10px] px-2 h-5 border-border bg-secondary/50 text-muted-foreground font-mono"
-          >
-            {summary.strategy}
-          </Badge>
           {summary.action && (
             <Badge
               variant="outline"

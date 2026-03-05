@@ -24,11 +24,6 @@ const statusVariants: Record<string, string> = {
   expired: "bg-secondary text-muted-foreground border-border",
 };
 
-const strategyLabels: Record<string, string> = {
-  edge: "Edge",
-  sure_thing: "Sure Thing",
-};
-
 interface OpportunitiesFeedProps {
   onSelectOpportunity?: (id: string) => void;
   selectedId?: string | null;
@@ -159,12 +154,6 @@ function OpportunityCard({
           }`}
         >
           {opportunity.status}
-        </Badge>
-        <Badge
-          variant="outline"
-          className="text-[10px] px-1.5 py-0 h-[18px] border-border text-muted-foreground font-mono"
-        >
-          {strategyLabels[opportunity.strategy] ?? opportunity.strategy}
         </Badge>
         {opportunity.action && (
           <Badge
