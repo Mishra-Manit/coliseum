@@ -119,3 +119,4 @@ Operational rules:
 2. Do not skip versions.
 3. Keep version numbers identical in `CLAUDE.md` and `AGENTS.md`.
 4. When uncertain between two bump levels, choose the higher one.
+5. Leave all changes in the main branch for me to review and merge; do not self-commit after running subagents.
