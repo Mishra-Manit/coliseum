@@ -41,22 +41,24 @@ async def run_pipeline(settings: Settings) -> JournalCycleSummary:
                 logfire.error("Guardian failed", error=str(e))
 
         # Pre-trade cash gate: skip Scout/Analyst/Trader if we can't afford to trade
-        min_cash = settings.trading.contracts * 1.0  # Need at least $1 per contract
-        try:
-            state = load_state()
-            if state.portfolio.cash_balance < min_cash:
-                logfire.warn(
-                    "Insufficient cash for trading cycle; skipping Scout/Analyst/Trader",
-                    cash_balance=round(state.portfolio.cash_balance, 2),
-                    min_cash_required=min_cash,
-                )
-                summary.scout_summary = "Skipped (insufficient cash)"
-                summary.analyst_summary = "N/A"
-                summary.trader_summary = "N/A"
-                _finalize_summary(summary, cycle_start, errors)
-                return summary
-        except Exception as e:
-            logger.warning("Could not load state for pre-trade cash check: %s", e)
+        # In paper mode, bypass the cash check since no real funds are at risk
+        if not settings.trading.paper_mode:
+            min_cash = settings.trading.contracts * 1.0  # Need at least $1 per contract
+            try:
+                state = load_state()
+                if state.portfolio.cash_balance < min_cash:
+                    logfire.warn(
+                        "Insufficient cash for trading cycle; skipping Scout/Analyst/Trader",
+                        cash_balance=round(state.portfolio.cash_balance, 2),
+                        min_cash_required=min_cash,
+                    )
+                    summary.scout_summary = "Skipped (insufficient cash)"
+                    summary.analyst_summary = "N/A"
+                    summary.trader_summary = "N/A"
+                    _finalize_summary(summary, cycle_start, errors)
+                    return summary
+            except Exception as e:
+                logger.warning("Could not load state for pre-trade cash check: %s", e)
 
         # Step 2: Scout
         with logfire.span("scout"):

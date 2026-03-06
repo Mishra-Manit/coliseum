@@ -414,15 +414,16 @@ async def run_trader(
             output.execution_status = order_result.status
 
             if order_result.contracts_filled > 0:
-                _update_state_after_trade(
-                    opportunity=opportunity,
-                    side=side.upper(),
-                    contracts=order_result.contracts_filled,
-                    fill_price=order_result.fill_price or current_price_decimal,
-                    total_cost=order_result.total_cost_usd,
-                    config=settings,
-                    reasoning=output.decision.reasoning,
-                )
+                if not settings.trading.paper_mode:
+                    _update_state_after_trade(
+                        opportunity=opportunity,
+                        side=side.upper(),
+                        contracts=order_result.contracts_filled,
+                        fill_price=order_result.fill_price or current_price_decimal,
+                        total_cost=order_result.total_cost_usd,
+                        config=settings,
+                        reasoning=output.decision.reasoning,
+                    )
 
                 trade = TradeExecution(
                     id=generate_trade_id(),
