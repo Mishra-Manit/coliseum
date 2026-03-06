@@ -37,7 +37,7 @@ def build_scout_context() -> str:
     try:
         state = load_state()
         decisions = load_recent_decisions(hours=24)
-        learnings = load_learnings(section="Market Patterns")
+        learnings = load_learnings()
     except Exception as exc:
         logger.warning("build_scout_context failed: %s", exc)
         return ""
@@ -54,7 +54,7 @@ def build_scout_context() -> str:
 ### Recent Decisions (last 24h)
 {decisions_block}
 
-### System Learnings — Market Patterns
+### System Learnings
 {learnings}
 
 Use this context to avoid re-researching recently skipped tickers and to understand current portfolio exposure before selecting an opportunity.
