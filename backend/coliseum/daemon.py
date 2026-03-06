@@ -5,6 +5,8 @@ import logging
 import signal
 from datetime import datetime, timezone
 
+import logfire
+
 from coliseum.agents.guardian import run_guardian
 from coliseum.config import Settings
 from coliseum.memory.errors import ErrorEntry, detect_recurring_error, log_error
@@ -73,7 +75,6 @@ class ColiseumDaemon:
             cycle_start = datetime.now(timezone.utc)
 
             await self._run_full_cycle()
-            await self._maybe_send_heartbeat()
 
             elapsed = (datetime.now(timezone.utc) - cycle_start).total_seconds()
             remaining = max(0, self.heartbeat_interval_seconds - elapsed)
@@ -84,42 +85,50 @@ class ColiseumDaemon:
     async def _run_full_cycle(self) -> None:
         """Execute one full pipeline cycle with error tracking."""
         self._cycle_count += 1
-        logger.info("=== Full pipeline cycle #%d starting ===", self._cycle_count)
-
-        try:
-            await run_pipeline(self.settings)
-            self._consecutive_failures = 0
-            self._last_cycle_at = datetime.now(timezone.utc)
-            logger.info("=== Full pipeline cycle #%d complete ===", self._cycle_count)
-        except Exception as e:
-            self._consecutive_failures += 1
-            logger.error(
-                "Full pipeline cycle #%d failed (%d/%d): %s",
-                self._cycle_count,
-                self._consecutive_failures,
-                self.settings.daemon.max_consecutive_failures,
-                e,
-                exc_info=True,
-            )
-            self._log_error(
-                component="pipeline",
-                error=str(e),
-                resolution="auto_retry"
-                if self._consecutive_failures
-                < self.settings.daemon.max_consecutive_failures
-                else "paused",
-                attempts=self._consecutive_failures,
-            )
-            if (
-                self._consecutive_failures
-                >= self.settings.daemon.max_consecutive_failures
-            ):
-                logger.critical(
-                    "Max consecutive failures reached (%d). Pausing daemon.",
-                    self._consecutive_failures,
+        with logfire.span("daemon cycle", cycle=self._cycle_count):
+            try:
+                await run_pipeline(self.settings)
+                self._consecutive_failures = 0
+                self._last_cycle_at = datetime.now(timezone.utc)
+                logfire.info("pipeline cycle complete", cycle=self._cycle_count)
+            except Exception as e:
+                self._consecutive_failures += 1
+                logfire.error(
+                    "pipeline cycle failed",
+                    cycle=self._cycle_count,
+                    failure=self._consecutive_failures,
+                    max_failures=self.settings.daemon.max_consecutive_failures,
+                    error=str(e),
                 )
-                self._paused = True
-                await self._send_escalation_alert(str(e))
+                logger.error(
+                    "Full pipeline cycle #%d failed (%d/%d): %s",
+                    self._cycle_count,
+                    self._consecutive_failures,
+                    self.settings.daemon.max_consecutive_failures,
+                    e,
+                    exc_info=True,
+                )
+                self._log_error(
+                    component="pipeline",
+                    error=str(e),
+                    resolution="auto_retry"
+                    if self._consecutive_failures
+                    < self.settings.daemon.max_consecutive_failures
+                    else "paused",
+                    attempts=self._consecutive_failures,
+                )
+                if (
+                    self._consecutive_failures
+                    >= self.settings.daemon.max_consecutive_failures
+                ):
+                    logfire.critical(
+                        "max consecutive failures reached, pausing daemon",
+                        failures=self._consecutive_failures,
+                    )
+                    self._paused = True
+                    await self._send_escalation_alert(str(e))
+
+            await self._maybe_send_heartbeat()
 
     async def _run_guardian_intercycles(self, remaining_seconds: float) -> None:
         """Run guardian-only checks in the gap between full pipeline cycles."""
@@ -191,7 +200,7 @@ class ColiseumDaemon:
     async def _send_heartbeat(self) -> None:
         """Send a periodic Telegram status summary."""
         if not self.settings.telegram_bot_token or not self.settings.telegram_chat_id:
-            logger.warning("Telegram heartbeat skipped: bot_token or chat_id not configured")
+            logfire.warn("telegram heartbeat skipped: bot_token or chat_id not configured")
             return
 
         uptime_h = 0.0
@@ -210,18 +219,23 @@ class ColiseumDaemon:
             f"Consecutive failures: {self._consecutive_failures}"
         )
 
-        try:
-            async with TelegramClient(
-                bot_token=self.settings.telegram_bot_token,
-                default_chat_id=self.settings.telegram_chat_id,
-            ) as tg:
-                result = await tg.send_alert(msg)
-                if result.success:
-                    logger.info("Heartbeat sent via Telegram")
-                else:
-                    logger.warning("Telegram heartbeat failed: %s", result.error)
-        except Exception as exc:
-            logger.error("Failed to send Telegram heartbeat: %s", exc)
+        with logfire.span("telegram heartbeat"):
+            try:
+                async with TelegramClient(
+                    bot_token=self.settings.telegram_bot_token,
+                    default_chat_id=self.settings.telegram_chat_id,
+                ) as tg:
+                    result = await tg.send_alert(msg)
+                    if result.success:
+                        logfire.info(
+                            "heartbeat sent",
+                            cycle=self._cycle_count,
+                            uptime_h=round(uptime_h, 1),
+                        )
+                    else:
+                        logfire.warn("telegram heartbeat failed", error=result.error)
+            except Exception as exc:
+                logfire.error("failed to send telegram heartbeat", error=str(exc))
 
     async def _send_escalation_alert(self, error: str) -> None:
         """Send a Telegram alert when the daemon pauses due to repeated failures."""
@@ -256,18 +270,19 @@ class ColiseumDaemon:
             "Action: Pipeline paused. Manual intervention required or daemon will retry after next heartbeat interval."
         )
 
-        try:
-            async with TelegramClient(
-                bot_token=self.settings.telegram_bot_token,
-                default_chat_id=self.settings.telegram_chat_id,
-            ) as tg:
-                result = await tg.send_alert(msg)
-                if result.success:
-                    logger.info("Escalation alert sent via Telegram")
-                else:
-                    logger.warning("Telegram escalation alert failed: %s", result.error)
-        except Exception as exc:
-            logger.error("Failed to send Telegram escalation alert: %s", exc)
+        with logfire.span("telegram escalation alert"):
+            try:
+                async with TelegramClient(
+                    bot_token=self.settings.telegram_bot_token,
+                    default_chat_id=self.settings.telegram_chat_id,
+                ) as tg:
+                    result = await tg.send_alert(msg)
+                    if result.success:
+                        logfire.info("escalation alert sent", failures=self._consecutive_failures)
+                    else:
+                        logfire.warn("telegram escalation alert failed", error=result.error)
+            except Exception as exc:
+                logfire.error("failed to send telegram escalation alert", error=str(exc))
 
     def _log_error(
         self,

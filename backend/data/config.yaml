@@ -1,7 +1,7 @@
 # Coliseum Configuration
 
 trading:
-  paper_mode: false
+  paper_mode: true
   contracts: 5
 
 scout:
