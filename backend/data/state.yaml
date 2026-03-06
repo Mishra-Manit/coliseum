@@ -1,8 +1,8 @@
-last_updated: '2026-03-06T00:58:16.499673Z'
+last_updated: '2026-03-06T02:32:02.466929Z'
 portfolio:
-  total_value: 26.52
+  total_value: 26.72
   cash_balance: 2.77
-  positions_value: 23.75
+  positions_value: 23.95
 open_positions:
 - id: pos_bd820dfa
   market_ticker: KXNBAMENTION-26MAR06LALDEN-INJU
@@ -23,14 +23,14 @@ open_positions:
   side: 'YES'
   contracts: 5
   average_entry: 0.95
-  current_price: 0.92
+  current_price: 0.95
   opportunity_id: opp_398a3bbf
 - id: pos_6cfbd928
   market_ticker: KXWTIW-26MAR06-T73.99
   side: 'YES'
   contracts: 5
   average_entry: 0.96
-  current_price: 0.95
+  current_price: 0.96
   opportunity_id: opp_c6e324cb
 - id: pos_216ac396
   market_ticker: KXPAYROLLS-26FEB-T-25000
@@ -124,3 +124,5 @@ seen_tickers:
 - KXMLBSTGAME-26MAR051510MILCOL-MIL
 - KXNBAMENTION-26MAR05GSWHOU-INJU
 - KXNBAMENTION-26MAR06LALDEN-INJU
+- KXALBUMSALES-ROM-85000
+- KXNCAABBGAME-26MAR051600UCSDCIB-CIB
