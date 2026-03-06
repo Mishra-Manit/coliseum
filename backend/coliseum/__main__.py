@@ -53,7 +53,8 @@ def cmd_init(args: argparse.Namespace) -> int:
             "opportunities",
             "positions/open",
             "positions/closed",
-            "trades",
+            "trades/buy",
+            "trades/close",
             "memory/journal",
         ]
 

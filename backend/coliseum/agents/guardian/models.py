@@ -21,3 +21,10 @@ class GuardianResult(BaseModel):
     reconciliation: ReconciliationStats = Field(default_factory=ReconciliationStats)
     warnings: list[str] = Field(default_factory=list)
     agent_summary: str = ""
+
+
+class LearningReflectionOutput(BaseModel):
+    """Structured output from the Scribe reflection agent."""
+
+    updated_learnings_md: str
+    summary: str

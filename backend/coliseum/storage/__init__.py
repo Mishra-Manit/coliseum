@@ -21,13 +21,16 @@ from .state import (
 from .files import (
     OpportunitySignal,
     TradeExecution,
+    TradeClose,
     save_opportunity,
     append_to_opportunity,
     load_opportunity_with_all_stages,
     get_opportunity_markdown_body,
     log_trade,
+    log_trade_close,
     generate_opportunity_id,
     generate_trade_id,
+    generate_close_id,
 )
 
 
@@ -42,11 +45,14 @@ __all__ = [
     # File operations
     "OpportunitySignal",
     "TradeExecution",
+    "TradeClose",
     "save_opportunity",
     "append_to_opportunity",
     "load_opportunity_with_all_stages",
     "get_opportunity_markdown_body",
     "log_trade",
+    "log_trade_close",
     "generate_opportunity_id",
     "generate_trade_id",
+    "generate_close_id",
 ]

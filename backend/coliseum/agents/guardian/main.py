@@ -1,4 +1,4 @@
-"""Guardian: deterministic portfolio reconciler (no LLM)."""
+"""Guardian: deterministic portfolio reconciler with LLM-powered learning reflection."""
 
 from __future__ import annotations
 
@@ -10,7 +10,13 @@ import logfire
 from coliseum.config import Settings, get_settings
 from coliseum.services.kalshi import KalshiClient
 from coliseum.services.kalshi.config import KalshiConfig
-from coliseum.storage.files import find_opportunity_file_by_id, get_opportunity_markdown_body
+from coliseum.storage.files import (
+    TradeClose,
+    find_opportunity_file_by_id,
+    generate_close_id,
+    get_opportunity_markdown_body,
+    log_trade_close,
+)
 from coliseum.storage.state import ClosedPosition, PortfolioState, Position, load_state, save_state
 from coliseum.storage.sync import (
     extract_fill_count,
@@ -21,6 +27,7 @@ from coliseum.storage.sync import (
 )
 
 from .models import GuardianResult, ReconciliationStats
+from .scribe import run_scribe
 
 logger = logging.getLogger(__name__)
 
@@ -128,7 +135,7 @@ async def reconcile_closed_positions(
     new_state: PortfolioState,
     fills: list[dict[str, object]],
     client: KalshiClient,
-) -> tuple[PortfolioState, ReconciliationStats]:
+) -> tuple[PortfolioState, ReconciliationStats, list[ClosedPosition]]:
     """Detect positions that closed since last sync and move them to closed_positions."""
     new_open_keys = {(pos.market_ticker, pos.side) for pos in new_state.open_positions}
     stats = ReconciliationStats()
@@ -141,20 +148,38 @@ async def reconcile_closed_positions(
             stats.kept_open += 1
             continue
 
+        closed_at = datetime.now(timezone.utc)
         exit_price, pnl = await _compute_exit_outcome(pos, fills, client)
-        newly_closed.append(
-            ClosedPosition(
+        entry_rationale = _extract_entry_rationale(pos.opportunity_id)
+
+        closed_pos = ClosedPosition(
+            market_ticker=pos.market_ticker,
+            side=pos.side,
+            contracts=pos.contracts,
+            entry_price=pos.average_entry,
+            exit_price=exit_price,
+            pnl=pnl,
+            opportunity_id=pos.opportunity_id,
+            closed_at=closed_at,
+            entry_rationale=entry_rationale,
+        )
+        newly_closed.append(closed_pos)
+
+        log_trade_close(
+            TradeClose(
+                id=generate_close_id(),
+                opportunity_id=pos.opportunity_id,
                 market_ticker=pos.market_ticker,
                 side=pos.side,
                 contracts=pos.contracts,
                 entry_price=pos.average_entry,
                 exit_price=exit_price,
                 pnl=pnl,
-                opportunity_id=pos.opportunity_id,
-                closed_at=datetime.now(timezone.utc),
-                entry_rationale=_extract_entry_rationale(pos.opportunity_id),
+                entry_rationale=entry_rationale,
+                closed_at=closed_at,
             )
         )
+
         stats.newly_closed += 1
         logger.info(
             "Guardian closed %s exit_price=%.4f pnl=$%.2f",
@@ -170,7 +195,7 @@ async def reconcile_closed_positions(
         seen_tickers=new_state.seen_tickers,
     )
     save_state(updated_state)
-    return updated_state, stats
+    return updated_state, stats, newly_closed
 
 
 def _find_positions_without_opportunity_id(state: PortfolioState) -> list[str]:
@@ -220,7 +245,7 @@ async def run_guardian(settings: Settings | None = None) -> GuardianResult:
 
             # Step 4: reconcile closed positions
             with logfire.span("reconcile closed positions", inspected=len(pre_sync_state.open_positions)):
-                updated_state, stats = await reconcile_closed_positions(
+                updated_state, stats, newly_closed = await reconcile_closed_positions(
                     old_open=pre_sync_state.open_positions,
                     new_state=state,
                     fills=fills,
@@ -238,6 +263,15 @@ async def run_guardian(settings: Settings | None = None) -> GuardianResult:
 
         for missing_key in missing:
             logfire.warn("Position missing opportunity_id", position=missing_key)
+
+        # Step 6: LLM reflection — update learnings when trades close
+        if newly_closed:
+            try:
+                with logfire.span("scribe reflection", trades=len(newly_closed)):
+                    scribe_summary = await run_scribe(newly_closed)
+                    logfire.info("Scribe complete", summary=scribe_summary)
+            except Exception as exc:
+                logger.warning("Scribe reflection failed (non-fatal): %s", exc)
 
         logfire.info(
             "Guardian complete",

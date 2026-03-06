@@ -82,6 +82,21 @@ class TradeExecution(BaseModel):
     executed_at: datetime
 
 
+class TradeClose(BaseModel):
+    """Position closure record written by Guardian when a market resolves."""
+
+    id: str
+    opportunity_id: str | None
+    market_ticker: str
+    side: Literal["YES", "NO"]
+    contracts: int
+    entry_price: float
+    exit_price: float
+    pnl: float
+    entry_rationale: str | None
+    closed_at: datetime
+
+
 def _ensure_date_dir(base_dir: Path, date: datetime) -> Path:
     """Ensure date-based subdirectory exists (YYYY-MM-DD format)."""
     date_str = date.strftime("%Y-%m-%d")
@@ -355,13 +370,13 @@ def get_opportunity_markdown_body(file_path: Path) -> str:
 
 
 def log_trade(trade: TradeExecution) -> None:
-    """Append trade execution to JSONL ledger in data/trades/{date}.jsonl."""
+    """Append trade execution to JSONL ledger in data/trades/buy/{date}.jsonl."""
     data_dir = get_data_dir()
-    trades_dir = data_dir / "trades"
-    trades_dir.mkdir(parents=True, exist_ok=True)
+    buy_dir = data_dir / "trades" / "buy"
+    buy_dir.mkdir(parents=True, exist_ok=True)
 
     date_str = trade.executed_at.strftime("%Y-%m-%d")
-    ledger_path = trades_dir / f"{date_str}.jsonl"
+    ledger_path = buy_dir / f"{date_str}.jsonl"
 
     trade_json = trade.model_dump_json() + "\n"
 
@@ -376,6 +391,28 @@ def log_trade(trade: TradeExecution) -> None:
         raise
 
 
+def log_trade_close(close: TradeClose) -> None:
+    """Append position closure record to JSONL ledger in data/trades/close/{date}.jsonl."""
+    data_dir = get_data_dir()
+    close_dir = data_dir / "trades" / "close"
+    close_dir.mkdir(parents=True, exist_ok=True)
+
+    date_str = close.closed_at.strftime("%Y-%m-%d")
+    ledger_path = close_dir / f"{date_str}.jsonl"
+
+    close_json = close.model_dump_json() + "\n"
+
+    try:
+        with open(ledger_path, "a", encoding="utf-8") as f:
+            f.write(close_json)
+
+        logger.info(f"Logged trade close {close.id} to {ledger_path}")
+
+    except Exception as e:
+        logger.error(f"Failed to log trade close {close.id}: {e}")
+        raise
+
+
 def generate_opportunity_id() -> str:
     """Generate unique opportunity ID."""
     return f"opp_{uuid4().hex[:8]}"
@@ -384,6 +421,11 @@ def generate_opportunity_id() -> str:
 def generate_trade_id() -> str:
     """Generate unique trade execution ID."""
     return f"trade_{uuid4().hex[:8]}"
+
+
+def generate_close_id() -> str:
+    """Generate unique trade closure ID."""
+    return f"close_{uuid4().hex[:8]}"
 
 
 def find_opportunity_file(market_ticker: str, lookback_days: int = 7) -> Path | None:
