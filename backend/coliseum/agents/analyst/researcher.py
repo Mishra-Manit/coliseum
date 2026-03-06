@@ -8,6 +8,7 @@ import logfire
 from pydantic_ai import Agent, WebSearchTool
 
 from coliseum.agents.agent_factory import AgentFactory
+from coliseum.agents.analyst.market_type_context import get_market_type_context
 from coliseum.agents.analyst.models import AnalystDependencies, ResearcherOutput
 from coliseum.agents.analyst.prompts import RESEARCHER_PROMPT
 from coliseum.agents.analyst.shared import (
@@ -92,8 +93,9 @@ def _build_research_prompt(opportunity: OpportunitySignal, settings: Settings) -
     """Build the research prompt for the agent."""
     header = format_opportunity_header(opportunity)
     memory_context = build_analyst_context()
+    market_type_context = get_market_type_context(opportunity)
 
-    return f"""Research this prediction market opportunity and synthesize your findings.
+    return f"""Assess whether this pre-resolution prediction market is likely to hold at 92-96% YES.
 {memory_context}
 ## Opportunity Details
 
@@ -101,24 +103,15 @@ def _build_research_prompt(opportunity: OpportunitySignal, settings: Settings) -
 
 **Scout's Rationale**: {opportunity.rationale}
 
-## Your Task
+## Market Type
 
-1. Formulate 2-4 very specific research questions about this event
-2. Use web search for each question to gather grounded information
-3. Synthesize findings into a coherent analysis with embedded sources
+{market_type_context}
 
-## Research Standards
+## Research Task
 
-- **Objectivity**: Consider both bullish and bearish evidence
-- **Grounding**: Only cite facts from web search results (no hallucination)
-- **Base rates**: Start with historical precedents, then adjust for specifics
+Follow the 6-step workflow in your instructions exactly. Do not skip steps because earlier
+results look clean. Run all 6 searches targeting distinct questions.
 
-## Important
-
-You are ONLY responsible for research. Do NOT:
-- Estimate probability of YES outcome
-- Include pricing metrics or sizing outputs
-- Make trade recommendations (BUY/SELL/ABSTAIN)
-
-The Recommender agent will handle the trading decision based on your research.
+Do NOT echo the scout's rationale as your finding. Find new information from primary sources.
+Report what each search returned — including null results.
 """
