@@ -167,8 +167,7 @@ async def run_scout(
     seen_tickers = get_seen_tickers()
 
     with logfire.span("scout scan"):
-        # Scout always reads from production API (market data is public)
-        kalshi_config = KalshiConfig(paper_mode=False)
+        kalshi_config = KalshiConfig()
         async with KalshiClient(config=kalshi_config) as client:
             with logfire.span("prefetch markets"):
                 prefetched_markets = await _prefetch_markets_for_scan(
