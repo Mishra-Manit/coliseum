@@ -118,10 +118,15 @@ def _format_markdown_with_frontmatter(
     return f"---\n{frontmatter}---\n\n{body}"
 
 
-def save_opportunity(opportunity: OpportunitySignal) -> Path:
+def _get_opps_dir(paper: bool = False) -> Path:
+    """Return the base opportunities directory, routed by paper mode."""
+    base = get_data_dir() / "opportunities"
+    return base / "paper-mode" if paper else base
+
+
+def save_opportunity(opportunity: OpportunitySignal, paper: bool = False) -> Path:
     """Save opportunity to markdown file."""
-    data_dir = get_data_dir()
-    opps_dir = data_dir / "opportunities"
+    opps_dir = _get_opps_dir(paper)
     date_dir = _ensure_date_dir(opps_dir, opportunity.discovered_at)
 
     filename = f"{opportunity.market_ticker}.md"
@@ -173,9 +178,10 @@ def append_to_opportunity(
     body_section: str,
     section_header: str,
     lookback_days: int = 7,
+    paper: bool = False,
 ) -> Path:
     """Safely append research or recommendation data to an existing opportunity file."""
-    file_path = find_opportunity_file(market_ticker, lookback_days)
+    file_path = find_opportunity_file(market_ticker, lookback_days, paper=paper)
     if not file_path:
         raise FileNotFoundError(f"Opportunity file not found: {market_ticker}")
 
@@ -312,11 +318,10 @@ def load_opportunity_from_file(file_path: Path) -> OpportunitySignal:
 
 
 def find_opportunity_file_by_id(
-    opportunity_id: str, lookback_days: int = 7
+    opportunity_id: str, lookback_days: int = 7, paper: bool = False
 ) -> Path | None:
     """Find opportunity file by searching for ID in YAML frontmatter."""
-    data_dir = get_data_dir()
-    opps_dir = data_dir / "opportunities"
+    opps_dir = _get_opps_dir(paper)
 
     if not opps_dir.exists():
         return None
@@ -350,10 +355,10 @@ def find_opportunity_file_by_id(
 
 
 def load_opportunity_with_all_stages(
-    market_ticker: str, lookback_days: int = 7
+    market_ticker: str, lookback_days: int = 7, paper: bool = False
 ) -> OpportunitySignal:
     """Load opportunity file with all stages."""
-    file_path = find_opportunity_file(market_ticker, lookback_days)
+    file_path = find_opportunity_file(market_ticker, lookback_days, paper=paper)
     if not file_path:
         raise FileNotFoundError(f"Opportunity file not found: {market_ticker}")
 
@@ -428,10 +433,9 @@ def generate_close_id() -> str:
     return f"close_{uuid4().hex[:8]}"
 
 
-def find_opportunity_file(market_ticker: str, lookback_days: int = 7) -> Path | None:
+def find_opportunity_file(market_ticker: str, lookback_days: int = 7, paper: bool = False) -> Path | None:
     """Find the opportunity markdown file for a given market ticker."""
-    data_dir = get_data_dir()
-    opps_dir = data_dir / "opportunities"
+    opps_dir = _get_opps_dir(paper)
 
     if not opps_dir.exists():
         return None
@@ -450,6 +454,6 @@ def find_opportunity_file(market_ticker: str, lookback_days: int = 7) -> Path | 
     return None
 
 
-def opportunity_exists(market_ticker: str, lookback_days: int = 7) -> bool:
+def opportunity_exists(market_ticker: str, lookback_days: int = 7, paper: bool = False) -> bool:
     """Check if an opportunity file exists for a given market ticker."""
-    return find_opportunity_file(market_ticker, lookback_days) is not None
+    return find_opportunity_file(market_ticker, lookback_days, paper=paper) is not None
