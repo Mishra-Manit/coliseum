@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { SWRConfig } from "swr";
+import { TimezoneProvider } from "@/lib/timezone-context";
 import { DashboardNavbar } from "@/components/dashboard/dashboard-navbar";
 import { OpportunitiesFeed } from "@/components/dashboard/opportunities-feed";
 import { OpportunityDetailView } from "@/components/dashboard/opportunity-detail";
@@ -20,36 +21,38 @@ export default function Home() {
         errorRetryCount: 3,
       }}
     >
-      <div className="flex flex-col h-screen bg-background tech-grid noise-bg overflow-hidden">
-        <DashboardNavbar />
+      <TimezoneProvider>
+        <div className="flex flex-col h-screen bg-background tech-grid noise-bg overflow-hidden">
+          <DashboardNavbar />
 
-        <main className="flex-1 flex overflow-hidden">
-          <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-0 overflow-hidden">
-            {/* Left panel — positions + ledger */}
-            <div className="lg:col-span-3 border-r border-border overflow-hidden flex flex-col">
-              <PositionsLedgerPanel
-                onSelectOpportunity={setSelectedOpportunityId}
-              />
-            </div>
+          <main className="flex-1 flex overflow-hidden">
+            <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-0 overflow-hidden">
+              {/* Left panel — positions + ledger */}
+              <div className="lg:col-span-3 border-r border-border overflow-hidden flex flex-col">
+                <PositionsLedgerPanel
+                  onSelectOpportunity={setSelectedOpportunityId}
+                />
+              </div>
 
-            {/* Center panel — opportunities feed */}
-            <div className="lg:col-span-4 border-r border-border overflow-hidden flex flex-col">
-              <OpportunitiesFeed
-                onSelectOpportunity={setSelectedOpportunityId}
-                selectedId={selectedOpportunityId}
-              />
-            </div>
+              {/* Center panel — opportunities feed */}
+              <div className="lg:col-span-4 border-r border-border overflow-hidden flex flex-col">
+                <OpportunitiesFeed
+                  onSelectOpportunity={setSelectedOpportunityId}
+                  selectedId={selectedOpportunityId}
+                />
+              </div>
 
-            {/* Right panel — opportunity detail */}
-            <div className="lg:col-span-5 overflow-hidden flex flex-col">
-              <OpportunityDetailView
-                opportunityId={selectedOpportunityId}
-                onClose={() => setSelectedOpportunityId(null)}
-              />
+              {/* Right panel — opportunity detail */}
+              <div className="lg:col-span-5 overflow-hidden flex flex-col">
+                <OpportunityDetailView
+                  opportunityId={selectedOpportunityId}
+                  onClose={() => setSelectedOpportunityId(null)}
+                />
+              </div>
             </div>
-          </div>
-        </main>
-      </div>
+          </main>
+        </div>
+      </TimezoneProvider>
     </SWRConfig>
   );
 }
