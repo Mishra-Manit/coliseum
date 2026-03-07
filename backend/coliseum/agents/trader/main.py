@@ -10,6 +10,7 @@ from uuid import uuid4
 import logfire
 
 from pydantic_ai import Agent, RunContext
+from pydantic_ai.models.openai import OpenAIResponsesModelSettings
 
 from coliseum.agents.agent_factory import AgentFactory
 from coliseum.agents.trader.models import (
@@ -48,10 +49,11 @@ logger = logging.getLogger(__name__)
 def _create_agent(settings: Settings) -> Agent[TraderDependencies, TraderOutput]:
     """Create the Trader agent."""
     return Agent(
-        model=get_model_string(OpenAIModel.GPT_5_2),
+        model=get_model_string(OpenAIModel.GPT_5_4),
         output_type=TraderOutput,
         deps_type=TraderDependencies,
         system_prompt=build_trader_system_prompt(settings),
+        model_settings=OpenAIResponsesModelSettings(openai_reasoning_effort="low"),
     )
 
 
