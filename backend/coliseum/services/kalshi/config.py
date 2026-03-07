@@ -5,8 +5,6 @@ class KalshiConfig(BaseModel):
     """Configuration for Kalshi API client."""
 
     base_url: str = "https://api.elections.kalshi.com/trade-api/v2"
-    paper_mode: bool = False
-    paper_balance_usd: float = 100.0
     timeout_seconds: float = 30.0
     max_connections: int = 100
     max_keepalive_connections: int = 20
