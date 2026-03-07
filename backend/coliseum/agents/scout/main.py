@@ -5,6 +5,7 @@ import logging
 
 import logfire
 from pydantic_ai import Agent, RunContext, WebSearchTool
+from pydantic_ai.models.openai import OpenAIResponsesModelSettings
 
 from coliseum.agents.shared_tools import register_get_current_time
 from coliseum.config import Settings, get_settings
@@ -24,11 +25,12 @@ logger = logging.getLogger(__name__)
 def _create_scout_agent(prompt: str) -> Agent[ScoutDependencies, ScoutOutput]:
     """Create the Scout agent with the provided system prompt."""
     return Agent(
-        model=get_model_string(OpenAIModel.GPT_5_2),
+        model=get_model_string(OpenAIModel.GPT_5_4),
         output_type=ScoutOutput,
         deps_type=ScoutDependencies,
         system_prompt=prompt,
         builtin_tools=[WebSearchTool()],
+        model_settings=OpenAIResponsesModelSettings(openai_reasoning_effort="high"),
     )
 
 

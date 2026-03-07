@@ -9,6 +9,7 @@ from pathlib import Path
 
 import logfire
 from pydantic_ai import Agent
+from pydantic_ai.models.openai import OpenAIResponsesModelSettings
 
 from coliseum.agents.agent_factory import AgentFactory
 from coliseum.agents.guardian.models import LearningReflectionOutput
@@ -23,9 +24,10 @@ logger = logging.getLogger(__name__)
 
 def _create_agent() -> Agent[None, LearningReflectionOutput]:
     return Agent(
-        model=get_model_string(OpenAIModel.GPT_5_2),
+        model=get_model_string(OpenAIModel.GPT_5_4),
         output_type=LearningReflectionOutput,
         system_prompt=SCRIBE_PROMPT,
+        model_settings=OpenAIResponsesModelSettings(openai_reasoning_effort="low"),
     )
 
 

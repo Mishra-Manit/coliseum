@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 
 import logfire
 from pydantic_ai import Agent
+from pydantic_ai.models.openai import OpenAIResponsesModelSettings
 
 from coliseum.agents.agent_factory import AgentFactory
 from coliseum.agents.analyst.models import AnalystDependencies, RecommenderOutput
@@ -29,10 +30,11 @@ logger = logging.getLogger(__name__)
 
 def _create_agent() -> Agent[AnalystDependencies, RecommenderOutput]:
     return Agent(
-        model=get_model_string(OpenAIModel.GPT_5_2),
+        model=get_model_string(OpenAIModel.GPT_5_4),
         output_type=RecommenderOutput,
         deps_type=AnalystDependencies,
         system_prompt=RECOMMENDER_PROMPT,
+        model_settings=OpenAIResponsesModelSettings(openai_reasoning_effort="low"),
     )
 
 
