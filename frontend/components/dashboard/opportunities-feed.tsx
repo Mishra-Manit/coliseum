@@ -1,27 +1,18 @@
 "use client";
 
 import { formatDistanceToNow } from "date-fns";
-import {
-  FileText,
-  ChevronRight,
-  TrendingUp,
-  TrendingDown,
-  Clock,
-} from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
+import { FileText, ChevronRight } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useOpportunities } from "@/hooks/use-api";
 import type { OpportunitySummary } from "@/lib/types";
 
-const statusVariants: Record<string, string> = {
-  pending: "bg-yellow-500/10 text-yellow-500 border-yellow-500/20",
-  researched: "bg-sky-500/10 text-sky-400 border-sky-500/20",
-  recommended: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
-  traded: "bg-violet-500/10 text-violet-400 border-violet-500/20",
-  rejected: "bg-red-500/10 text-red-400 border-red-500/20",
-  expired: "bg-secondary text-muted-foreground border-border",
+const statusColors: Record<string, { dot: string; text: string }> = {
+  pending:    { dot: "bg-yellow-500",  text: "text-yellow-500/80" },
+  researched: { dot: "bg-sky-500",     text: "text-sky-400/80" },
+  recommended:{ dot: "bg-emerald-500", text: "text-emerald-400/80" },
+  traded:     { dot: "bg-violet-500",  text: "text-violet-400/80" },
+  rejected:   { dot: "bg-red-500",     text: "text-red-400/60" },
+  expired:    { dot: "bg-zinc-600",    text: "text-muted-foreground/40" },
 };
 
 interface OpportunitiesFeedProps {
@@ -34,79 +25,51 @@ export function OpportunitiesFeed({
   selectedId,
 }: OpportunitiesFeedProps) {
   const { data: opportunities, isLoading } = useOpportunities();
-
-  if (isLoading) {
-    return (
-      <Card className="bg-card border-border">
-        <CardHeader>
-          <Skeleton className="h-5 w-40 bg-secondary" />
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <div
-              key={i}
-              className="p-4 rounded-xl bg-secondary/50 border border-border"
-            >
-              <Skeleton className="h-4 w-3/4 bg-secondary mb-3" />
-              <Skeleton className="h-3 w-1/2 bg-secondary mb-3" />
-              <div className="flex gap-2">
-                <Skeleton className="h-5 w-16 rounded-md bg-secondary" />
-                <Skeleton className="h-5 w-16 rounded-md bg-secondary" />
-              </div>
-            </div>
-          ))}
-        </CardContent>
-      </Card>
-    );
-  }
-
   const opps = opportunities ?? [];
 
   return (
-    <Card className="bg-card border-border">
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <CardTitle className="font-display text-lg font-semibold text-foreground">
-            Opportunities
-          </CardTitle>
-          <Badge
-            variant="outline"
-            className="border-border bg-secondary/50 text-muted-foreground text-[10px] font-mono"
-          >
-            {opps.length} total
-          </Badge>
-        </div>
-      </CardHeader>
-      <CardContent className="pt-0">
-        <ScrollArea className="h-[calc(100vh-340px)] min-h-[400px] pr-2">
-          <div className="space-y-2">
+    <div className="flex flex-col h-full">
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
+        <span className="text-[11px] font-mono text-muted-foreground/50 tracking-[0.15em] uppercase">
+          Opportunities
+        </span>
+        <span className="text-[10px] font-mono text-muted-foreground/30 tabular-nums">
+          {opps.length}
+        </span>
+      </div>
+
+      {/* List */}
+      <ScrollArea className="flex-1">
+        {isLoading ? (
+          <div className="p-3 space-y-1">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="shimmer h-[72px] rounded" />
+            ))}
+          </div>
+        ) : opps.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full min-h-[300px] text-muted-foreground/30 gap-2">
+            <FileText className="h-6 w-6" />
+            <p className="text-[11px] font-mono tracking-wider">NO OPPORTUNITIES</p>
+          </div>
+        ) : (
+          <div className="p-2 space-y-0.5">
             {opps.map((opp) => (
-              <OpportunityCard
+              <OpportunityRow
                 key={opp.id}
                 opportunity={opp}
                 isSelected={selectedId === opp.id}
                 onSelect={() => onSelectOpportunity?.(opp.id)}
               />
             ))}
-            {opps.length === 0 && (
-              <div className="text-center py-12 text-muted-foreground">
-                <FileText className="h-10 w-10 mx-auto mb-3 opacity-20" />
-                <p className="text-sm font-medium">
-                  No opportunities discovered yet
-                </p>
-                <p className="text-xs mt-1 opacity-60">
-                  Run the Scout agent to scan markets
-                </p>
-              </div>
-            )}
           </div>
-        </ScrollArea>
-      </CardContent>
-    </Card>
+        )}
+      </ScrollArea>
+    </div>
   );
 }
 
-function OpportunityCard({
+function OpportunityRow({
   opportunity,
   isSelected,
   onSelect,
@@ -116,79 +79,88 @@ function OpportunityCard({
   onSelect: () => void;
 }) {
   const yesPercent = Math.round(opportunity.yes_price * 100);
-  const noPercent = Math.round(opportunity.no_price * 100);
+  const status = statusColors[opportunity.status] ?? statusColors.pending;
 
   return (
     <button
       onClick={onSelect}
-      className={`w-full text-left p-4 rounded-xl border transition-all duration-200 ${
+      className={`w-full text-left px-3 py-2.5 rounded transition-all duration-150 group ${
         isSelected
-          ? "bg-amber-500/5 border-amber-600/30 shadow-sm shadow-amber-500/5"
-          : "bg-secondary/30 border-border hover:border-amber-700/20 hover:bg-secondary/60"
+          ? "bg-amber-500/6 border border-amber-600/20"
+          : "border border-transparent hover:bg-secondary/40 hover:border-border/60"
       }`}
     >
-      <div className="flex items-start justify-between gap-2 mb-2">
-        <h3 className="text-sm font-semibold text-foreground leading-snug line-clamp-2">
-          {opportunity.title}
-        </h3>
+      <div className="flex items-start gap-2">
+        {/* Status dot */}
+        <span
+          className={`mt-1.5 shrink-0 h-1.5 w-1.5 rounded-full ${status.dot}`}
+        />
+
+        <div className="flex-1 min-w-0">
+          {/* Title */}
+          <p
+            className={`text-[12px] font-medium leading-snug line-clamp-2 transition-colors ${
+              isSelected ? "text-foreground" : "text-foreground/75 group-hover:text-foreground/90"
+            }`}
+          >
+            {opportunity.title}
+          </p>
+
+          {/* Bottom row */}
+          <div className="flex items-center gap-3 mt-1.5">
+            {/* Status label */}
+            <span className={`text-[9px] font-mono uppercase tracking-wider ${status.text}`}>
+              {opportunity.status}
+            </span>
+
+            {/* Action badge */}
+            {opportunity.action && (
+              <span
+                className={`text-[9px] font-mono font-bold uppercase ${
+                  opportunity.action.includes("YES")
+                    ? "text-emerald-400"
+                    : opportunity.action.includes("NO")
+                      ? "text-red-400"
+                      : "text-muted-foreground"
+                }`}
+              >
+                {opportunity.action}
+              </span>
+            )}
+
+            {/* Spacer */}
+            <span className="flex-1" />
+
+            {/* Yes probability bar */}
+            <div className="flex items-center gap-1.5">
+              <div className="prob-bar-track w-14">
+                <div
+                  className="prob-bar-yes"
+                  style={{ width: `${yesPercent}%` }}
+                />
+              </div>
+              <span className="text-[9px] font-mono text-muted-foreground/40 tabular-nums w-6 text-right">
+                {yesPercent}c
+              </span>
+            </div>
+          </div>
+        </div>
+
         <ChevronRight
-          className={`h-4 w-4 shrink-0 mt-0.5 transition-all duration-200 ${
+          className={`h-3.5 w-3.5 shrink-0 mt-1 transition-all duration-150 ${
             isSelected
-              ? "text-amber-500 translate-x-0.5"
-              : "text-muted-foreground/40"
+              ? "text-amber-500/70"
+              : "text-muted-foreground/20 group-hover:text-muted-foreground/40"
           }`}
         />
       </div>
 
-      {opportunity.subtitle && (
-        <p className="text-xs text-muted-foreground mb-2.5 truncate">
-          {opportunity.subtitle}
-        </p>
-      )}
-
-      <div className="flex items-center gap-1.5 flex-wrap mb-3">
-        <Badge
-          variant="outline"
-          className={`text-[10px] px-1.5 py-0 h-[18px] border font-mono ${
-            statusVariants[opportunity.status] ?? statusVariants.pending
-          }`}
-        >
-          {opportunity.status}
-        </Badge>
-        {opportunity.action && (
-          <Badge
-            variant="outline"
-            className={`text-[10px] px-1.5 py-0 h-[18px] font-mono font-semibold ${
-              opportunity.action.includes("YES")
-                ? "border-emerald-500/30 text-emerald-400 bg-emerald-500/5"
-                : opportunity.action.includes("NO")
-                ? "border-red-500/30 text-red-400 bg-red-500/5"
-                : "border-border text-muted-foreground"
-            }`}
-          >
-            {opportunity.action}
-          </Badge>
-        )}
-      </div>
-
-      <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-        <div className="flex items-center gap-4">
-          <span className="flex items-center gap-1 font-mono">
-            <TrendingUp className="h-3 w-3 text-emerald-500" />
-            YES {yesPercent}c
-          </span>
-          <span className="flex items-center gap-1 font-mono">
-            <TrendingDown className="h-3 w-3 text-red-500" />
-            NO {noPercent}c
-          </span>
-        </div>
-        <span className="flex items-center gap-1">
-          <Clock className="h-3 w-3" />
-          {formatDistanceToNow(new Date(opportunity.discovered_at), {
-            addSuffix: true,
-          })}
-        </span>
-      </div>
+      {/* Time */}
+      <p className="text-[9px] font-mono text-muted-foreground/25 mt-1.5 ml-3.5 tracking-wide">
+        {formatDistanceToNow(new Date(opportunity.discovered_at), {
+          addSuffix: true,
+        })}
+      </p>
     </button>
   );
 }
