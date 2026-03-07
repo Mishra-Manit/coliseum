@@ -229,7 +229,7 @@ async def run_guardian(settings: Settings | None = None) -> GuardianResult:
 
             # Step 2: sync portfolio from Kalshi
             with logfire.span("sync portfolio from Kalshi"):
-                state = await sync_portfolio_from_kalshi(client, paper_mode=settings.trading.paper_mode)
+                state = await sync_portfolio_from_kalshi(client)
                 logfire.info(
                     "Portfolio synced",
                     cash=round(state.portfolio.cash_balance, 2),
