@@ -1,6 +1,6 @@
 "use client";
 
-import { Package, CircleDot } from "lucide-react";
+import { CircleDot } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -15,7 +15,11 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { usePortfolioState } from "@/hooks/use-api";
 
-export function KalshiAccount() {
+interface KalshiAccountProps {
+  onSelectOpportunity?: (id: string) => void;
+}
+
+export function KalshiAccount({ onSelectOpportunity }: KalshiAccountProps) {
   const { data: state, isLoading } = usePortfolioState();
 
   const positions = state?.open_positions ?? [];
@@ -63,38 +67,54 @@ export function KalshiAccount() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {positions.map((pos) => (
-                  <TableRow
-                    key={pos.id}
-                    className="border-border hover:bg-secondary/40"
-                  >
-                    <TableCell className="text-xs text-foreground font-mono py-2.5 max-w-0 w-full">
-                      <span className="block truncate" title={pos.market_ticker}>
-                        {pos.market_ticker}
-                      </span>
-                    </TableCell>
-                    <TableCell className="py-2.5">
-                      <Badge
-                        variant="outline"
-                        className={`text-[10px] px-1.5 h-[18px] font-mono font-semibold ${
-                          pos.side === "YES"
-                            ? "border-emerald-500/30 text-emerald-400 bg-emerald-500/5"
-                            : pos.side === "NO"
-                            ? "border-red-500/30 text-red-400 bg-red-500/5"
-                            : "border-border text-muted-foreground"
-                        }`}
-                      >
-                        {pos.side}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-xs text-foreground text-right py-2.5 font-mono whitespace-nowrap">
-                      {pos.contracts}
-                    </TableCell>
-                    <TableCell className="text-xs text-foreground text-right py-2.5 font-mono whitespace-nowrap">
-                      {Math.round(pos.average_entry * 100)}c
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {positions.map((pos) => {
+                  const isClickable =
+                    !!pos.opportunity_id && !!onSelectOpportunity;
+                  return (
+                    <TableRow
+                      key={pos.id}
+                      onClick={
+                        isClickable
+                          ? () => onSelectOpportunity!(pos.opportunity_id!)
+                          : undefined
+                      }
+                      className={`border-border transition-colors ${
+                        isClickable
+                          ? "cursor-pointer hover:bg-amber-500/5 hover:border-amber-600/20"
+                          : "hover:bg-secondary/40"
+                      }`}
+                    >
+                      <TableCell className="text-xs text-foreground font-mono py-2.5 max-w-0 w-full">
+                        <span
+                          className="block truncate"
+                          title={pos.market_ticker}
+                        >
+                          {pos.market_ticker}
+                        </span>
+                      </TableCell>
+                      <TableCell className="py-2.5">
+                        <Badge
+                          variant="outline"
+                          className={`text-[10px] px-1.5 h-[18px] font-mono font-semibold ${
+                            pos.side === "YES"
+                              ? "border-emerald-500/30 text-emerald-400 bg-emerald-500/5"
+                              : pos.side === "NO"
+                              ? "border-red-500/30 text-red-400 bg-red-500/5"
+                              : "border-border text-muted-foreground"
+                          }`}
+                        >
+                          {pos.side}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-xs text-foreground text-right py-2.5 font-mono whitespace-nowrap">
+                        {pos.contracts}
+                      </TableCell>
+                      <TableCell className="text-xs text-foreground text-right py-2.5 font-mono whitespace-nowrap">
+                        {Math.round(pos.average_entry * 100)}c
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </ScrollArea>
