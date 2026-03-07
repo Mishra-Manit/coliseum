@@ -135,7 +135,6 @@ async def reconcile_closed_positions(
     new_state: PortfolioState,
     fills: list[dict[str, object]],
     client: KalshiClient,
-    paper_mode: bool = False,
 ) -> tuple[PortfolioState, ReconciliationStats, list[ClosedPosition]]:
     """Detect positions that closed since last sync and move them to closed_positions."""
     new_open_keys = {(pos.market_ticker, pos.side) for pos in new_state.open_positions}
@@ -195,8 +194,7 @@ async def reconcile_closed_positions(
         closed_positions=new_state.closed_positions + newly_closed,
         seen_tickers=new_state.seen_tickers,
     )
-    if not paper_mode:
-        save_state(updated_state)
+    save_state(updated_state)
     return updated_state, stats, newly_closed
 
 
@@ -213,12 +211,12 @@ async def run_guardian(settings: Settings | None = None) -> GuardianResult:
     """Run one Guardian reconciliation cycle: sync, reconcile, summarize."""
     settings = settings or get_settings()
 
-    if settings.trading.paper_mode and not settings.get_rsa_private_key():
-        logger.warning("Guardian skipped -- no real Kalshi data")
-        return GuardianResult(agent_summary="Guardian skipped due to missing Kalshi auth.")
+    if settings.trading.paper_mode:
+        logger.info("Guardian skipped in paper mode (no real positions to reconcile)")
+        return GuardianResult(agent_summary="Guardian skipped in paper mode.")
 
-    kalshi_config = KalshiConfig(paper_mode=settings.trading.paper_mode)
-    private_key_pem = "" if settings.trading.paper_mode else settings.get_rsa_private_key()
+    kalshi_config = KalshiConfig()
+    private_key_pem = settings.get_rsa_private_key()
 
     with logfire.span("guardian reconciliation"):
         async with KalshiClient(
@@ -252,7 +250,6 @@ async def run_guardian(settings: Settings | None = None) -> GuardianResult:
                     new_state=state,
                     fills=fills,
                     client=client,
-                    paper_mode=settings.trading.paper_mode,
                 )
                 logfire.info(
                     "Reconciliation complete",
