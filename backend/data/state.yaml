@@ -1,15 +1,15 @@
-last_updated: '2026-03-06T17:19:39.039087Z'
+last_updated: '2026-03-07T20:42:38.475266Z'
 portfolio:
-  total_value: 22.72
+  total_value: 22.77
   cash_balance: 17.77
-  positions_value: 4.95
+  positions_value: 5.0
 open_positions:
 - id: pos_6cfbd928
   market_ticker: KXWTIW-26MAR06-T73.99
   side: 'YES'
   contracts: 5
   average_entry: 0.96
-  current_price: 0.99
+  current_price: 1.0
   opportunity_id: opp_c6e324cb
 closed_positions:
 - market_ticker: KXNASCARRACE-ONLGF1AS26-ADAN
@@ -174,3 +174,4 @@ seen_tickers:
 - KXNCAABBGAME-26MAR051600UCSDCIB-CIB
 - KXECONSTATU3-26FEB-T4.1
 - KXBTCD-26MAR0600-T70249.99
+- KXRT-HOP-92
