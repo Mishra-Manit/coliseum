@@ -1,5 +1,5 @@
 from .auth import KalshiTradingAuth
-from .client import KalshiClient, create_kalshi_client
+from .client import KalshiClient
 from .config import KalshiConfig
 from .exceptions import (
     KalshiAPIError,
@@ -20,7 +20,6 @@ from .models import (
 
 __all__ = [
     "KalshiClient",
-    "create_kalshi_client",
     "KalshiTradingAuth",
     "KalshiConfig",
     "KalshiAPIError",

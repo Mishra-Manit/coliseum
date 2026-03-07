@@ -164,7 +164,8 @@ async def run_scout(
     if settings is None:
         settings = get_settings()
 
-    seen_tickers = get_seen_tickers()
+    # Paper mode is stateless: skip seen_tickers so every run rediscovers from scratch
+    seen_tickers = [] if settings.trading.paper_mode else get_seen_tickers()
 
     with logfire.span("scout scan"):
         kalshi_config = KalshiConfig()
@@ -200,8 +201,9 @@ async def run_scout(
             added_count = 0
             for opp in output.opportunities:
                 try:
-                    save_opportunity(opp)
-                    add_seen_ticker(opp.market_ticker)
+                    save_opportunity(opp, paper=settings.trading.paper_mode)
+                    if not settings.trading.paper_mode:
+                        add_seen_ticker(opp.market_ticker)
                     added_count += 1
                 except Exception as e:
                     logfire.error("Failed to save opportunity", opportunity_id=opp.id, error=str(e))

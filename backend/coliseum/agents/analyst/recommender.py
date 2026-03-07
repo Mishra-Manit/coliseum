@@ -51,7 +51,7 @@ async def run_recommender(
     """Run Recommender agent - updates opportunity frontmatter with recommendation status."""
     start_time = time.time()
 
-    opp_file, opportunity = load_opportunity(opportunity_id)
+    opp_file, opportunity = load_opportunity(opportunity_id, paper=settings.trading.paper_mode)
 
     if not opportunity.research_completed_at:
         raise ValueError(f"Research not completed for {opportunity_id}")
@@ -93,24 +93,25 @@ def _build_decision_prompt(
     header = format_opportunity_header(opportunity)
     memory_context = build_analyst_context()
 
-    return f"""Evaluate this research for execution readiness (no final trade decision).
+    return f"""Screen this research for execution readiness. Your output goes directly to the Trader.
 {memory_context}
-## Opportunity Details
+## Opportunity
 
 {header}
 
-## Full Research Context
+## Research Output
 
 {markdown_body}
 
-## Your Task
+## Pre-Screening Checklist
 
-1. Review the research above carefully
-2. Identify whether flip risk is present based on the research
-3. Write concise reasoning for Trader explaining why this should proceed or be rejected
-4. Do not make a final BUY/NO decision (leave action unset)
+Work through each before writing your reasoning:
 
-## Important
+1. Flip risk verdict: YES / NO / UNCERTAIN?
+2. If NO — does the researcher cite a specific named source confirming the outcome, or just report an absence of bad news?
+3. Unconfirmed section: is it empty, or does it list material gaps?
+4. Resolution mechanics: sourced explicitly, or assumed?
+5. Portfolio context above: any open position in the same or correlated market?
 
-- Be disciplined and conservative. When in doubt, downgrade risk
+Write your verdict (PROCEED / HOLD / REJECT), then your reasoning. Be specific — name the evidence, not the category.
 """

@@ -174,12 +174,8 @@ def _map_kalshi_position(
     )
 
 
-async def sync_portfolio_from_kalshi(client: KalshiClient, paper_mode: bool = False) -> PortfolioState:
+async def sync_portfolio_from_kalshi(client: KalshiClient) -> PortfolioState:
     """Fetch live account data from Kalshi and reconcile with state.yaml."""
-    if client.config.paper_mode and client.auth is None:
-        logger.warning("Skipping sync: Kalshi client in paper mode without auth.")
-        return load_state()
-
     balance = await client.get_balance()
     kalshi_positions = [
         pos for pos in await client.get_positions() if pos.position != 0
@@ -254,8 +250,7 @@ async def sync_portfolio_from_kalshi(client: KalshiClient, paper_mode: bool = Fa
         closed_positions=existing_state.closed_positions,
         seen_tickers=existing_state.seen_tickers,
     )
-    if not paper_mode:
-        save_state(new_state)
+    save_state(new_state)
     logger.info(
         "Synced portfolio: cash=$%.2f positions=%d",
         cash_balance,

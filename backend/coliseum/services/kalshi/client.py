@@ -31,9 +31,6 @@ class KalshiClient:
     ):
         self.config = config or KalshiConfig()
         self._client: httpx.AsyncClient | None = None
-        self._paper_orders: dict[str, Order] = {}
-        self._paper_positions: dict[str, Position] = {}
-        self._paper_balance_cents = int(self.config.paper_balance_usd * 100)
 
         if api_key and private_key_pem:
             self.auth = KalshiTradingAuth(api_key, private_key_pem)
@@ -41,8 +38,7 @@ class KalshiClient:
             self.auth = None
 
         logger.info(
-            f"Initialized KalshiClient (paper_mode={self.config.paper_mode}, "
-            f"auth={'enabled' if self.auth else 'disabled'})"
+            f"Initialized KalshiClient (auth={'enabled' if self.auth else 'disabled'})"
         )
 
     async def __aenter__(self) -> KalshiClient:
@@ -82,9 +78,6 @@ class KalshiClient:
                 "Authentication required. Provide api_key and private_key_pem."
             )
         return self.auth
-
-    def _paper_enabled(self) -> bool:
-        return self.config.paper_mode and self.auth is None
 
     async def _request(
         self,
@@ -267,8 +260,6 @@ class KalshiClient:
         )
 
     async def get_balance(self) -> Balance:
-        if self._paper_enabled():
-            return Balance(balance=self._paper_balance_cents, payout=0)
         data = await self._request("GET", "portfolio/balance", auth_required=True)
         return Balance(
             balance=data.get("balance", 0),
@@ -281,13 +272,6 @@ class KalshiClient:
         event_ticker: str | None = None,
         count_filter: str = "position",
     ) -> list[Position]:
-        if self._paper_enabled():
-            positions = list(self._paper_positions.values())
-            if ticker:
-                positions = [pos for pos in positions if pos.market_ticker == ticker]
-            if event_ticker:
-                positions = [pos for pos in positions if pos.event_ticker == event_ticker]
-            return positions
         params: dict[str, Any] = {"count_filter": count_filter}
         if ticker:
             params["ticker"] = ticker
@@ -319,13 +303,6 @@ class KalshiClient:
         status: str | None = None,
         limit: int = 100,
     ) -> list[Order]:
-        if self._paper_enabled():
-            orders = list(self._paper_orders.values())
-            if ticker:
-                orders = [order for order in orders if order.ticker == ticker]
-            if status:
-                orders = [order for order in orders if order.status == status]
-            return orders[:limit]
         params: dict[str, Any] = {"limit": min(limit, 200)}
         if ticker:
             params["ticker"] = ticker
@@ -339,11 +316,6 @@ class KalshiClient:
         return [self._parse_order(o) for o in raw_orders]
 
     async def get_order_status(self, order_id: str) -> Order:
-        if self._paper_enabled():
-            return self._paper_orders.get(
-                order_id,
-                Order(order_id=order_id, status="canceled", remaining_count=0),
-            )
         data = await self._request(
             "GET", f"portfolio/orders/{order_id}", auth_required=True
         )
@@ -366,44 +338,6 @@ class KalshiClient:
 
         if yes_price is None and no_price is None:
             raise ValueError("Must specify yes_price or no_price for limit orders")
-
-        if self._paper_enabled():
-            price_cents = yes_price if yes_price is not None else no_price or 0
-            order_id = f"paper_{uuid4().hex[:8]}"
-            order = Order(
-                order_id=order_id,
-                ticker=ticker,
-                side=side,
-                type="limit",
-                status="executed",
-                yes_price=yes_price or 0,
-                no_price=no_price or 0,
-                remaining_count=0,
-                action=action,
-                client_order_id=client_order_id or "",
-                maker_fill_count=count,
-                maker_fill_cost=price_cents * count,
-            )
-            self._paper_orders[order_id] = order
-
-            if action == "buy":
-                self._paper_balance_cents = max(
-                    0, self._paper_balance_cents - (price_cents * count)
-                )
-            elif action == "sell":
-                self._paper_balance_cents += price_cents * count
-
-            delta = count if side == "yes" else -count
-            if action == "sell":
-                delta = -delta
-            position = self._paper_positions.get(
-                ticker, Position(market_ticker=ticker)
-            )
-            position.position += delta
-            position.total_traded += count
-            position.event_exposure = position.position
-            self._paper_positions[ticker] = position
-            return order
 
         order_data: dict[str, Any] = {
             "ticker": ticker,
@@ -434,14 +368,6 @@ class KalshiClient:
 
     async def cancel_order(self, order_id: str) -> Order:
         logger.info(f"Cancelling order: {order_id}")
-        if self._paper_enabled():
-            order = self._paper_orders.get(
-                order_id,
-                Order(order_id=order_id, status="canceled", remaining_count=0),
-            )
-            order.status = "canceled"
-            self._paper_orders[order_id] = order
-            return order
         data = await self._request(
             "DELETE", f"portfolio/orders/{order_id}", auth_required=True
         )
@@ -460,20 +386,6 @@ class KalshiClient:
             amend_data["price"] = price
 
         logger.info(f"Amending order {order_id}: {amend_data}")
-        if self._paper_enabled():
-            order = self._paper_orders.get(
-                order_id,
-                Order(order_id=order_id, status="resting"),
-            )
-            if price is not None:
-                if order.side == "yes":
-                    order.yes_price = price
-                else:
-                    order.no_price = price
-            if count is not None:
-                order.remaining_count = count
-            self._paper_orders[order_id] = order
-            return order
         data = await self._request(
             "POST",
             f"portfolio/orders/{order_id}/amend",
@@ -488,8 +400,6 @@ class KalshiClient:
         order_id: str | None = None,
         limit: int = 100,
     ) -> list[dict[str, Any]]:
-        if self._paper_enabled():
-            return []
         params: dict[str, Any] = {"limit": min(limit, 200)}
         if ticker:
             params["ticker"] = ticker
@@ -523,12 +433,3 @@ class KalshiClient:
             maker_fill_count=data.get("maker_fill_count", 0),
             maker_fill_cost=data.get("maker_fill_cost", 0),
         )
-
-
-def create_kalshi_client(
-    paper_mode: bool = True,
-    api_key: str | None = None,
-    private_key_pem: str | None = None,
-) -> KalshiClient:
-    config = KalshiConfig(paper_mode=paper_mode)
-    return KalshiClient(config, api_key, private_key_pem)
