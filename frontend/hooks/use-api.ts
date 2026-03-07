@@ -6,6 +6,7 @@ import type {
   OpportunityDetail,
   ColiseumConfig,
   DaemonStatus,
+  LedgerEntry,
 } from "@/lib/types";
 
 export function useConfig() {
@@ -43,5 +44,11 @@ export function usePipelineStatus() {
 export function useDaemonStatus() {
   return useSWR<DaemonStatus>("/api/daemon/status", fetcher, {
     refreshInterval: 10000,
+  });
+}
+
+export function useLedger(limit = 100) {
+  return useSWR<LedgerEntry[]>(`/api/ledger?limit=${limit}`, fetcher, {
+    refreshInterval: 15000,
   });
 }
