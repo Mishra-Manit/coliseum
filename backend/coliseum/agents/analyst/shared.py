@@ -12,9 +12,9 @@ from coliseum.storage.files import (
 logger = logging.getLogger(__name__)
 
 
-def load_opportunity(opportunity_id: str) -> tuple[Path, OpportunitySignal]:
+def load_opportunity(opportunity_id: str, paper: bool = False) -> tuple[Path, OpportunitySignal]:
     """Load an opportunity file by ID."""
-    opp_file = find_opportunity_file_by_id(opportunity_id)
+    opp_file = find_opportunity_file_by_id(opportunity_id, paper=paper)
     if not opp_file:
         raise FileNotFoundError(f"Opportunity file not found: {opportunity_id}")
 

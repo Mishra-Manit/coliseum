@@ -47,7 +47,7 @@ async def run_researcher(
 ) -> ResearcherOutput:
     """Run Researcher agent - appends research to opportunity file."""
     start_time = time.time()
-    opp_file, opportunity = load_opportunity(opportunity_id)
+    opp_file, opportunity = load_opportunity(opportunity_id, paper=settings.trading.paper_mode)
 
     deps = AnalystDependencies(
         opportunity_id=opportunity_id,
@@ -78,6 +78,7 @@ async def run_researcher(
         frontmatter_updates=frontmatter_updates,
         body_section=research_section,
         section_header="## Research Synthesis",
+        paper=settings.trading.paper_mode,
     )
 
     logfire.info(
