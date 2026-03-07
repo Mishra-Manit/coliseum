@@ -1,26 +1,28 @@
 "use client";
 
-import { formatDistanceToNow, format } from "date-fns";
-import {
-  X,
-  Clock,
-  Target,
-  TrendingUp,
-  TrendingDown,
-  FileText,
-} from "lucide-react";
+import React from "react";
+import { formatDistanceToNow } from "date-fns";
+import { X, Clock, Target, FileText } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
 import { useOpportunityDetail } from "@/hooks/use-api";
+import { useTimezone, formatInTz } from "@/lib/timezone-context";
 
 interface OpportunityDetailProps {
   opportunityId: string | null;
   onClose: () => void;
+}
+
+/** Recursively extract plain text from React children */
+function childText(children: React.ReactNode): string {
+  if (typeof children === "string") return children;
+  if (typeof children === "number") return String(children);
+  if (Array.isArray(children)) return children.map(childText).join("");
+  if (React.isValidElement(children))
+    return childText(
+      (children.props as { children?: React.ReactNode }).children
+    );
+  return "";
 }
 
 export function OpportunityDetailView({
@@ -28,50 +30,44 @@ export function OpportunityDetailView({
   onClose,
 }: OpportunityDetailProps) {
   const { data, isLoading } = useOpportunityDetail(opportunityId);
+  const { tz } = useTimezone();
 
   if (!opportunityId) {
     return (
-      <Card className="bg-card border-border h-full flex items-center justify-center min-h-[500px]">
-        <div className="text-center text-muted-foreground">
-          <div className="w-16 h-16 rounded-2xl bg-secondary/50 flex items-center justify-center mx-auto mb-4">
-            <FileText className="h-7 w-7 opacity-30" />
-          </div>
-          <p className="text-sm font-semibold">Select an opportunity</p>
-          <p className="text-xs mt-1.5 opacity-60 max-w-[200px] mx-auto">
-            Click on any opportunity to view its full analysis from the agents
-          </p>
-        </div>
-      </Card>
+      <div className="flex flex-col items-center justify-center h-full text-muted-foreground/25 gap-2">
+        <FileText className="h-7 w-7" />
+        <p className="text-[11px] font-mono tracking-wider">
+          SELECT OPPORTUNITY
+        </p>
+      </div>
     );
   }
 
   if (isLoading) {
     return (
-      <Card className="bg-card border-border">
-        <CardHeader className="pb-4">
-          <Skeleton className="h-6 w-3/4 bg-secondary" />
-          <Skeleton className="h-4 w-1/2 bg-secondary mt-2" />
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            <Skeleton className="h-20 w-full bg-secondary rounded-xl" />
-            <Skeleton className="h-20 w-full bg-secondary rounded-xl" />
-          </div>
-          <Skeleton className="h-px w-full bg-secondary" />
-          <Skeleton className="h-40 w-full bg-secondary rounded-xl" />
-          <Skeleton className="h-60 w-full bg-secondary rounded-xl" />
-        </CardContent>
-      </Card>
+      <div className="p-5 space-y-4">
+        <div className="shimmer h-6 w-3/4 rounded" />
+        <div className="shimmer h-4 w-1/2 rounded" />
+        <div className="flex gap-3 mt-4">
+          <div className="shimmer h-16 flex-1 rounded" />
+          <div className="shimmer h-16 flex-1 rounded" />
+        </div>
+        <div className="shimmer h-px w-full rounded mt-2" />
+        <div className="space-y-2">
+          <div className="shimmer h-4 w-full rounded" />
+          <div className="shimmer h-4 w-5/6 rounded" />
+          <div className="shimmer h-4 w-4/5 rounded" />
+          <div className="shimmer h-4 w-full rounded" />
+        </div>
+      </div>
     );
   }
 
   if (!data) {
     return (
-      <Card className="bg-card border-border h-full flex items-center justify-center min-h-[500px]">
-        <div className="text-center text-muted-foreground">
-          <p className="text-sm font-medium">Opportunity not found</p>
-        </div>
-      </Card>
+      <div className="flex flex-col items-center justify-center h-full text-muted-foreground/25 gap-2">
+        <p className="text-[11px] font-mono tracking-wider">NOT FOUND</p>
+      </div>
     );
   }
 
@@ -84,114 +80,150 @@ export function OpportunityDetailView({
     .replace(/^\n+/, "")
     .replace(/\n{3,}/g, "\n\n")
     .trimStart();
+
   const yesPercent = Math.round(summary.yes_price * 100);
   const noPercent = Math.round(summary.no_price * 100);
 
+  const closeDate = summary.close_time ? new Date(summary.close_time) : null;
+  const closeFormatted = closeDate ? formatInTz(closeDate, tz) : "N/A";
+  const closeRelative = closeDate
+    ? formatDistanceToNow(closeDate, { addSuffix: true })
+    : "N/A";
+
   return (
-    <Card className="bg-card border-border">
-      <CardHeader className="pb-4">
-        <div className="flex items-start justify-between gap-3">
+    <div className="flex flex-col h-full">
+      {/* Header */}
+      <div className="shrink-0 px-5 pt-4 pb-3 border-b border-border">
+        <div className="flex items-start justify-between gap-3 mb-2">
           <div className="min-w-0 flex-1">
-            <CardTitle className="font-display text-xl font-bold text-foreground leading-tight">
+            {/* Status + action row */}
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-[9px] font-mono text-amber-500/70 uppercase tracking-wider border border-amber-600/20 bg-amber-500/6 px-1.5 py-0.5 rounded">
+                {summary.status}
+              </span>
+              {summary.action && (
+                <span
+                  className={`text-[9px] font-mono font-bold uppercase tracking-wider ${
+                    summary.action.includes("YES")
+                      ? "text-emerald-400"
+                      : "text-red-400"
+                  }`}
+                >
+                  {summary.action}
+                </span>
+              )}
+            </div>
+
+            <h2 className="text-[14px] font-semibold text-foreground leading-snug">
               {summary.title}
-            </CardTitle>
+            </h2>
             {summary.subtitle && (
-              <p className="text-sm text-muted-foreground mt-1.5">
+              <p className="text-[11px] text-muted-foreground/60 mt-1 leading-relaxed">
                 {summary.subtitle}
               </p>
             )}
           </div>
+
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground shrink-0 transition-colors"
+            className="p-1 rounded hover:bg-secondary text-muted-foreground/40 hover:text-muted-foreground shrink-0 transition-colors"
           >
-            <X className="h-4 w-4" />
+            <X className="h-3.5 w-3.5" />
           </button>
         </div>
 
-        <div className="flex items-center gap-1.5 flex-wrap mt-3">
-          <Badge
-            variant="outline"
-            className="text-[10px] px-2 h-5 border-amber-600/30 bg-amber-500/10 text-amber-400 font-mono"
-          >
-            {summary.status}
-          </Badge>
-          {summary.action && (
-            <Badge
-              variant="outline"
-              className={`text-[10px] px-2 h-5 font-mono font-semibold ${
-                summary.action.includes("YES")
-                  ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
-                  : "border-red-500/30 bg-red-500/10 text-red-400"
-              }`}
-            >
-              {summary.action}
-            </Badge>
-          )}
-        </div>
-
-        <div className="grid grid-cols-2 gap-3 mt-4">
-          <div className="p-4 rounded-xl bg-emerald-500/5 border border-emerald-500/10">
-            <div className="flex items-center gap-1.5 mb-2">
-              <TrendingUp className="h-3.5 w-3.5 text-emerald-500" />
-              <span className="text-[11px] font-semibold text-emerald-400 uppercase tracking-wider">
-                Yes
+        {/* Price levels */}
+        <div className="grid grid-cols-2 gap-2 mt-3">
+          <div className="px-3 py-2 rounded border border-emerald-500/12 bg-emerald-500/4">
+            <div className="flex items-center justify-between">
+              <span className="text-[9px] font-mono text-emerald-400/60 uppercase tracking-wider">
+                YES
+              </span>
+              <span className="text-[18px] font-mono font-bold text-emerald-400 tabular-nums leading-none">
+                {yesPercent}c
               </span>
             </div>
-            <span className="text-2xl font-bold text-foreground font-mono">
-              {yesPercent}c
-            </span>
+            <div className="prob-bar-track mt-2">
+              <div
+                className="prob-bar-yes"
+                style={{ width: `${yesPercent}%` }}
+              />
+            </div>
           </div>
-          <div className="p-4 rounded-xl bg-red-500/5 border border-red-500/10">
-            <div className="flex items-center gap-1.5 mb-2">
-              <TrendingDown className="h-3.5 w-3.5 text-red-500" />
-              <span className="text-[11px] font-semibold text-red-400 uppercase tracking-wider">
-                No
+          <div className="px-3 py-2 rounded border border-red-500/12 bg-red-500/4">
+            <div className="flex items-center justify-between">
+              <span className="text-[9px] font-mono text-red-400/60 uppercase tracking-wider">
+                NO
+              </span>
+              <span className="text-[18px] font-mono font-bold text-red-400 tabular-nums leading-none">
+                {noPercent}c
               </span>
             </div>
-            <span className="text-2xl font-bold text-foreground font-mono">
-              {noPercent}c
-            </span>
+            <div className="prob-bar-track mt-2">
+              <div
+                className="prob-bar-yes"
+                style={{
+                  width: `${noPercent}%`,
+                  background: "linear-gradient(90deg, #dc2626, #f87171)",
+                }}
+              />
+            </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-5 mt-4 text-xs text-muted-foreground">
-          <span className="flex items-center gap-1.5">
-            <Clock className="h-3.5 w-3.5" />
-            Closes{" "}
-            {summary.close_time
-              ? formatDistanceToNow(new Date(summary.close_time), {
-                  addSuffix: true,
-                })
-              : "N/A"}
+        {/* Meta row */}
+        <div className="flex items-center gap-4 mt-2.5 text-[10px] font-mono text-muted-foreground/35">
+          <span className="flex items-center gap-1" title={closeFormatted}>
+            <Clock className="h-3 w-3" />
+            {closeFormatted}
           </span>
-          <span className="flex items-center gap-1.5 font-mono text-[11px]">
-            <Target className="h-3.5 w-3.5" />
+          <span className="text-muted-foreground/20">·</span>
+          <span className="text-muted-foreground/25">{closeRelative}</span>
+          <span className="flex items-center gap-1 ml-auto">
+            <Target className="h-3 w-3" />
             {summary.market_ticker}
           </span>
         </div>
-      </CardHeader>
+      </div>
 
-      <Separator className="bg-border" />
-
-      <CardContent className="pt-4">
-        <ScrollArea className="h-[calc(100vh-420px)] min-h-[400px] pr-3">
-          <div className="markdown-body">
-            <ReactMarkdown
-              remarkPlugins={[remarkGfm]}
-              components={{
-                a: ({ href, children }) => (
-                  <a href={href} target="_blank" rel="noopener noreferrer">
-                    {children}
-                  </a>
-                ),
-              }}
-            >
-              {strippedMarkdown}
-            </ReactMarkdown>
-          </div>
-        </ScrollArea>
-      </CardContent>
-    </Card>
+      {/* Markdown body */}
+      <div className="flex-1 overflow-y-auto min-h-0 min-w-0">
+        <div className="px-5 py-4 markdown-body min-w-0">
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            components={{
+              a: ({ href, children }) => (
+                <a href={href} target="_blank" rel="noopener noreferrer">
+                  {children}
+                </a>
+              ),
+              tr: ({ children, ...props }) => {
+                // Intercept the "Closes" row and replace its value with a
+                // timezone-aware formatted time derived from summary.close_time
+                const cells = React.Children.toArray(children);
+                if (cells.length >= 2 && React.isValidElement(cells[0])) {
+                  const label = childText(
+                    (cells[0] as React.ReactElement<{ children?: React.ReactNode }>).props.children
+                  ).trim();
+                  if (label === "Closes" && closeDate) {
+                    return (
+                      <tr {...props}>
+                        {cells[0]}
+                        <td className="font-mono tabular-nums">
+                          {closeFormatted}
+                        </td>
+                      </tr>
+                    );
+                  }
+                }
+                return <tr {...props}>{children}</tr>;
+              },
+            }}
+          >
+            {strippedMarkdown}
+          </ReactMarkdown>
+        </div>
+      </div>
+    </div>
   );
 }

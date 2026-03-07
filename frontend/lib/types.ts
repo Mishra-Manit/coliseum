@@ -1,0 +1,88 @@
+export interface PortfolioStats {
+  total_value: number;
+  cash_balance: number;
+  positions_value: number;
+}
+
+export interface Position {
+  id: string;
+  market_ticker: string;
+  side: string;
+  contracts: number;
+  average_entry: number;
+  current_price: number;
+  opportunity_id: string | null;
+}
+
+export interface ClosedPosition {
+  market_ticker: string;
+  side: string;
+  contracts: number;
+  entry_price: number;
+  exit_price: number;
+  pnl: number;
+  opportunity_id: string | null;
+  closed_at: string | null;
+}
+
+export interface PortfolioState {
+  last_updated: string | null;
+  portfolio: PortfolioStats;
+  open_positions: Position[];
+  closed_positions: ClosedPosition[];
+  seen_tickers: string[];
+}
+
+export interface OpportunitySummary {
+  id: string;
+  event_ticker: string;
+  market_ticker: string;
+  title: string;
+  subtitle: string;
+  yes_price: number;
+  no_price: number;
+  close_time: string;
+  discovered_at: string;
+  status: string;
+  action: string | null;
+  date_folder: string;
+}
+
+export interface OpportunityDetail {
+  summary: OpportunitySummary;
+  markdown_body: string;
+  raw_frontmatter: Record<string, unknown>;
+}
+
+export interface ColiseumConfig {
+  trading: Record<string, unknown>;
+  risk: Record<string, unknown>;
+  scout: Record<string, unknown>;
+  analyst: Record<string, unknown>;
+  guardian: Record<string, unknown>;
+  execution: Record<string, unknown>;
+  telegram: Record<string, unknown>;
+}
+
+export interface DaemonStatus {
+  available: boolean;
+  running: boolean;
+  paused: boolean;
+  uptime_seconds: number;
+  cycles_completed: number;
+  consecutive_failures: number;
+  last_cycle: string | null;
+}
+
+export interface LedgerEntry {
+  type: "buy" | "close";
+  id: string;
+  market_ticker: string;
+  side: "YES" | "NO";
+  contracts: number;
+  price: number;
+  pnl: number | null;
+  opportunity_id: string | null;
+  paper: boolean;
+  timestamp: string;
+}
