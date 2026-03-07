@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { format, parseISO, isValid } from "date-fns";
 import {
   ArrowDownToLine,
@@ -9,7 +8,6 @@ import {
   Receipt,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Table,
   TableBody,
@@ -21,8 +19,6 @@ import {
 import { useLedger, usePortfolioState } from "@/hooks/use-api";
 import type { LedgerEntry, Position } from "@/lib/types";
 
-type Tab = "positions" | "ledger";
-
 interface PositionsLedgerPanelProps {
   onSelectOpportunity?: (id: string) => void;
 }
@@ -30,7 +26,6 @@ interface PositionsLedgerPanelProps {
 export function PositionsLedgerPanel({
   onSelectOpportunity,
 }: PositionsLedgerPanelProps) {
-  const [tab, setTab] = useState<Tab>("positions");
   const { data: state, isLoading: stateLoading } = usePortfolioState();
   const { data: entries, isLoading: ledgerLoading } = useLedger(150);
 
@@ -43,84 +38,59 @@ export function PositionsLedgerPanel({
 
   return (
     <div className="flex flex-col h-full">
-      {/* Tab bar */}
-      <div className="flex items-center border-b border-border px-4 py-0 shrink-0">
-        <TabButton
-          label="Positions"
-          count={positions.length}
-          active={tab === "positions"}
-          onClick={() => setTab("positions")}
-        />
-        <TabButton
-          label="Ledger"
-          count={allEntries.length}
-          active={tab === "ledger"}
-          onClick={() => setTab("ledger")}
-        />
-        {tab === "ledger" && winRate !== null && (
-          <span
-            className={`ml-auto text-[10px] font-mono tabular-nums ${
-              winRate >= 60
-                ? "text-emerald-400"
-                : winRate >= 40
-                  ? "text-amber-400"
-                  : "text-red-400"
-            }`}
-          >
-            {winRate}% win
+      {/* Top half — Positions */}
+      <div className="flex flex-col h-1/2 border-b border-border overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-2.5 shrink-0 border-b border-border">
+          <span className="text-[9px] font-mono text-muted-foreground/40 tracking-[0.15em] uppercase">
+            Positions
           </span>
-        )}
-      </div>
-
-      {/* Panel content */}
-      <div className="flex-1 overflow-hidden">
-        {tab === "positions" ? (
+          <span className="text-[9px] font-mono text-muted-foreground/30 tabular-nums">
+            {positions.length}
+          </span>
+        </div>
+        <div className="flex-1 overflow-hidden">
           <PositionsContent
             positions={positions}
             isLoading={stateLoading}
             onSelectOpportunity={onSelectOpportunity}
           />
-        ) : (
+        </div>
+      </div>
+
+      {/* Bottom half — Ledger */}
+      <div className="flex flex-col h-1/2 overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-2.5 shrink-0 border-b border-border">
+          <span className="text-[9px] font-mono text-muted-foreground/40 tracking-[0.15em] uppercase">
+            Ledger
+          </span>
+          <div className="flex items-center gap-3">
+            {winRate !== null && (
+              <span
+                className={`text-[9px] font-mono tabular-nums ${
+                  winRate >= 60
+                    ? "text-emerald-400/70"
+                    : winRate >= 40
+                      ? "text-amber-400/70"
+                      : "text-red-400/70"
+                }`}
+              >
+                {winRate}% win
+              </span>
+            )}
+            <span className="text-[9px] font-mono text-muted-foreground/30 tabular-nums">
+              {allEntries.length}
+            </span>
+          </div>
+        </div>
+        <div className="flex-1 overflow-hidden">
           <LedgerContent
             entries={allEntries}
             isLoading={ledgerLoading}
             onSelectOpportunity={onSelectOpportunity}
           />
-        )}
+        </div>
       </div>
     </div>
-  );
-}
-
-function TabButton({
-  label,
-  count,
-  active,
-  onClick,
-}: {
-  label: string;
-  count: number;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`flex items-center gap-1.5 px-1 py-3 mr-5 text-[11px] font-mono tracking-wider border-b-2 transition-colors ${
-        active
-          ? "border-primary text-foreground"
-          : "border-transparent text-muted-foreground/50 hover:text-muted-foreground"
-      }`}
-    >
-      {label.toUpperCase()}
-      <span
-        className={`text-[9px] tabular-nums ${
-          active ? "text-muted-foreground/60" : "text-muted-foreground/30"
-        }`}
-      >
-        {count}
-      </span>
-    </button>
   );
 }
 
@@ -153,7 +123,7 @@ function PositionsContent({
   }
 
   return (
-    <ScrollArea className="h-full">
+    <div className="h-full overflow-y-auto min-h-0">
       <Table>
         <TableHeader>
           <TableRow className="border-border hover:bg-transparent">
@@ -217,7 +187,7 @@ function PositionsContent({
           })}
         </TableBody>
       </Table>
-    </ScrollArea>
+    </div>
   );
 }
 
@@ -277,7 +247,7 @@ function LedgerContent({
   const grouped = groupByDate(entries);
 
   return (
-    <ScrollArea className="h-full">
+    <div className="h-full overflow-y-auto min-h-0">
       <div className="px-4 py-3 space-y-4">
         {grouped.map(([dateLabel, dayEntries]) => (
           <div key={dateLabel}>
@@ -296,7 +266,7 @@ function LedgerContent({
           </div>
         ))}
       </div>
-    </ScrollArea>
+    </div>
   );
 }
 

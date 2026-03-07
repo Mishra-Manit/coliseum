@@ -28,14 +28,14 @@ export default function Home() {
           <main className="flex-1 flex overflow-hidden">
             <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-0 overflow-hidden">
               {/* Left panel — positions + ledger */}
-              <div className="lg:col-span-3 border-r border-border overflow-hidden flex flex-col">
+              <div className="lg:col-span-3 border-r border-border flex flex-col min-h-0 overflow-hidden">
                 <PositionsLedgerPanel
                   onSelectOpportunity={setSelectedOpportunityId}
                 />
               </div>
 
               {/* Center panel — opportunities feed */}
-              <div className="lg:col-span-4 border-r border-border overflow-hidden flex flex-col">
+              <div className="lg:col-span-4 border-r border-border flex flex-col min-h-0 overflow-hidden">
                 <OpportunitiesFeed
                   onSelectOpportunity={setSelectedOpportunityId}
                   selectedId={selectedOpportunityId}
@@ -43,7 +43,7 @@ export default function Home() {
               </div>
 
               {/* Right panel — opportunity detail */}
-              <div className="lg:col-span-5 overflow-hidden flex flex-col">
+              <div className="lg:col-span-5 flex flex-col min-h-0 overflow-hidden">
                 <OpportunityDetailView
                   opportunityId={selectedOpportunityId}
                   onClose={() => setSelectedOpportunityId(null)}

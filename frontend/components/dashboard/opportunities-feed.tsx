@@ -2,7 +2,6 @@
 
 import { formatDistanceToNow } from "date-fns";
 import { FileText, ChevronRight } from "lucide-react";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { useOpportunities } from "@/hooks/use-api";
 import type { OpportunitySummary } from "@/lib/types";
 
@@ -40,7 +39,7 @@ export function OpportunitiesFeed({
       </div>
 
       {/* List */}
-      <ScrollArea className="flex-1">
+      <div className="flex-1 overflow-y-auto min-h-0">
         {isLoading ? (
           <div className="p-3 space-y-1">
             {Array.from({ length: 5 }).map((_, i) => (
@@ -64,7 +63,7 @@ export function OpportunitiesFeed({
             ))}
           </div>
         )}
-      </ScrollArea>
+      </div>
     </div>
   );
 }

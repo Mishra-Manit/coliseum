@@ -5,7 +5,6 @@ import { formatDistanceToNow } from "date-fns";
 import { X, Clock, Target, FileText } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { useOpportunityDetail } from "@/hooks/use-api";
 import { useTimezone, formatInTz } from "@/lib/timezone-context";
 
@@ -188,8 +187,8 @@ export function OpportunityDetailView({
       </div>
 
       {/* Markdown body */}
-      <ScrollArea className="flex-1">
-        <div className="px-5 py-4 markdown-body">
+      <div className="flex-1 overflow-y-auto min-h-0 min-w-0">
+        <div className="px-5 py-4 markdown-body min-w-0">
           <ReactMarkdown
             remarkPlugins={[remarkGfm]}
             components={{
@@ -224,7 +223,7 @@ export function OpportunityDetailView({
             {strippedMarkdown}
           </ReactMarkdown>
         </div>
-      </ScrollArea>
+      </div>
     </div>
   );
 }

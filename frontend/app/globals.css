@@ -6,22 +6,22 @@
 :root {
   --background: #07060a;
   --foreground: #f2f0ee;
-  --card: #0f0d14;
+  --card: #141120;
   --card-foreground: #f2f0ee;
-  --popover: #0f0d14;
+  --popover: #141120;
   --popover-foreground: #f2f0ee;
   --primary: #d97706;
   --primary-foreground: #07060a;
-  --secondary: #1a1724;
+  --secondary: #261f38;
   --secondary-foreground: #f2f0ee;
-  --muted: #1a1724;
-  --muted-foreground: #7c7a85;
+  --muted: #261f38;
+  --muted-foreground: #8e8b98;
   --accent: #b45309;
   --accent-foreground: #f2f0ee;
   --destructive: #dc2626;
   --destructive-foreground: #f2f0ee;
-  --border: #211e2e;
-  --input: #211e2e;
+  --border: #2e2a40;
+  --input: #2e2a40;
   --ring: #d97706;
   --chart-1: #d97706;
   --chart-2: #16a34a;
@@ -42,22 +42,22 @@
 .dark {
   --background: #07060a;
   --foreground: #f2f0ee;
-  --card: #0f0d14;
+  --card: #141120;
   --card-foreground: #f2f0ee;
-  --popover: #0f0d14;
+  --popover: #141120;
   --popover-foreground: #f2f0ee;
   --primary: #d97706;
   --primary-foreground: #07060a;
-  --secondary: #1a1724;
+  --secondary: #261f38;
   --secondary-foreground: #f2f0ee;
-  --muted: #1a1724;
-  --muted-foreground: #7c7a85;
+  --muted: #261f38;
+  --muted-foreground: #8e8b98;
   --accent: #b45309;
   --accent-foreground: #f2f0ee;
   --destructive: #dc2626;
   --destructive-foreground: #f2f0ee;
-  --border: #211e2e;
-  --input: #211e2e;
+  --border: #2e2a40;
+  --input: #2e2a40;
   --ring: #d97706;
 }
 
@@ -104,23 +104,13 @@
   }
 }
 
-/* Minimal scrollbar */
-::-webkit-scrollbar {
-  width: 4px;
-  height: 4px;
+/* ── Hide all scrollbars ── */
+* {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
-
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-  background: #211e2e;
-  border-radius: 2px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: #2e2a40;
+*::-webkit-scrollbar {
+  display: none;
 }
 
 /* ── Tech grid background ── */
@@ -216,6 +206,9 @@
   line-height: 1.75;
   font-size: 0.875rem;
   color: #c4c0cc;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  min-width: 0;
 }
 
 .markdown-body h1 {
@@ -226,7 +219,7 @@
   margin-top: 2rem;
   margin-bottom: 0.75rem;
   padding-bottom: 0.4rem;
-  border-bottom: 1px solid #211e2e;
+  border-bottom: 1px solid #2e2a40;
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
@@ -331,8 +324,8 @@
 .markdown-body pre {
   margin: 0.75rem 0;
   padding: 0.75rem;
-  background: #0f0d14;
-  border: 1px solid #211e2e;
+  background: #141120;
+  border: 1px solid #2e2a40;
   border-radius: 0.375rem;
   overflow-x: auto;
 }
@@ -349,7 +342,7 @@
 .markdown-body hr {
   margin: 1.25rem 0;
   border: none;
-  border-top: 1px solid #211e2e;
+  border-top: 1px solid #2e2a40;
 }
 
 .markdown-body table {
@@ -361,7 +354,7 @@
 }
 
 .markdown-body thead {
-  border-bottom: 1px solid #211e2e;
+  border-bottom: 1px solid #2e2a40;
 }
 
 .markdown-body th {
