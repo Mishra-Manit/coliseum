@@ -1,6 +1,7 @@
 """FastAPI dashboard server for the Coliseum trading system."""
 
 import asyncio
+import json
 import logging
 import os
 from contextlib import asynccontextmanager
@@ -180,6 +181,72 @@ async def get_opportunity(opportunity_id: str):
     raise HTTPException(
         status_code=404, detail=f"Opportunity {opportunity_id} not found"
     )
+
+
+# ---------------------------------------------------------------------------
+# Trade ledger
+# ---------------------------------------------------------------------------
+
+
+def _read_jsonl(path: Path) -> list[dict[str, Any]]:
+    """Read all JSON objects from a .jsonl file."""
+    rows: list[dict[str, Any]] = []
+    try:
+        for line in path.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if line:
+                rows.append(json.loads(line))
+    except Exception as e:
+        logger.warning(f"Error reading {path}: {e}")
+    return rows
+
+
+@app.get("/api/ledger")
+async def get_ledger(limit: int = 100):
+    """Return merged buy+close trade entries sorted newest-first."""
+    trades_dir = DATA_DIR / "trades"
+    entries: list[dict[str, Any]] = []
+
+    buy_dir = trades_dir / "buy"
+    if buy_dir.exists():
+        for f in sorted(buy_dir.glob("*.jsonl")):
+            for row in _read_jsonl(f):
+                entries.append(
+                    {
+                        "type": "buy",
+                        "id": row.get("id", ""),
+                        "market_ticker": row.get("market_ticker", ""),
+                        "side": (row.get("side") or "").upper(),
+                        "contracts": row.get("contracts", 0),
+                        "price": row.get("price", 0.0),
+                        "pnl": None,
+                        "opportunity_id": row.get("opportunity_id"),
+                        "paper": row.get("paper", False),
+                        "timestamp": row.get("executed_at", ""),
+                    }
+                )
+
+    close_dir = trades_dir / "close"
+    if close_dir.exists():
+        for f in sorted(close_dir.glob("*.jsonl")):
+            for row in _read_jsonl(f):
+                entries.append(
+                    {
+                        "type": "close",
+                        "id": row.get("id", ""),
+                        "market_ticker": row.get("market_ticker", ""),
+                        "side": (row.get("side") or "").upper(),
+                        "contracts": row.get("contracts", 0),
+                        "price": row.get("exit_price", 0.0),
+                        "pnl": row.get("pnl"),
+                        "opportunity_id": row.get("opportunity_id"),
+                        "paper": True,
+                        "timestamp": row.get("closed_at", ""),
+                    }
+                )
+
+    entries.sort(key=lambda e: e["timestamp"], reverse=True)
+    return entries[:limit]
 
 
 # ---------------------------------------------------------------------------
