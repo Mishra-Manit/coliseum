@@ -1,15 +1,29 @@
 "use client";
 
+import React from "react";
 import { formatDistanceToNow } from "date-fns";
 import { X, Clock, Target, FileText } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useOpportunityDetail } from "@/hooks/use-api";
+import { useTimezone, formatInTz } from "@/lib/timezone-context";
 
 interface OpportunityDetailProps {
   opportunityId: string | null;
   onClose: () => void;
+}
+
+/** Recursively extract plain text from React children */
+function childText(children: React.ReactNode): string {
+  if (typeof children === "string") return children;
+  if (typeof children === "number") return String(children);
+  if (Array.isArray(children)) return children.map(childText).join("");
+  if (React.isValidElement(children))
+    return childText(
+      (children.props as { children?: React.ReactNode }).children
+    );
+  return "";
 }
 
 export function OpportunityDetailView({
@@ -17,12 +31,15 @@ export function OpportunityDetailView({
   onClose,
 }: OpportunityDetailProps) {
   const { data, isLoading } = useOpportunityDetail(opportunityId);
+  const { tz } = useTimezone();
 
   if (!opportunityId) {
     return (
       <div className="flex flex-col items-center justify-center h-full text-muted-foreground/25 gap-2">
         <FileText className="h-7 w-7" />
-        <p className="text-[11px] font-mono tracking-wider">SELECT OPPORTUNITY</p>
+        <p className="text-[11px] font-mono tracking-wider">
+          SELECT OPPORTUNITY
+        </p>
       </div>
     );
   }
@@ -67,6 +84,12 @@ export function OpportunityDetailView({
 
   const yesPercent = Math.round(summary.yes_price * 100);
   const noPercent = Math.round(summary.no_price * 100);
+
+  const closeDate = summary.close_time ? new Date(summary.close_time) : null;
+  const closeFormatted = closeDate ? formatInTz(closeDate, tz) : "N/A";
+  const closeRelative = closeDate
+    ? formatDistanceToNow(closeDate, { addSuffix: true })
+    : "N/A";
 
   return (
     <div className="flex flex-col h-full">
@@ -151,15 +174,13 @@ export function OpportunityDetailView({
 
         {/* Meta row */}
         <div className="flex items-center gap-4 mt-2.5 text-[10px] font-mono text-muted-foreground/35">
-          <span className="flex items-center gap-1">
+          <span className="flex items-center gap-1" title={closeFormatted}>
             <Clock className="h-3 w-3" />
-            {summary.close_time
-              ? formatDistanceToNow(new Date(summary.close_time), {
-                  addSuffix: true,
-                })
-              : "N/A"}
+            {closeFormatted}
           </span>
-          <span className="flex items-center gap-1">
+          <span className="text-muted-foreground/20">·</span>
+          <span className="text-muted-foreground/25">{closeRelative}</span>
+          <span className="flex items-center gap-1 ml-auto">
             <Target className="h-3 w-3" />
             {summary.market_ticker}
           </span>
@@ -177,6 +198,27 @@ export function OpportunityDetailView({
                   {children}
                 </a>
               ),
+              tr: ({ children, ...props }) => {
+                // Intercept the "Closes" row and replace its value with a
+                // timezone-aware formatted time derived from summary.close_time
+                const cells = React.Children.toArray(children);
+                if (cells.length >= 2 && React.isValidElement(cells[0])) {
+                  const label = childText(
+                    (cells[0] as React.ReactElement<{ children?: React.ReactNode }>).props.children
+                  ).trim();
+                  if (label === "Closes" && closeDate) {
+                    return (
+                      <tr {...props}>
+                        {cells[0]}
+                        <td className="font-mono tabular-nums">
+                          {closeFormatted}
+                        </td>
+                      </tr>
+                    );
+                  }
+                }
+                return <tr {...props}>{children}</tr>;
+              },
             }}
           >
             {strippedMarkdown}

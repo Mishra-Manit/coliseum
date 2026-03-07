@@ -3,6 +3,7 @@
 import { RefreshCw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useConfig, useDaemonStatus, usePortfolioState } from "@/hooks/use-api";
+import { useTimezone, type Timezone } from "@/lib/timezone-context";
 
 function formatUptime(seconds: number): string {
   if (seconds < 60) return `${seconds}s`;
@@ -16,6 +17,7 @@ export function DashboardNavbar() {
   const { data: config, mutate } = useConfig();
   const { data: daemon } = useDaemonStatus();
   const { data: state } = usePortfolioState();
+  const { tz, setTz } = useTimezone();
 
   const paperMode =
     (config?.trading as Record<string, unknown>)?.paper_mode ?? true;
@@ -66,15 +68,15 @@ export function DashboardNavbar() {
           <StatPill label="UP" value={formatUptime(daemon.uptime_seconds)} />
         )}
         {daemon?.available && (
-          <StatPill
-            label="CYCLES"
-            value={String(daemon.cycles_completed)}
-          />
+          <StatPill label="CYCLES" value={String(daemon.cycles_completed)} />
         )}
       </div>
 
       {/* Right controls */}
       <div className="flex items-center gap-3 shrink-0">
+        {/* Timezone selector */}
+        <TzSelector tz={tz} setTz={setTz} />
+
         <button
           onClick={() => mutate()}
           className="p-1.5 rounded hover:bg-secondary text-muted-foreground/50 hover:text-muted-foreground transition-colors"
@@ -104,6 +106,32 @@ export function DashboardNavbar() {
         </div>
       </div>
     </nav>
+  );
+}
+
+function TzSelector({
+  tz,
+  setTz,
+}: {
+  tz: Timezone;
+  setTz: (tz: Timezone) => void;
+}) {
+  return (
+    <div className="flex items-center border border-border rounded overflow-hidden">
+      {(["EST", "PST"] as Timezone[]).map((option) => (
+        <button
+          key={option}
+          onClick={() => setTz(option)}
+          className={`px-2 py-0.5 text-[9px] font-mono tracking-wider transition-colors ${
+            tz === option
+              ? "bg-primary/15 text-primary border-r border-border last:border-r-0"
+              : "text-muted-foreground/40 hover:text-muted-foreground/70 border-r border-border last:border-r-0"
+          }`}
+        >
+          {option}
+        </button>
+      ))}
+    </div>
   );
 }
 
