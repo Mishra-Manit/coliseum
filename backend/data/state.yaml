@@ -1,44 +1,16 @@
-last_updated: '2026-03-06T02:32:02.466929Z'
+last_updated: '2026-03-06T17:19:39.039087Z'
 portfolio:
-  total_value: 26.72
-  cash_balance: 2.77
-  positions_value: 23.95
+  total_value: 22.72
+  cash_balance: 17.77
+  positions_value: 4.95
 open_positions:
-- id: pos_bd820dfa
-  market_ticker: KXNBAMENTION-26MAR06LALDEN-INJU
-  side: 'YES'
-  contracts: 5
-  average_entry: 0.96
-  current_price: 0.95
-  opportunity_id: sync_271f2e4d
-- id: pos_021ef8b1
-  market_ticker: KXNBAMENTION-26MAR05GSWHOU-INJU
-  side: 'YES'
-  contracts: 5
-  average_entry: 0.96
-  current_price: 0.99
-  opportunity_id: opp_e6864737
-- id: pos_3b8e51e9
-  market_ticker: KXU3-26FEB-T4.1
-  side: 'YES'
-  contracts: 5
-  average_entry: 0.95
-  current_price: 0.95
-  opportunity_id: opp_398a3bbf
 - id: pos_6cfbd928
   market_ticker: KXWTIW-26MAR06-T73.99
   side: 'YES'
   contracts: 5
   average_entry: 0.96
-  current_price: 0.96
+  current_price: 0.99
   opportunity_id: opp_c6e324cb
-- id: pos_216ac396
-  market_ticker: KXPAYROLLS-26FEB-T-25000
-  side: 'YES'
-  contracts: 5
-  average_entry: 0.96
-  current_price: 0.94
-  opportunity_id: opp_70a9ee77
 closed_positions:
 - market_ticker: KXNASCARRACE-ONLGF1AS26-ADAN
   side: 'NO'
@@ -94,6 +66,80 @@ closed_positions:
   opportunity_id: sync_627a95c7
   closed_at: '2026-03-05T05:21:30.889148Z'
   entry_rationale: null
+- market_ticker: KXNBAMENTION-26MAR06LALDEN-INJU
+  side: 'YES'
+  contracts: 5
+  entry_price: 0.96
+  exit_price: 1.0
+  pnl: 0.2
+  opportunity_id: sync_271f2e4d
+  closed_at: '2026-03-06T17:19:38.842810Z'
+  entry_rationale: null
+- market_ticker: KXNBAMENTION-26MAR05GSWHOU-INJU
+  side: 'YES'
+  contracts: 5
+  entry_price: 0.96
+  exit_price: 1.0
+  pnl: 0.2
+  opportunity_id: opp_e6864737
+  closed_at: '2026-03-06T17:19:38.911171Z'
+  entry_rationale: 'STRONGLY FAVORED: Market is priced at 96% YES (NO ask 5%), indicating
+    the market consensus that the broadcast will include the word/phrase category
+    “Injury / Injured” at least once before the 2026-03-06 05:30 UTC close. Supporting
+    Evidence: Tight spread (1¢) and high activity in the provided dataset (volume
+    3446, OI 3092) suggest a stable, near-decided pricing signal. Resolution Source:
+    Kalshi resolves based on the game broadcast transcript/recording per market rules
+    (authoritative resolution is Kalshi’s official determination). Risk Checklist:
+    clear resolution source ✓; no known formal appeals/reviews path typical for transcript-based
+    props ✓; stable input (single broadcast event) ✓. Risk Level: MODERATE (selected
+    as the single lowest-risk available candidate after excluding Tier 1 crypto and
+    Tier 3 weather; note this is a Tier 4 word-choice market). Remaining Risks: Potential
+    ambiguity in wording/pronunciation or whether “injury” is said on-air before cutoff.
+    Sources: https://kalshi.com/'
+- market_ticker: KXU3-26FEB-T4.1
+  side: 'YES'
+  contracts: 5
+  entry_price: 0.95
+  exit_price: 1.0
+  pnl: 0.25
+  opportunity_id: opp_398a3bbf
+  closed_at: '2026-03-06T17:19:38.955712Z'
+  entry_rationale: 'STRONGLY FAVORED: The market is priced at YES ask 0.95 (implying
+    ~95% probability) for U-3 unemployment in February being above 4.1%, and it closes
+    shortly before/around the scheduled BLS Employment Situation release window (tight
+    resolution horizon). Supporting Evidence: Resolution should be mechanically determined
+    by the published U-3 unemployment rate in the BLS Employment Situation release
+    (Table A-1), a single numeric datapoint with no discretionary judgment. Resolution
+    Source: U.S. Bureau of Labor Statistics (BLS) Employment Situation report (U-3
+    unemployment rate). Risk Checklist: clear resolution source identified ✓; stable
+    inputs (single official statistic) ✓; no formal challenges expected for this statistical
+    release ✓. Risk Level: LOW (selected as lowest-reversal-risk available candidate
+    among non-crypto, non-speaking markets); Remaining Risks: small risk of report
+    release timing/format ambiguities or Kalshi rules nuances, but the underlying
+    statistic is authoritative once published. Sources: https://www.bls.gov/news.release/empsit.nr0.htm
+    ; https://www.bls.gov/cps/'
+- market_ticker: KXPAYROLLS-26FEB-T-25000
+  side: 'YES'
+  contracts: 5
+  entry_price: 0.96
+  exit_price: 0.0
+  pnl: -4.8
+  opportunity_id: opp_70a9ee77
+  closed_at: '2026-03-06T17:19:38.994916Z'
+  entry_rationale: 'STRONGLY FAVORED: The contract is priced at ~96% YES (yes_ask
+    96c) that February 2026 nonfarm payrolls will be above -25,000, implying the market
+    expects anything other than a large negative shock. Supporting evidence: BLS’
+    official release schedule shows the Employment Situation for February 2026 is
+    released at 8:30 a.m. ET on March 6, 2026 (well before this market’s 13:29 UTC
+    close), so resolution should be mechanically tied to that publication. Resolution
+    source: U.S. Bureau of Labor Statistics (Employment Situation news release for
+    Feb 2026). Risk checklist: clear resolution source (BLS) ✓; stable inputs (single
+    official print at known time) ✓; no formal appeals/reviews applicable ✓. Risk
+    level: LOW (selected as lowest-risk non-Tier1/2/3 candidate available; note most
+    other 92–96% markets in the dataset are Tier 1 crypto or Tier 3 weather/celebrity).
+    Remaining risks: rare data/reporting anomalies or Kalshi rules nuance about revisions,
+    but the initial release should govern. Sources: https://www.bls.gov/schedule/2026/home.htm
+    ; https://www.bls.gov/news.release/empsit.htm'
 seen_tickers:
 - KXWOHOCKEY-MEN26CGOLD-USA
 - KXNCAABBGAME-26FEB201400LSUIND-LSU
@@ -126,3 +172,5 @@ seen_tickers:
 - KXNBAMENTION-26MAR06LALDEN-INJU
 - KXALBUMSALES-ROM-85000
 - KXNCAABBGAME-26MAR051600UCSDCIB-CIB
+- KXECONSTATU3-26FEB-T4.1
+- KXBTCD-26MAR0600-T70249.99
