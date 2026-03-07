@@ -306,7 +306,7 @@ async def run_trader(
         settings = get_settings()
 
     # Load opportunity file
-    opp_file = find_opportunity_file_by_id(opportunity_id)
+    opp_file = find_opportunity_file_by_id(opportunity_id, paper=settings.trading.paper_mode)
     if not opp_file:
         raise FileNotFoundError(f"Opportunity file not found: {opportunity_id}")
 
@@ -315,7 +315,8 @@ async def run_trader(
     if not opportunity.recommendation_completed_at:
         raise ValueError(f"Recommendation not completed for {opportunity_id}")
 
-    kalshi_config = KalshiConfig(paper_mode=settings.trading.paper_mode)
+    kalshi_config = KalshiConfig()
+    # No auth needed in paper mode — market reads work unauthenticated; execution is skipped
     private_key_pem = "" if settings.trading.paper_mode else settings.get_rsa_private_key()
 
     with logfire.span("trader", opportunity_id=opportunity_id, ticker=opportunity.market_ticker):
@@ -389,6 +390,16 @@ async def run_trader(
                 output.execution_status = "rejected"
                 return output
 
+            if settings.trading.paper_mode:
+                logfire.info(
+                    "Paper mode: skipping execution",
+                    ticker=opportunity.market_ticker,
+                    decision=output.decision.action,
+                    slippage_pct=round(slippage_pct, 4),
+                )
+                output.execution_status = "paper"
+                return output
+
             initial_price_cents = int(current_price_decimal * 100)
 
             with logfire.span("order execution", ticker=opportunity.market_ticker, side=side, contracts=contracts):
@@ -414,16 +425,15 @@ async def run_trader(
             output.execution_status = order_result.status
 
             if order_result.contracts_filled > 0:
-                if not settings.trading.paper_mode:
-                    _update_state_after_trade(
-                        opportunity=opportunity,
-                        side=side.upper(),
-                        contracts=order_result.contracts_filled,
-                        fill_price=order_result.fill_price or current_price_decimal,
-                        total_cost=order_result.total_cost_usd,
-                        config=settings,
-                        reasoning=output.decision.reasoning,
-                    )
+                _update_state_after_trade(
+                    opportunity=opportunity,
+                    side=side.upper(),
+                    contracts=order_result.contracts_filled,
+                    fill_price=order_result.fill_price or current_price_decimal,
+                    total_cost=order_result.total_cost_usd,
+                    config=settings,
+                    reasoning=output.decision.reasoning,
+                )
 
                 trade = TradeExecution(
                     id=generate_trade_id(),
