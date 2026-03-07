@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 
 import logfire
 from pydantic_ai import Agent, WebSearchTool
+from pydantic_ai.models.openai import OpenAIResponsesModelSettings
 
 from coliseum.agents.agent_factory import AgentFactory
 from coliseum.agents.analyst.market_type_context import get_market_type_context
@@ -25,11 +26,12 @@ logger = logging.getLogger(__name__)
 
 def _create_agent() -> Agent[AnalystDependencies, ResearcherOutput]:
     return Agent(
-        model=get_model_string(OpenAIModel.GPT_5_2),
+        model=get_model_string(OpenAIModel.GPT_5_4),
         output_type=ResearcherOutput,
         deps_type=AnalystDependencies,
         system_prompt=RESEARCHER_PROMPT,
         builtin_tools=[WebSearchTool()],
+        model_settings=OpenAIResponsesModelSettings(openai_reasoning_effort="medium"),
     )
 
 

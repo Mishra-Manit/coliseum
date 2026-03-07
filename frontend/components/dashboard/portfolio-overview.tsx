@@ -34,7 +34,6 @@ export function PortfolioOverview() {
       value: `$${totalValue.toFixed(2)}`,
       icon: Wallet,
       description: "Total portfolio value",
-      accent: "from-amber-500/20 to-amber-600/5",
       iconColor: "text-amber-500",
     },
     {
@@ -42,7 +41,6 @@ export function PortfolioOverview() {
       value: `$${cashBalance.toFixed(2)}`,
       icon: DollarSign,
       description: "Available to trade",
-      accent: "from-emerald-500/20 to-emerald-600/5",
       iconColor: "text-emerald-500",
     },
     {
@@ -50,7 +48,6 @@ export function PortfolioOverview() {
       value: `$${positionsValue.toFixed(2)}`,
       icon: BarChart3,
       description: `${openCount} open / ${closedCount} closed`,
-      accent: "from-sky-500/20 to-sky-600/5",
       iconColor: "text-sky-500",
     },
   ];
@@ -78,12 +75,9 @@ export function PortfolioOverview() {
         return (
           <Card
             key={card.title}
-            className="bg-card border-border hover:border-amber-700/30 transition-all duration-200 group overflow-hidden relative"
+            className="bg-card border-border overflow-hidden relative"
           >
-            <div
-              className={`absolute inset-0 bg-gradient-to-br ${card.accent} opacity-0 group-hover:opacity-100 transition-opacity duration-300`}
-            />
-            <CardContent className="p-5 relative">
+            <CardContent className="p-5">
               <div className="flex items-center justify-between mb-3">
                 <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   {card.title}

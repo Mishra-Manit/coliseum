@@ -7,6 +7,7 @@ import { PortfolioOverview } from "@/components/dashboard/portfolio-overview";
 import { OpportunitiesFeed } from "@/components/dashboard/opportunities-feed";
 import { OpportunityDetailView } from "@/components/dashboard/opportunity-detail";
 import { KalshiAccount } from "@/components/dashboard/kalshi-account";
+import { TradeLedger } from "@/components/dashboard/trade-ledger";
 
 export default function Home() {
   const [selectedOpportunityId, setSelectedOpportunityId] = useState<
@@ -30,7 +31,8 @@ export default function Home() {
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
               <div className="lg:col-span-3 space-y-6">
-                <KalshiAccount />
+                <KalshiAccount onSelectOpportunity={setSelectedOpportunityId} />
+                <TradeLedger onSelectOpportunity={setSelectedOpportunityId} />
               </div>
 
               <div className="lg:col-span-3">

@@ -18,6 +18,7 @@ class LLMProvider(StrEnum):
 class OpenAIModel(StrEnum):
     """OpenAI models available via API."""
 
+    GPT_5_4 = "gpt-5.4"
     GPT_5_2 = "gpt-5.2"
     GPT_5 = "gpt-5"
     GPT_5_MINI = "gpt-5-mini"
