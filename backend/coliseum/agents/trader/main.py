@@ -445,7 +445,7 @@ async def run_trader(
                     contracts=order_result.contracts_filled,
                     price=order_result.fill_price or current_price_decimal,
                     total=order_result.total_cost_usd,
-                    paper=settings.trading.paper_mode,
+                    paper=False,
                     executed_at=datetime.now(timezone.utc),
                 )
                 log_trade(trade)
