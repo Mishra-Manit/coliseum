@@ -47,6 +47,16 @@ async def fetch_market_side_price(
 ) -> float | None:
     """Fetch best available bid/ask price for a side in decimal probability format."""
     market = await client.get_market(market_ticker)
+
+    # For finalized markets, use the resolution result directly.
+    # Bid/ask values are meaningless artifacts after settlement.
+    if market.status == "finalized" and market.result:
+        result = market.result.lower()
+        if side == "YES":
+            return 1.0 if result == "yes" else 0.0
+        else:
+            return 1.0 if result == "no" else 0.0
+
     if side == "YES":
         price = normalize_probability_price(market.yes_bid) or 0.0
         if price == 0.0:
@@ -164,7 +174,7 @@ def _map_kalshi_position(
     )
 
 
-async def sync_portfolio_from_kalshi(client: KalshiClient) -> PortfolioState:
+async def sync_portfolio_from_kalshi(client: KalshiClient, paper_mode: bool = False) -> PortfolioState:
     """Fetch live account data from Kalshi and reconcile with state.yaml."""
     if client.config.paper_mode and client.auth is None:
         logger.warning("Skipping sync: Kalshi client in paper mode without auth.")
@@ -244,7 +254,8 @@ async def sync_portfolio_from_kalshi(client: KalshiClient) -> PortfolioState:
         closed_positions=existing_state.closed_positions,
         seen_tickers=existing_state.seen_tickers,
     )
-    save_state(new_state)
+    if not paper_mode:
+        save_state(new_state)
     logger.info(
         "Synced portfolio: cash=$%.2f positions=%d",
         cash_balance,

@@ -105,9 +105,9 @@ async def _compute_exit_outcome(
             logger.warning("Guardian using market price estimate for %s", pos.market_ticker)
 
     if side == "YES":
-        pnl = (exit_price - entry_price) * contracts
+        pnl = round((exit_price - entry_price) * contracts, 4)
     else:
-        pnl = (entry_price - exit_price) * contracts
+        pnl = round((entry_price - exit_price) * contracts, 4)
 
     return exit_price, pnl
 
@@ -135,6 +135,7 @@ async def reconcile_closed_positions(
     new_state: PortfolioState,
     fills: list[dict[str, object]],
     client: KalshiClient,
+    paper_mode: bool = False,
 ) -> tuple[PortfolioState, ReconciliationStats, list[ClosedPosition]]:
     """Detect positions that closed since last sync and move them to closed_positions."""
     new_open_keys = {(pos.market_ticker, pos.side) for pos in new_state.open_positions}
@@ -194,7 +195,8 @@ async def reconcile_closed_positions(
         closed_positions=new_state.closed_positions + newly_closed,
         seen_tickers=new_state.seen_tickers,
     )
-    save_state(updated_state)
+    if not paper_mode:
+        save_state(updated_state)
     return updated_state, stats, newly_closed
 
 
@@ -229,7 +231,7 @@ async def run_guardian(settings: Settings | None = None) -> GuardianResult:
 
             # Step 2: sync portfolio from Kalshi
             with logfire.span("sync portfolio from Kalshi"):
-                state = await sync_portfolio_from_kalshi(client)
+                state = await sync_portfolio_from_kalshi(client, paper_mode=settings.trading.paper_mode)
                 logfire.info(
                     "Portfolio synced",
                     cash=round(state.portfolio.cash_balance, 2),
@@ -250,6 +252,7 @@ async def run_guardian(settings: Settings | None = None) -> GuardianResult:
                     new_state=state,
                     fills=fills,
                     client=client,
+                    paper_mode=settings.trading.paper_mode,
                 )
                 logfire.info(
                     "Reconciliation complete",
