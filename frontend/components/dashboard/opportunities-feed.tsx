@@ -10,8 +10,8 @@ const statusColors: Record<string, { dot: string; text: string }> = {
   researched: { dot: "bg-sky-500",     text: "text-sky-400/80" },
   recommended:{ dot: "bg-emerald-500", text: "text-emerald-400/80" },
   traded:     { dot: "bg-violet-500",  text: "text-violet-400/80" },
-  rejected:   { dot: "bg-red-500",     text: "text-red-400/60" },
-  expired:    { dot: "bg-zinc-600",    text: "text-muted-foreground/40" },
+  rejected:   { dot: "bg-red-500",     text: "text-red-400/70" },
+  expired:    { dot: "bg-zinc-600",    text: "text-muted-foreground/70" },
 };
 
 interface OpportunitiesFeedProps {
@@ -30,10 +30,10 @@ export function OpportunitiesFeed({
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
-        <span className="text-[11px] font-mono text-muted-foreground/50 tracking-[0.15em] uppercase">
+        <span className="text-[11px] font-mono text-muted-foreground/70 tracking-[0.15em] uppercase">
           Opportunities
         </span>
-        <span className="text-[10px] font-mono text-muted-foreground/30 tabular-nums">
+        <span className="text-[10px] font-mono text-muted-foreground/70 tabular-nums">
           {opps.length}
         </span>
       </div>
@@ -47,7 +47,7 @@ export function OpportunitiesFeed({
             ))}
           </div>
         ) : opps.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full min-h-[300px] text-muted-foreground/30 gap-2">
+          <div className="flex flex-col items-center justify-center h-full min-h-[300px] text-muted-foreground/70 gap-2">
             <FileText className="h-6 w-6" />
             <p className="text-[11px] font-mono tracking-wider">NO OPPORTUNITIES</p>
           </div>
@@ -138,7 +138,7 @@ function OpportunityRow({
                   style={{ width: `${yesPercent}%` }}
                 />
               </div>
-              <span className="text-[9px] font-mono text-muted-foreground/40 tabular-nums w-6 text-right">
+              <span className="text-[9px] font-mono text-muted-foreground/70 tabular-nums w-6 text-right">
                 {yesPercent}c
               </span>
             </div>
@@ -149,13 +149,13 @@ function OpportunityRow({
           className={`h-3.5 w-3.5 shrink-0 mt-1 transition-all duration-150 ${
             isSelected
               ? "text-amber-500/70"
-              : "text-muted-foreground/20 group-hover:text-muted-foreground/40"
+              : "text-muted-foreground/70 group-hover:text-muted-foreground/70"
           }`}
         />
       </div>
 
       {/* Time */}
-      <p className="text-[9px] font-mono text-muted-foreground/25 mt-1.5 ml-3.5 tracking-wide">
+      <p className="text-[9px] font-mono text-muted-foreground/70 mt-1.5 ml-3.5 tracking-wide">
         {formatDistanceToNow(new Date(opportunity.discovered_at), {
           addSuffix: true,
         })}
