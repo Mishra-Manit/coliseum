@@ -6,6 +6,7 @@ import { useChartData, usePortfolioState } from "@/hooks/use-api";
 import { LWPortfolioChart } from "@/components/chart/lw-portfolio-chart";
 import { WinRatePanel } from "@/components/chart/win-rate-panel";
 import type { Interval } from "@/lib/chart-utils";
+import { FontSize } from "@/lib/typography";
 
 // ─── Sidebar stat row ──────────────────────────────────────────────────────
 
@@ -26,14 +27,14 @@ function StatRow({ label, value, sub, trend = "neutral" }: StatRowProps) {
 
   return (
     <div className="flex flex-col gap-0.5">
-      <span className="text-[11px] font-mono text-muted-foreground/70 tracking-[0.13em] uppercase">
+      <span className={`${FontSize.small} font-mono text-muted-foreground/70 tracking-[0.13em] uppercase`}>
         {label}
       </span>
-      <span className={`text-[13px] font-mono font-medium tabular-nums ${valueClass}`}>
+      <span className={`${FontSize.medium} font-mono font-medium tabular-nums ${valueClass}`}>
         {value}
       </span>
       {sub && (
-        <span className="text-[9px] font-mono text-muted-foreground/70 tabular-nums">
+        <span className={`${FontSize.small} font-mono text-muted-foreground/70 tabular-nums`}>
           {sub}
         </span>
       )}
@@ -60,7 +61,7 @@ function ChartSidebar() {
     <aside className="w-36 shrink-0 border-r border-border flex flex-col overflow-hidden animate-fade-up stagger-1">
       {/* NAV header */}
       <div className="p-3 border-b border-border shrink-0">
-        <p className="text-[8px] font-mono text-muted-foreground/70 tracking-[0.14em] uppercase mb-2">
+        <p className={`${FontSize.small} font-mono text-muted-foreground/70 tracking-[0.14em] uppercase mb-2`}>
           Portfolio NAV
         </p>
         <p className="text-[22px] font-mono font-bold text-foreground/90 tabular-nums leading-none">
@@ -73,7 +74,7 @@ function ChartSidebar() {
         >
           {isPositive ? "+" : ""}
           {totalPnl.toFixed(2)}
-          <span className="text-[10px] opacity-60 ml-1">
+          <span className={`${FontSize.small} opacity-60 ml-1`}>
             ({isPositive ? "+" : ""}
             {returnPct}%)
           </span>
@@ -128,7 +129,7 @@ function ChartSidebar() {
           <WinRatePanel stats={stats} />
         ) : (
           <div className="flex items-center justify-center py-6">
-            <span className="text-[10px] font-mono text-muted-foreground/70 tracking-wider">
+            <span className={`${FontSize.small} font-mono text-muted-foreground/70 tracking-wider`}>
               NO DATA
             </span>
           </div>

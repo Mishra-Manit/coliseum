@@ -4,6 +4,7 @@ import { formatDistanceToNow } from "date-fns";
 import { FileText, ChevronRight } from "lucide-react";
 import { useOpportunities } from "@/hooks/use-api";
 import type { OpportunitySummary } from "@/lib/types";
+import { FontSize } from "@/lib/typography";
 
 const statusColors: Record<string, { dot: string; text: string }> = {
   pending:    { dot: "bg-yellow-500",  text: "text-yellow-500/80" },
@@ -30,10 +31,10 @@ export function OpportunitiesFeed({
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
-        <span className="text-[11px] font-mono text-muted-foreground/70 tracking-[0.15em] uppercase">
+        <span className={`${FontSize.medium} font-mono text-muted-foreground/70 tracking-[0.15em] uppercase`}>
           Opportunities
         </span>
-        <span className="text-[10px] font-mono text-muted-foreground/70 tabular-nums">
+        <span className={`${FontSize.small} font-mono text-muted-foreground/70 tabular-nums`}>
           {opps.length}
         </span>
       </div>
@@ -49,7 +50,7 @@ export function OpportunitiesFeed({
         ) : opps.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full min-h-[300px] text-muted-foreground/70 gap-2">
             <FileText className="h-6 w-6" />
-            <p className="text-[11px] font-mono tracking-wider">NO OPPORTUNITIES</p>
+            <p className={`${FontSize.medium} font-mono tracking-wider`}>NO OPPORTUNITIES</p>
           </div>
         ) : (
           <div className="p-2 space-y-0.5">
@@ -98,7 +99,7 @@ function OpportunityRow({
         <div className="flex-1 min-w-0">
           {/* Title */}
           <p
-            className={`text-[12px] font-medium leading-snug line-clamp-2 transition-colors ${
+            className={`${FontSize.medium} font-medium leading-snug line-clamp-2 transition-colors ${
               isSelected ? "text-foreground" : "text-foreground/75 group-hover:text-foreground/90"
             }`}
           >
@@ -108,14 +109,14 @@ function OpportunityRow({
           {/* Bottom row */}
           <div className="flex items-center gap-3 mt-1.5">
             {/* Status label */}
-            <span className={`text-[9px] font-mono uppercase tracking-wider ${status.text}`}>
+            <span className={`${FontSize.small} font-mono uppercase tracking-wider ${status.text}`}>
               {opportunity.status}
             </span>
 
             {/* Action badge */}
             {opportunity.action && (
               <span
-                className={`text-[9px] font-mono font-bold uppercase ${
+                className={`${FontSize.small} font-mono font-bold uppercase ${
                   opportunity.action.includes("YES")
                     ? "text-emerald-400"
                     : opportunity.action.includes("NO")
@@ -138,7 +139,7 @@ function OpportunityRow({
                   style={{ width: `${yesPercent}%` }}
                 />
               </div>
-              <span className="text-[9px] font-mono text-muted-foreground/70 tabular-nums w-6 text-right">
+              <span className={`${FontSize.small} font-mono text-muted-foreground/70 tabular-nums w-6 text-right`}>
                 {yesPercent}c
               </span>
             </div>
@@ -155,7 +156,7 @@ function OpportunityRow({
       </div>
 
       {/* Time */}
-      <p className="text-[9px] font-mono text-muted-foreground/70 mt-1.5 ml-3.5 tracking-wide">
+      <p className={`${FontSize.small} font-mono text-muted-foreground/70 mt-1.5 ml-3.5 tracking-wide`}>
         {formatDistanceToNow(new Date(opportunity.discovered_at), {
           addSuffix: true,
         })}

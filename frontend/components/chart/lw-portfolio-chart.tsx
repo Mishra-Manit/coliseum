@@ -5,6 +5,7 @@ import type { IChartApi, ISeriesApi } from "lightweight-charts";
 import type { ChartDataPoint } from "@/lib/types";
 import { getChartSeries, type Interval } from "@/lib/chart-utils";
 import { RangeSwitcher } from "./range-switcher";
+import { FontSize } from "@/lib/typography";
 
 // Colors matched to the Coliseum design system
 const C = {
@@ -217,12 +218,12 @@ export function LWPortfolioChart({
       {/* Chart toolbar */}
       <div className="flex items-center justify-between px-5 h-10 border-b border-border shrink-0">
         <div className="flex items-baseline gap-2.5">
-          <span className="text-[9px] font-mono text-muted-foreground/70 tracking-[0.14em] uppercase">
+          <span className={`${FontSize.small} font-mono text-muted-foreground/70 tracking-[0.14em] uppercase`}>
             Cumulative P&L
           </span>
           {!isEmpty && (
             <span
-              className={`text-sm font-mono font-semibold tabular-nums ${
+              className={`${FontSize.medium} font-mono font-semibold tabular-nums ${
                 totalPnl >= 0 ? "text-emerald-400" : "text-red-400"
               }`}
             >
@@ -238,7 +239,7 @@ export function LWPortfolioChart({
       <div ref={mainRef} className="flex-[13] min-h-0 relative">
         {isEmpty && (
           <div className="absolute inset-0 flex items-center justify-center">
-            <p className="text-[11px] font-mono text-muted-foreground/70 tracking-[0.14em]">
+            <p className={`${FontSize.medium} font-mono text-muted-foreground/70 tracking-[0.14em]`}>
               NO TRADE DATA YET
             </p>
           </div>
@@ -247,7 +248,7 @@ export function LWPortfolioChart({
 
       {/* Histogram section header */}
       <div className="flex items-center px-5 h-7 border-t border-border shrink-0">
-        <span className="text-[8px] font-mono text-muted-foreground/70 tracking-[0.14em] uppercase">
+        <span className={`${FontSize.small} font-mono text-muted-foreground/70 tracking-[0.14em] uppercase`}>
           Daily P&L
         </span>
       </div>

@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { useConfig, useDaemonStatus, usePortfolioState } from "@/hooks/use-api";
 import { useTimezone, type Timezone } from "@/lib/timezone-context";
 import { SettingsModal } from "@/components/dashboard/settings-modal";
+import { FontSize } from "@/lib/typography";
 
 function formatUptime(seconds: number): string {
   if (seconds < 60) return `${seconds}s`;
@@ -43,14 +44,14 @@ export function DashboardNavbar() {
         {paperMode ? (
           <Badge
             variant="outline"
-            className="border-yellow-600/25 bg-yellow-600/8 text-yellow-500/70 text-[9px] h-[18px] px-1.5 font-mono tracking-wider"
+            className={`border-yellow-600/25 bg-yellow-600/8 text-yellow-500/70 ${FontSize.small} h-[18px] px-1.5 font-mono tracking-wider`}
           >
             PAPER
           </Badge>
         ) : (
           <Badge
             variant="outline"
-            className="border-emerald-600/25 bg-emerald-600/8 text-emerald-400/70 text-[9px] h-[18px] px-1.5 font-mono tracking-wider"
+            className={`border-emerald-600/25 bg-emerald-600/8 text-emerald-400/70 ${FontSize.small} h-[18px] px-1.5 font-mono tracking-wider`}
           >
             LIVE
           </Badge>
@@ -88,7 +89,7 @@ export function DashboardNavbar() {
           }`}
         >
           <BarChart2 className="w-3 h-3" />
-          <span className="text-[9px] font-mono tracking-[0.12em] uppercase">
+          <span className={`${FontSize.small} font-mono tracking-[0.12em] uppercase`}>
             Charts
           </span>
         </Link>
@@ -115,7 +116,7 @@ export function DashboardNavbar() {
               }`}
             />
           </span>
-          <span className="text-[10px] font-mono text-muted-foreground/70 tracking-wider">
+          <span className={`${FontSize.small} font-mono text-muted-foreground/70 tracking-wider`}>
             {!isOnline ? "OFFLINE" : isPaused ? "PAUSED" : "RUNNING"}
           </span>
         </div>
@@ -137,7 +138,7 @@ function TzSelector({
         <button
           key={option}
           onClick={() => setTz(option)}
-          className={`px-2 py-0.5 text-[9px] font-mono tracking-wider transition-colors ${
+          className={`px-2 py-0.5 ${FontSize.small} font-mono tracking-wider transition-colors ${
             tz === option
               ? "bg-primary/15 text-primary border-r border-border last:border-r-0"
               : "text-muted-foreground/70 hover:text-muted-foreground/70 border-r border-border last:border-r-0"
@@ -161,11 +162,11 @@ function StatPill({
 }) {
   return (
     <div className="flex items-baseline gap-1.5 shrink-0">
-      <span className="text-[9px] font-mono text-muted-foreground/70 tracking-[0.12em] uppercase">
+      <span className={`${FontSize.small} font-mono text-muted-foreground/70 tracking-[0.12em] uppercase`}>
         {label}
       </span>
       <span
-        className={`text-[11px] font-mono font-medium tabular-nums ${
+        className={`${FontSize.medium} font-mono font-medium tabular-nums ${
           dimmed ? "text-muted-foreground/70" : "text-foreground/80"
         }`}
       >
