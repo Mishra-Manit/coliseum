@@ -165,13 +165,21 @@ export function LWPortfolioChart({
       mainChart.timeScale().subscribeVisibleTimeRangeChange((range) => {
         if (syncing || !range) return;
         syncing = true;
-        histChart.timeScale().setVisibleRange(range);
+        try {
+          histChart.timeScale().setVisibleRange(range);
+        } catch {
+          // lightweight-charts throws when range contains null time values (empty chart)
+        }
         syncing = false;
       });
       histChart.timeScale().subscribeVisibleTimeRangeChange((range) => {
         if (syncing || !range) return;
         syncing = true;
-        mainChart.timeScale().setVisibleRange(range);
+        try {
+          mainChart.timeScale().setVisibleRange(range);
+        } catch {
+          // lightweight-charts throws when range contains null time values (empty chart)
+        }
         syncing = false;
       });
 
@@ -230,28 +238,26 @@ export function LWPortfolioChart({
         <RangeSwitcher value={interval} onChange={onIntervalChange} />
       </div>
 
-      {isEmpty ? (
-        <div className="flex-1 flex items-center justify-center">
-          <p className="text-[11px] font-mono text-muted-foreground/35 tracking-[0.14em]">
-            NO TRADE DATA YET
-          </p>
-        </div>
-      ) : (
-        <>
-          {/* Baseline chart — takes 65% of the chart area */}
-          <div ref={mainRef} className="flex-[13] min-h-0" />
-
-          {/* Histogram section header */}
-          <div className="flex items-center px-5 h-7 border-t border-border shrink-0">
-            <span className="text-[8px] font-mono text-muted-foreground/45 tracking-[0.14em] uppercase">
-              Daily P&L
-            </span>
+      {/* Baseline chart — takes 65% of the chart area */}
+      <div ref={mainRef} className="flex-[13] min-h-0 relative">
+        {isEmpty && (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <p className="text-[11px] font-mono text-muted-foreground/35 tracking-[0.14em]">
+              NO TRADE DATA YET
+            </p>
           </div>
+        )}
+      </div>
 
-          {/* Histogram — takes 35% of the chart area */}
-          <div ref={histRef} className="flex-[7] min-h-0" />
-        </>
-      )}
+      {/* Histogram section header */}
+      <div className="flex items-center px-5 h-7 border-t border-border shrink-0">
+        <span className="text-[8px] font-mono text-muted-foreground/45 tracking-[0.14em] uppercase">
+          Daily P&L
+        </span>
+      </div>
+
+      {/* Histogram — takes 35% of the chart area */}
+      <div ref={histRef} className="flex-[7] min-h-0" />
     </div>
   );
 }
