@@ -133,21 +133,21 @@ def _parse_opportunity(file_path: Path) -> dict[str, Any] | None:
 
 
 def _get_all_opportunities() -> list[dict[str, Any]]:
-    """Scan all opportunity markdown files across date directories."""
+    """Scan all opportunity markdown files, sorted by discovered_at descending."""
     opps_dir = DATA_DIR / "opportunities"
     if not opps_dir.exists():
         return []
 
     results: list[dict[str, Any]] = []
-    for date_dir in sorted(
-        [d for d in opps_dir.iterdir() if d.is_dir()],
-        key=lambda d: d.name,
+    for md_file in opps_dir.rglob("*.md"):
+        parsed = _parse_opportunity(md_file)
+        if parsed:
+            results.append(parsed)
+
+    results.sort(
+        key=lambda o: o["frontmatter"].get("discovered_at", ""),
         reverse=True,
-    ):
-        for md_file in sorted(date_dir.glob("*.md"), reverse=True):
-            parsed = _parse_opportunity(md_file)
-            if parsed:
-                results.append(parsed)
+    )
     return results
 
 

@@ -80,7 +80,7 @@ export function DashboardNavbar() {
       <div className="flex items-center gap-3 shrink-0">
         {/* Charts link */}
         <Link
-          href="/chart"
+          href={pathname === "/chart" ? "/" : "/chart"}
           className={`flex items-center gap-1.5 px-2 py-0.5 rounded transition-colors ${
             pathname === "/chart"
               ? "text-primary bg-primary/10"
