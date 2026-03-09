@@ -26,7 +26,7 @@ function StatRow({ label, value, sub, trend = "neutral" }: StatRowProps) {
 
   return (
     <div className="flex flex-col gap-0.5">
-      <span className="text-[8px] font-mono text-muted-foreground/70 tracking-[0.13em] uppercase">
+      <span className="text-[11px] font-mono text-muted-foreground/70 tracking-[0.13em] uppercase">
         {label}
       </span>
       <span className={`text-[13px] font-mono font-medium tabular-nums ${valueClass}`}>
