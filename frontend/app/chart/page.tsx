@@ -1,8 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { SWRConfig } from "swr";
-import { TimezoneProvider } from "@/lib/timezone-context";
 import { DashboardNavbar } from "@/components/dashboard/dashboard-navbar";
 import { useChartData, usePortfolioState } from "@/hooks/use-api";
 import { LWPortfolioChart } from "@/components/chart/lw-portfolio-chart";
@@ -165,22 +163,12 @@ function ChartMain() {
 
 export default function ChartPage() {
   return (
-    <SWRConfig
-      value={{
-        revalidateOnFocus: true,
-        revalidateOnReconnect: true,
-        errorRetryCount: 3,
-      }}
-    >
-      <TimezoneProvider>
-        <div className="flex flex-col h-screen bg-background tech-grid noise-bg overflow-hidden">
-          <DashboardNavbar />
-          <main className="flex-1 overflow-hidden flex min-h-0">
-            <ChartSidebar />
-            <ChartMain />
-          </main>
-        </div>
-      </TimezoneProvider>
-    </SWRConfig>
+    <div className="flex flex-col h-screen bg-background tech-grid noise-bg overflow-hidden">
+      <DashboardNavbar />
+      <main className="flex-1 overflow-hidden flex min-h-0">
+        <ChartSidebar />
+        <ChartMain />
+      </main>
+    </div>
   );
 }
