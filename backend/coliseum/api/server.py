@@ -65,7 +65,7 @@ async def _daemon_lifespan(app: FastAPI):
 
 router = APIRouter()
 
-_CORS_ORIGINS = ["http://localhost:3000", "http://localhost:3001"]
+_CORS_ORIGINS = ["http://localhost:3000", "http://localhost:3001", "http://localhost:3002"]
 
 
 def _make_app(lifespan) -> FastAPI:
