@@ -7,6 +7,7 @@ import type {
   ColiseumConfig,
   DaemonStatus,
   LedgerEntry,
+  ChartResponse,
 } from "@/lib/types";
 
 export function useConfig() {
@@ -50,5 +51,11 @@ export function useDaemonStatus() {
 export function useLedger(limit = 100) {
   return useSWR<LedgerEntry[]>(`/api/ledger?limit=${limit}`, fetcher, {
     refreshInterval: 15000,
+  });
+}
+
+export function useChartData() {
+  return useSWR<ChartResponse>("/api/chart", fetcher, {
+    refreshInterval: 30000,
   });
 }
