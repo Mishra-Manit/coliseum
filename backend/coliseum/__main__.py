@@ -7,7 +7,6 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-import yaml
 from dotenv import load_dotenv
 from pydantic import ValidationError
 
@@ -21,6 +20,7 @@ from coliseum.agents.scout import run_scout
 from coliseum.agents.trader import run_trader
 from coliseum.config import get_settings
 from coliseum.pipeline import run_pipeline
+from coliseum.storage.state import load_state
 
 # Configure logging
 logging.basicConfig(
@@ -220,30 +220,20 @@ def cmd_config(args: argparse.Namespace) -> int:
 def cmd_status(args: argparse.Namespace) -> int:
     """Display current portfolio status."""
     try:
-        settings = get_settings()
-        state_path = settings.data_dir / "state.yaml"
-
-        if not state_path.exists():
-            print(f"\n❌ State file not found: {state_path}")
-            print("Run 'python -m coliseum init' to create it.\n")
-            return 1
-
-        with open(state_path, "r") as f:
-            state = yaml.safe_load(f)
+        state = load_state()
 
         print("\n=== Coliseum Portfolio Status ===\n")
 
-        portfolio = state.get("portfolio", {})
         print("Portfolio:")
-        print(f"  Total Value: ${portfolio.get('total_value', 0):,.2f}")
-        print(f"  Cash Balance: ${portfolio.get('cash_balance', 0):,.2f}")
-        print(f"  Positions Value: ${portfolio.get('positions_value', 0):,.2f}\n")
+        print(f"  Total Value: ${state.portfolio.total_value:,.2f}")
+        print(f"  Cash Balance: ${state.portfolio.cash_balance:,.2f}")
+        print(f"  Positions Value: ${state.portfolio.positions_value:,.2f}\n")
 
-        positions = state.get("open_positions", [])
+        positions = state.open_positions
         print(f"Open Positions: {len(positions)}")
         if positions:
             for i, pos in enumerate(positions[:5], 1):
-                print(f"  {i}. {pos.get('market_ticker', 'Unknown')}")
+                print(f"  {i}. {pos.market_ticker}")
             if len(positions) > 5:
                 print(f"  ... and {len(positions) - 5} more")
         else:
@@ -473,17 +463,9 @@ def cmd_run(args: argparse.Namespace) -> int:
         print(f"Mode: {'PAPER TRADING' if settings.trading.paper_mode else 'LIVE TRADING'}")
         print(f"Data Directory: {settings.data_dir}\n")
 
-        if args.once:
-            print("Running full pipeline once (Guardian -> Scout -> Analyst -> Trader)...\n")
-            asyncio.run(run_pipeline(settings))
-            print("\nPipeline run complete.\n")
-            return 0
-
-        print("Continuous scheduling is not implemented yet.")
         print("Running full pipeline once (Guardian -> Scout -> Analyst -> Trader)...\n")
         asyncio.run(run_pipeline(settings))
         print("\nPipeline run complete.\n")
-
         return 0
 
     except KeyboardInterrupt:
@@ -614,11 +596,6 @@ def main() -> int:
         "--debug",
         action="store_true",
         help="Enable debug logging",
-    )
-    parser_run.add_argument(
-        "--once",
-        action="store_true",
-        help="Run the full pipeline once (Guardian -> Scout -> Analyst -> Trader) then exit",
     )
     parser_run.set_defaults(func=cmd_run)
 
