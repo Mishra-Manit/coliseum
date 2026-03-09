@@ -85,12 +85,6 @@ def _make_app(lifespan) -> FastAPI:
     return the_app
 
 
-# app      → coliseum api     (dashboard only, no trading)
-# daemon_app → coliseum daemon (dashboard + trading daemon)
-app = _make_app(_api_lifespan)
-daemon_app = _make_app(_daemon_lifespan)
-
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -356,3 +350,11 @@ async def daemon_status(request: Request):
     if daemon is None:
         return _DAEMON_OFFLINE
     return {"available": True, **daemon.status_summary()}
+
+
+# app      → coliseum api     (dashboard only, no trading)
+# daemon_app → coliseum daemon (dashboard + trading daemon)
+# Must be instantiated AFTER all @router routes are defined so include_router
+# picks them up.
+app = _make_app(_api_lifespan)
+daemon_app = _make_app(_daemon_lifespan)

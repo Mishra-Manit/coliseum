@@ -1,16 +1,30 @@
-last_updated: '2026-03-09T01:43:59.277331Z'
+last_updated: '2026-03-09T19:54:23.973620+00:00'
 portfolio:
-  total_value: 23.04
-  cash_balance: 18.14
-  positions_value: 4.9
+  total_value: 23.27
+  cash_balance: 8.92
+  positions_value: 14.35
 open_positions:
-- id: pos_fca051a7
-  market_ticker: KXRT-HOP-92
+- id: pos_b4a14fc1
+  market_ticker: KXCPI-26FEB-T0.0
   side: 'YES'
   contracts: 5
-  average_entry: 0.9200000000000002
-  current_price: 0.98
-  opportunity_id: opp_b6983a2a
+  average_entry: 0.96
+  current_price: 0.97
+  opportunity_id: opp_87e066c7
+- id: pos_eb1952a8
+  market_ticker: KXCPI-26FEB-T0.1
+  side: 'YES'
+  contracts: 5
+  average_entry: 0.9399999999999998
+  current_price: 0.93
+  opportunity_id: opp_00d31eba
+- id: pos_73e84b1e
+  market_ticker: KXHIGHMIA-26MAR09-B84.5
+  side: 'YES'
+  contracts: 5
+  average_entry: 0.93
+  current_price: 0.97
+  opportunity_id: opp_fb952a2b
 closed_positions:
 - market_ticker: KXNASCARRACE-ONLGF1AS26-ADAN
   side: 'NO'
@@ -161,6 +175,29 @@ closed_positions:
     after excluding Tier 1 crypto and Tier 2 speaking markets; Tier 3 weather was
     avoided where possible). Remaining Risks: Intraday oil price volatility before
     the settlement print could still move settlement below $74.00. Sources: https://www.cmegroup.com/markets/energy/crude-oil/light-sweet-crude.html'
+- market_ticker: KXRT-HOP-92
+  side: 'YES'
+  contracts: 5
+  entry_price: 0.9200000000000002
+  exit_price: 1.0
+  pnl: 0.4
+  opportunity_id: opp_b6983a2a
+  closed_at: '2026-03-09T15:34:46.312417Z'
+  entry_rationale: 'Outcome Status -- STRONGLY FAVORED: Rotten Tomatoes currently
+    lists Hoppers at 94% on the Tomatometer from 143 critic reviews, which is above
+    the market''s >92 threshold. Supporting Evidence -- With a 143-review base already
+    in place and about 41 hours until market close, the score would need a meaningful
+    late negative swing to finish at 92 or lower, so the current edge is supported
+    by a substantial sample. Resolution Source -- The resolving authority is the publicly
+    displayed Rotten Tomatoes Tomatometer for Hoppers on the film''s official RT page.
+    Risk Checklist -- Passed required items because there are no formal appeals or
+    official review challenges identified and the resolution source is clear; passed
+    optional items because there is a strong current position and recent corroboration
+    within 72 hours from the live RT listing. Risk Level -- LOW, and this market was
+    selected as the single lowest-risk available candidate; Remaining Risks -- a late
+    cluster of additional negative reviews could still move the displayed score down
+    to 92 or below before close; Sources -- https://www.rottentomatoes.com/m/hoppers
+    ; https://editorial.rottentomatoes.com/article/hoppers-first-reviews-john-hamms-latest-comedy-hops-to-it/'
 seen_tickers:
 - KXWOHOCKEY-MEN26CGOLD-USA
 - KXNCAABBGAME-26FEB201400LSUIND-LSU
@@ -196,3 +233,7 @@ seen_tickers:
 - KXECONSTATU3-26FEB-T4.1
 - KXBTCD-26MAR0600-T70249.99
 - KXRT-HOP-92
+- KXCPI-26FEB-T0.0
+- KXCPI-26FEB-T0.4
+- KXHIGHMIA-26MAR09-B84.5
+- KXCPI-26FEB-T0.1
