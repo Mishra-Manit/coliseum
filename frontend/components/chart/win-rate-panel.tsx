@@ -11,7 +11,7 @@ export function WinRatePanel({ stats }: WinRatePanelProps) {
   const lossPct = 100 - winPct;
 
   return (
-    <div className="flex flex-col gap-3 h-full justify-center">
+    <div className="flex flex-col gap-3">
       <div className="flex gap-3">
         <div className="flex-1 bg-emerald-500/5 border border-emerald-500/10 rounded-lg p-3 flex flex-col gap-1">
           <span className="text-[8px] font-mono text-muted-foreground/60 tracking-[0.12em] uppercase">
