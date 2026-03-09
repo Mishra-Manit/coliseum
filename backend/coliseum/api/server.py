@@ -3,6 +3,7 @@
 import asyncio
 import json
 import logging
+from collections import defaultdict
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
@@ -288,6 +289,84 @@ async def get_ledger(limit: int = 100):
 
     entries.sort(key=lambda e: e["timestamp"], reverse=True)
     return entries[:limit]
+
+
+# ---------------------------------------------------------------------------
+# Chart data
+# ---------------------------------------------------------------------------
+
+
+@router.get("/api/chart")
+async def get_chart_data():
+    """Return portfolio chart data: daily P&L, cumulative NAV, and stats."""
+    close_dir = DATA_DIR / "trades" / "close"
+
+    raw_entries: list[dict[str, Any]] = []
+    if close_dir.exists():
+        for f in sorted(close_dir.glob("*.jsonl")):
+            for row in _read_jsonl(f):
+                pnl = row.get("pnl")
+                closed_at = row.get("closed_at", "")
+                if pnl is not None and closed_at:
+                    raw_entries.append({"pnl": float(pnl), "closed_at": str(closed_at)})
+
+    raw_entries.sort(key=lambda e: e["closed_at"])
+
+    daily_map: dict[str, dict[str, Any]] = defaultdict(
+        lambda: {"pnl": 0.0, "trades": 0, "wins": 0, "losses": 0}
+    )
+    for entry in raw_entries:
+        date = entry["closed_at"][:10]
+        pnl = entry["pnl"]
+        daily_map[date]["pnl"] += pnl
+        daily_map[date]["trades"] += 1
+        if pnl >= 0:
+            daily_map[date]["wins"] += 1
+        else:
+            daily_map[date]["losses"] += 1
+
+    state = _load_yaml(DATA_DIR / "state.yaml")
+    current_nav = float(state.get("portfolio", {}).get("total_value", 1000.0))
+
+    total_pnl = sum(e["pnl"] for e in raw_entries)
+    initial_nav = current_nav - total_pnl
+
+    sorted_dates = sorted(daily_map.keys())
+    cumulative = 0.0
+    daily: list[dict[str, Any]] = []
+    for date in sorted_dates:
+        day = daily_map[date]
+        cumulative += day["pnl"]
+        daily.append(
+            {
+                "date": date,
+                "pnl": round(day["pnl"], 4),
+                "cumulative_pnl": round(cumulative, 4),
+                "nav": round(initial_nav + cumulative, 4),
+                "trades": day["trades"],
+                "wins": day["wins"],
+                "losses": day["losses"],
+            }
+        )
+
+    total_trades = sum(d["trades"] for d in daily)
+    winning_trades = sum(d["wins"] for d in daily)
+    losing_trades = sum(d["losses"] for d in daily)
+    daily_pnls = [d["pnl"] for d in daily]
+
+    stats = {
+        "total_pnl": round(total_pnl, 4),
+        "win_rate": round(winning_trades / total_trades, 4) if total_trades > 0 else 0.0,
+        "total_trades": total_trades,
+        "winning_trades": winning_trades,
+        "losing_trades": losing_trades,
+        "best_day": round(max(daily_pnls), 4) if daily_pnls else 0.0,
+        "worst_day": round(min(daily_pnls), 4) if daily_pnls else 0.0,
+        "current_nav": round(current_nav, 4),
+        "initial_nav": round(initial_nav, 4),
+    }
+
+    return {"daily": daily, "stats": stats}
 
 
 # ---------------------------------------------------------------------------
