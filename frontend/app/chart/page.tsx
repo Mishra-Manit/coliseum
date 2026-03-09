@@ -26,14 +26,14 @@ function StatRow({ label, value, sub, trend = "neutral" }: StatRowProps) {
 
   return (
     <div className="flex flex-col gap-0.5">
-      <span className="text-[8px] font-mono text-muted-foreground/50 tracking-[0.13em] uppercase">
+      <span className="text-[8px] font-mono text-muted-foreground/70 tracking-[0.13em] uppercase">
         {label}
       </span>
       <span className={`text-[13px] font-mono font-medium tabular-nums ${valueClass}`}>
         {value}
       </span>
       {sub && (
-        <span className="text-[9px] font-mono text-muted-foreground/40 tabular-nums">
+        <span className="text-[9px] font-mono text-muted-foreground/70 tabular-nums">
           {sub}
         </span>
       )}
@@ -60,7 +60,7 @@ function ChartSidebar() {
     <aside className="w-36 shrink-0 border-r border-border flex flex-col overflow-hidden animate-fade-up stagger-1">
       {/* NAV header */}
       <div className="p-3 border-b border-border shrink-0">
-        <p className="text-[8px] font-mono text-muted-foreground/50 tracking-[0.14em] uppercase mb-2">
+        <p className="text-[8px] font-mono text-muted-foreground/70 tracking-[0.14em] uppercase mb-2">
           Portfolio NAV
         </p>
         <p className="text-[22px] font-mono font-bold text-foreground/90 tabular-nums leading-none">
@@ -128,7 +128,7 @@ function ChartSidebar() {
           <WinRatePanel stats={stats} />
         ) : (
           <div className="flex items-center justify-center py-6">
-            <span className="text-[10px] font-mono text-muted-foreground/35 tracking-wider">
+            <span className="text-[10px] font-mono text-muted-foreground/70 tracking-wider">
               NO DATA
             </span>
           </div>
