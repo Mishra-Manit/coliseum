@@ -15,6 +15,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from coliseum.config import get_settings
 from coliseum.daemon import ColiseumDaemon
 from coliseum.pipeline import run_pipeline
+from coliseum.storage.files import (
+    find_opportunity_file_by_id,
+    get_opportunity_markdown_body,
+    load_opportunity_from_file,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -157,30 +162,31 @@ async def list_opportunities():
 @app.get("/api/opportunities/{opportunity_id}")
 async def get_opportunity(opportunity_id: str):
     """Get full opportunity detail including markdown body."""
-    for opp in _get_all_opportunities():
-        fm = opp["frontmatter"]
-        if fm.get("id") == opportunity_id:
-            return {
-                "summary": {
-                    "id": fm.get("id", ""),
-                    "event_ticker": fm.get("event_ticker", ""),
-                    "market_ticker": fm.get("market_ticker", ""),
-                    "title": opp["title"],
-                    "subtitle": opp["subtitle"],
-                    "yes_price": fm.get("yes_price", 0.0),
-                    "no_price": fm.get("no_price", 0.0),
-                    "close_time": str(fm.get("close_time", "")),
-                    "discovered_at": str(fm.get("discovered_at", "")),
-                    "status": fm.get("status", "pending"),
-                    "action": fm.get("action"),
-                    "date_folder": opp["date_folder"],
-                },
-                "markdown_body": opp["body"],
-                "raw_frontmatter": fm,
-            }
-    raise HTTPException(
-        status_code=404, detail=f"Opportunity {opportunity_id} not found"
-    )
+    file_path = find_opportunity_file_by_id(opportunity_id, paper=False) or \
+        find_opportunity_file_by_id(opportunity_id, paper=True)
+    if not file_path:
+        raise HTTPException(
+            status_code=404, detail=f"Opportunity {opportunity_id} not found"
+        )
+    opp = load_opportunity_from_file(file_path)
+    return {
+        "summary": {
+            "id": opp.id,
+            "event_ticker": opp.event_ticker,
+            "market_ticker": opp.market_ticker,
+            "title": opp.title,
+            "subtitle": opp.subtitle,
+            "yes_price": opp.yes_price,
+            "no_price": opp.no_price,
+            "close_time": str(opp.close_time),
+            "discovered_at": str(opp.discovered_at),
+            "status": opp.status,
+            "action": opp.action,
+            "date_folder": file_path.parent.name,
+        },
+        "markdown_body": get_opportunity_markdown_body(file_path),
+        "raw_frontmatter": opp.model_dump(mode="json"),
+    }
 
 
 # ---------------------------------------------------------------------------
