@@ -57,7 +57,7 @@ function ChartSidebar() {
       : "0.0";
 
   return (
-    <aside className="w-52 shrink-0 border-r border-border flex flex-col overflow-hidden animate-fade-up stagger-1">
+    <aside className="w-40 shrink-0 border-r border-border flex flex-col overflow-hidden animate-fade-up stagger-1">
       {/* NAV header */}
       <div className="p-4 border-b border-border shrink-0">
         <p className="text-[8px] font-mono text-muted-foreground/50 tracking-[0.14em] uppercase mb-2">
