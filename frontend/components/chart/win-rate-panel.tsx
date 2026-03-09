@@ -7,7 +7,7 @@ interface WinRatePanelProps {
 }
 
 export function WinRatePanel({ stats }: WinRatePanelProps) {
-  const winPct = stats.total_trades > 0 ? Math.round(stats.win_rate * 100) : 0;
+  const winPct = Math.round(stats.win_rate * 100);
   const lossPct = 100 - winPct;
 
   return (
