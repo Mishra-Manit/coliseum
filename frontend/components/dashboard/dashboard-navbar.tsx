@@ -1,5 +1,8 @@
 "use client";
 
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { BarChart2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useConfig, useDaemonStatus, usePortfolioState } from "@/hooks/use-api";
 import { useTimezone, type Timezone } from "@/lib/timezone-context";
@@ -18,6 +21,7 @@ export function DashboardNavbar() {
   const { data: daemon } = useDaemonStatus();
   const { data: state } = usePortfolioState();
   const { tz, setTz } = useTimezone();
+  const pathname = usePathname();
 
   const paperMode =
     (config?.trading as Record<string, unknown>)?.paper_mode ?? true;
@@ -74,6 +78,23 @@ export function DashboardNavbar() {
 
       {/* Right controls */}
       <div className="flex items-center gap-3 shrink-0">
+        {/* Charts link */}
+        <Link
+          href="/chart"
+          className={`flex items-center gap-1.5 px-2 py-0.5 rounded transition-colors ${
+            pathname === "/chart"
+              ? "text-primary bg-primary/10"
+              : "text-muted-foreground/60 hover:text-muted-foreground"
+          }`}
+        >
+          <BarChart2 className="w-3 h-3" />
+          <span className="text-[9px] font-mono tracking-[0.12em] uppercase">
+            Charts
+          </span>
+        </Link>
+
+        <div className="w-px h-4 bg-border shrink-0" />
+
         {/* Timezone selector */}
         <TzSelector tz={tz} setTz={setTz} />
 
