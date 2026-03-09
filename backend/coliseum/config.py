@@ -18,10 +18,6 @@ class TradingConfig(BaseModel):
     contracts: int = Field(default=1, ge=1)
 
 
-class RiskConfig(BaseModel):
-    """Risk management limits and thresholds."""
-
-
 class ScoutConfig(BaseModel):
     """Scout agent market filtering parameters."""
 
@@ -98,7 +94,6 @@ class Settings(BaseSettings):
 
     # Nested configuration sections
     trading: TradingConfig = Field(default_factory=TradingConfig)
-    risk: RiskConfig = Field(default_factory=RiskConfig)
     scout: ScoutConfig = Field(default_factory=ScoutConfig)
     analyst: AnalystConfig = Field(default_factory=AnalystConfig)
     guardian: GuardianConfig = Field(default_factory=GuardianConfig)
@@ -159,7 +154,6 @@ class Settings(BaseSettings):
 
             for section_name in [
                 "trading",
-                "risk",
                 "scout",
                 "analyst",
                 "guardian",

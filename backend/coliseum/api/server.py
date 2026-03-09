@@ -3,58 +3,97 @@
 import asyncio
 import json
 import logging
-import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
 import yaml
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import APIRouter, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from coliseum.config import get_settings
 from coliseum.daemon import ColiseumDaemon
 from coliseum.pipeline import run_pipeline
+from coliseum.storage.files import (
+    find_opportunity_file_by_id,
+    get_opportunity_markdown_body,
+    load_opportunity_from_file,
+)
 
 logger = logging.getLogger(__name__)
 
 DATA_DIR = Path(__file__).resolve().parent.parent.parent / "data"
 
 
+# ---------------------------------------------------------------------------
+# Lifespan functions (one per server mode)
+# ---------------------------------------------------------------------------
+
+
 @asynccontextmanager
-async def lifespan(app: FastAPI):
-    """Start daemon as a background task when COLISEUM_START_DAEMON is set."""
-    if os.environ.get("COLISEUM_START_DAEMON") == "1":
-        settings = get_settings()
-        try:
-            from coliseum.observability import initialize_logfire
-            initialize_logfire(settings)
-        except Exception as e:
-            logger.warning("Failed to initialize Logfire in lifespan: %s", e)
-        daemon = ColiseumDaemon(settings)
-        task = asyncio.create_task(daemon.start(install_signal_handlers=False))
-        app.state.daemon = daemon
-        logger.info("Daemon started as background task alongside API server")
-        yield
-        daemon._shutdown_event.set()
-        try:
-            await asyncio.wait_for(task, timeout=10.0)
-        except asyncio.TimeoutError:
-            logger.warning("Daemon did not stop within 10s timeout")
-    else:
-        app.state.daemon = None
-        yield
+async def _api_lifespan(app: FastAPI):
+    """Lifespan for the API-only server (no daemon)."""
+    app.state.daemon = None
+    yield
 
 
-app = FastAPI(title="Coliseum Dashboard API", version="0.1.0", lifespan=lifespan)
+@asynccontextmanager
+async def _daemon_lifespan(app: FastAPI):
+    """Lifespan for the daemon+API server."""
+    settings = get_settings()
+    try:
+        from coliseum.observability import initialize_logfire
+        initialize_logfire(settings)
+    except Exception as e:
+        logger.warning("Failed to initialize Logfire in lifespan: %s", e)
+    daemon = ColiseumDaemon(settings)
+    task = asyncio.create_task(daemon.start(install_signal_handlers=False))
+    app.state.daemon = daemon
+    logger.info("Daemon started as background task alongside API server")
+    yield
+    daemon._shutdown_event.set()
+    try:
+        await asyncio.wait_for(task, timeout=10.0)
+    except asyncio.TimeoutError:
+        logger.warning("Daemon did not stop within 10s timeout")
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:3001"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+
+# ---------------------------------------------------------------------------
+# Shared router (all API routes live here)
+# ---------------------------------------------------------------------------
+
+router = APIRouter()
+
+_CORS_ORIGINS = ["http://localhost:3000", "http://localhost:3001"]
+
+
+def _make_app(lifespan) -> FastAPI:
+    """Construct a FastAPI instance with shared middleware and routes."""
+    the_app = FastAPI(
+        title="Coliseum Dashboard API",
+        version="0.1.0",
+        lifespan=lifespan,
+    )
+    the_app.add_middleware(
+        CORSMiddleware,
+        allow_origins=_CORS_ORIGINS,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+    the_app.include_router(router)
+    return the_app
+
+
+# app      → coliseum api     (dashboard only, no trading)
+# daemon_app → coliseum daemon (dashboard + trading daemon)
+app = _make_app(_api_lifespan)
+daemon_app = _make_app(_daemon_lifespan)
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
 
 
 def _load_yaml(path: Path) -> dict[str, Any]:
@@ -94,7 +133,7 @@ def _parse_opportunity(file_path: Path) -> dict[str, Any] | None:
             "date_folder": file_path.parent.name,
         }
     except Exception as e:
-        logger.warning(f"Error parsing {file_path}: {e}")
+        logger.warning("Error parsing %s: %s", file_path, e)
         return None
 
 
@@ -117,19 +156,24 @@ def _get_all_opportunities() -> list[dict[str, Any]]:
     return results
 
 
-@app.get("/api/config")
+# ---------------------------------------------------------------------------
+# Routes
+# ---------------------------------------------------------------------------
+
+
+@router.get("/api/config")
 async def get_config():
     """Return the full config.yaml contents."""
     return _load_yaml(DATA_DIR / "config.yaml")
 
 
-@app.get("/api/state")
+@router.get("/api/state")
 async def get_state():
     """Return the full state.yaml contents."""
     return _load_yaml(DATA_DIR / "state.yaml")
 
 
-@app.get("/api/opportunities")
+@router.get("/api/opportunities")
 async def list_opportunities():
     """List all opportunities with frontmatter summary."""
     results = []
@@ -154,33 +198,36 @@ async def list_opportunities():
     return results
 
 
-@app.get("/api/opportunities/{opportunity_id}")
+@router.get("/api/opportunities/{opportunity_id}")
 async def get_opportunity(opportunity_id: str):
     """Get full opportunity detail including markdown body."""
-    for opp in _get_all_opportunities():
-        fm = opp["frontmatter"]
-        if fm.get("id") == opportunity_id:
-            return {
-                "summary": {
-                    "id": fm.get("id", ""),
-                    "event_ticker": fm.get("event_ticker", ""),
-                    "market_ticker": fm.get("market_ticker", ""),
-                    "title": opp["title"],
-                    "subtitle": opp["subtitle"],
-                    "yes_price": fm.get("yes_price", 0.0),
-                    "no_price": fm.get("no_price", 0.0),
-                    "close_time": str(fm.get("close_time", "")),
-                    "discovered_at": str(fm.get("discovered_at", "")),
-                    "status": fm.get("status", "pending"),
-                    "action": fm.get("action"),
-                    "date_folder": opp["date_folder"],
-                },
-                "markdown_body": opp["body"],
-                "raw_frontmatter": fm,
-            }
-    raise HTTPException(
-        status_code=404, detail=f"Opportunity {opportunity_id} not found"
+    file_path = (
+        find_opportunity_file_by_id(opportunity_id, paper=False)
+        or find_opportunity_file_by_id(opportunity_id, paper=True)
     )
+    if not file_path:
+        raise HTTPException(
+            status_code=404, detail=f"Opportunity {opportunity_id} not found"
+        )
+    opp = load_opportunity_from_file(file_path)
+    return {
+        "summary": {
+            "id": opp.id,
+            "event_ticker": opp.event_ticker,
+            "market_ticker": opp.market_ticker,
+            "title": opp.title,
+            "subtitle": opp.subtitle,
+            "yes_price": opp.yes_price,
+            "no_price": opp.no_price,
+            "close_time": str(opp.close_time),
+            "discovered_at": str(opp.discovered_at),
+            "status": opp.status,
+            "action": opp.action,
+            "date_folder": file_path.parent.name,
+        },
+        "markdown_body": get_opportunity_markdown_body(file_path),
+        "raw_frontmatter": opp.model_dump(mode="json"),
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -197,11 +244,11 @@ def _read_jsonl(path: Path) -> list[dict[str, Any]]:
             if line:
                 rows.append(json.loads(line))
     except Exception as e:
-        logger.warning(f"Error reading {path}: {e}")
+        logger.warning("Error reading %s: %s", path, e)
     return rows
 
 
-@app.get("/api/ledger")
+@router.get("/api/ledger")
 async def get_ledger(limit: int = 100):
     """Return merged buy+close trade entries sorted newest-first."""
     trades_dir = DATA_DIR / "trades"
@@ -269,7 +316,7 @@ async def _execute_pipeline() -> None:
         _pipeline_running = False
 
 
-@app.post("/api/pipeline/run", status_code=202)
+@router.post("/api/pipeline/run", status_code=202)
 async def trigger_pipeline():
     """Kick off a full pipeline cycle. Returns 409 if one is already running."""
     global _pipeline_running, _pipeline_task
@@ -281,7 +328,7 @@ async def trigger_pipeline():
     return {"status": "started"}
 
 
-@app.get("/api/pipeline/status")
+@router.get("/api/pipeline/status")
 async def pipeline_status():
     """Check whether a pipeline cycle is currently in progress."""
     return {"running": _pipeline_running}
@@ -302,7 +349,7 @@ _DAEMON_OFFLINE: dict = {
 }
 
 
-@app.get("/api/daemon/status")
+@router.get("/api/daemon/status")
 async def daemon_status(request: Request):
     """Return live daemon state, or offline sentinel when daemon is not running."""
     daemon = getattr(request.app.state, "daemon", None)

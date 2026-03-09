@@ -1,18 +1,6 @@
-"""LLM Provider and Model Enums for easy model selection and hotswapping.
-
-This module provides enums for all supported LLM providers and their models,
-making it easy to switch between different models across the codebase.
-"""
+"""LLM Provider and Model Enums for easy model selection and hotswapping."""
 
 from enum import StrEnum
-
-
-class LLMProvider(StrEnum):
-    """Supported LLM providers."""
-
-    OPENAI = "openai"
-    ANTHROPIC = "anthropic"
-    FIREWORKS = "fireworks"
 
 
 class OpenAIModel(StrEnum):
@@ -47,11 +35,6 @@ class FireworksModel(StrEnum):
     KIMI_K_2_5 = "accounts/fireworks/models/kimi-k2p5"
 
 
-# =============================================================================
-# Helper Functions
-# =============================================================================
-
-
 def get_model_string(model: OpenAIModel | AnthropicModel | FireworksModel) -> str:
     """Get the API model string for any supported model.
 
@@ -65,17 +48,3 @@ def get_model_string(model: OpenAIModel | AnthropicModel | FireworksModel) -> st
     elif isinstance(model, FireworksModel):
         return f"fireworks:{model.value}"
     return model.value
-
-
-def get_provider_for_model(
-    model: OpenAIModel | AnthropicModel | FireworksModel,
-) -> LLMProvider:
-    """Determine the provider for a given model."""
-    if isinstance(model, OpenAIModel):
-        return LLMProvider.OPENAI
-    elif isinstance(model, AnthropicModel):
-        return LLMProvider.ANTHROPIC
-    elif isinstance(model, FireworksModel):
-        return LLMProvider.FIREWORKS
-    else:
-        raise ValueError(f"Unknown model type: {type(model)}")

@@ -124,6 +124,46 @@ def _get_opps_dir(paper: bool = False) -> Path:
     return base / "paper-mode" if paper else base
 
 
+def _atomic_write(path: Path, content: str) -> None:
+    """Write content to path atomically using a temp file + rename."""
+    with tempfile.NamedTemporaryFile(
+        mode="w",
+        delete=False,
+        suffix=".md",
+        dir=path.parent,
+        encoding="utf-8",
+    ) as f:
+        f.write(content)
+        temp_path = Path(f.name)
+    shutil.move(str(temp_path), str(path))
+
+
+def _parse_frontmatter(content: str, file_path: Path) -> tuple[dict, str]:
+    """Parse YAML frontmatter from markdown content, returning (frontmatter_dict, body)."""
+    if not content.startswith("---"):
+        raise ValueError(f"Invalid frontmatter in {file_path}")
+    parts = content.split("---", 2)
+    if len(parts) < 3:
+        raise ValueError(f"Could not parse frontmatter in {file_path}")
+    return yaml.safe_load(parts[1]) or {}, parts[2]
+
+
+def _iter_date_dirs(base_dir: Path, lookback_days: int) -> list[Path]:
+    """Return date subdirectories sorted newest-first, up to lookback_days+1."""
+    if not base_dir.exists():
+        return []
+    return sorted(
+        [d for d in base_dir.iterdir() if d.is_dir()],
+        key=lambda d: d.name,
+        reverse=True,
+    )[:lookback_days + 1]
+
+
+def _generate_id(prefix: str) -> str:
+    """Generate a short unique ID with the given prefix."""
+    return f"{prefix}_{uuid4().hex[:8]}"
+
+
 def save_opportunity(opportunity: OpportunitySignal, paper: bool = False) -> Path:
     """Save opportunity to markdown file."""
     opps_dir = _get_opps_dir(paper)
@@ -154,21 +194,9 @@ def save_opportunity(opportunity: OpportunitySignal, paper: bool = False) -> Pat
 """
 
     content = _format_markdown_with_frontmatter(frontmatter, body)
+    _atomic_write(file_path, content)
 
-    # Atomic write
-    with tempfile.NamedTemporaryFile(
-        mode='w',
-        delete=False,
-        suffix='.md',
-        dir=file_path.parent,
-        encoding='utf-8'
-    ) as f:
-        f.write(content)
-        temp_path = Path(f.name)
-
-    shutil.move(str(temp_path), str(file_path))
-
-    logger.info(f"Saved opportunity to {file_path}")
+    logger.info("Saved opportunity to %s", file_path)
     return file_path
 
 
@@ -186,27 +214,15 @@ def append_to_opportunity(
         raise FileNotFoundError(f"Opportunity file not found: {market_ticker}")
 
     content = file_path.read_text(encoding="utf-8")
-
-    if not content.startswith("---"):
-        raise ValueError(f"Invalid frontmatter in {file_path}")
-
-    parts = content.split("---", 2)
-    if len(parts) < 3:
-        raise ValueError(f"Could not parse frontmatter in {file_path}")
-
-    frontmatter_raw = parts[1]
-    body = parts[2]
-
-    frontmatter = yaml.safe_load(frontmatter_raw) or {}
+    frontmatter, body = _parse_frontmatter(content, file_path)
 
     if section_header in body:
-        logger.warning(f"Section '{section_header}' already exists in {file_path}")
+        logger.warning("Section '%s' already exists in %s", section_header, file_path)
         raise ValueError(f"Section '{section_header}' already exists")
 
     frontmatter.update(frontmatter_updates)
 
     new_body = body.rstrip() + "\n\n" + body_section
-
     new_frontmatter_raw = yaml.dump(
         frontmatter,
         default_flow_style=False,
@@ -214,39 +230,17 @@ def append_to_opportunity(
         sort_keys=False,
     )
     new_content = f"---\n{new_frontmatter_raw}---{new_body}"
+    _atomic_write(file_path, new_content)
 
-    # Atomic write
-    with tempfile.NamedTemporaryFile(
-        mode='w',
-        delete=False,
-        suffix='.md',
-        dir=file_path.parent,
-        encoding='utf-8'
-    ) as f:
-        f.write(new_content)
-        temp_path = Path(f.name)
-
-    shutil.move(str(temp_path), str(file_path))
-
-    logger.info(f"Appended section '{section_header}' to {file_path}")
+    logger.info("Appended section '%s' to %s", section_header, file_path)
     return file_path
 
 
 def update_opportunity_frontmatter(file_path: Path, frontmatter_updates: dict) -> None:
     """Atomically update frontmatter fields in an opportunity markdown file."""
     content = file_path.read_text(encoding="utf-8")
+    frontmatter, body = _parse_frontmatter(content, file_path)
 
-    if not content.startswith("---"):
-        raise ValueError(f"Invalid frontmatter in {file_path}")
-
-    parts = content.split("---", 2)
-    if len(parts) < 3:
-        raise ValueError(f"Could not parse frontmatter in {file_path}")
-
-    frontmatter_raw = parts[1]
-    body = parts[2]
-
-    frontmatter = yaml.safe_load(frontmatter_raw) or {}
     frontmatter.update(frontmatter_updates)
 
     new_frontmatter_raw = yaml.dump(
@@ -256,21 +250,9 @@ def update_opportunity_frontmatter(file_path: Path, frontmatter_updates: dict) -
         sort_keys=False,
     )
     new_content = f"---\n{new_frontmatter_raw}---{body}"
+    _atomic_write(file_path, new_content)
 
-    # Atomic write
-    with tempfile.NamedTemporaryFile(
-        mode="w",
-        delete=False,
-        suffix=".md",
-        dir=file_path.parent,
-        encoding="utf-8",
-    ) as f:
-        f.write(new_content)
-        temp_path = Path(f.name)
-
-    shutil.move(str(temp_path), str(file_path))
-
-    logger.info(f"Updated frontmatter in {file_path}")
+    logger.info("Updated frontmatter in %s", file_path)
 
 
 def _parse_opportunity_from_parts(frontmatter: dict, body: str) -> OpportunitySignal:
@@ -303,17 +285,7 @@ def _parse_opportunity_from_parts(frontmatter: dict, body: str) -> OpportunitySi
 def load_opportunity_from_file(file_path: Path) -> OpportunitySignal:
     """Load opportunity data from a markdown file path."""
     content = file_path.read_text(encoding="utf-8")
-
-    if not content.startswith("---"):
-        raise ValueError(f"Invalid frontmatter in {file_path}")
-
-    parts = content.split("---", 2)
-    if len(parts) < 3:
-        raise ValueError(f"Could not parse frontmatter in {file_path}")
-
-    frontmatter = yaml.safe_load(parts[1]) or {}
-    body = parts[2]
-
+    frontmatter, body = _parse_frontmatter(content, file_path)
     return _parse_opportunity_from_parts(frontmatter, body)
 
 
@@ -323,46 +295,18 @@ def find_opportunity_file_by_id(
     """Find opportunity file by searching for ID in YAML frontmatter."""
     opps_dir = _get_opps_dir(paper)
 
-    if not opps_dir.exists():
-        return None
-
-    date_dirs = sorted(
-        [d for d in opps_dir.iterdir() if d.is_dir()],
-        key=lambda d: d.name,
-        reverse=True,
-    )
-    for date_dir in date_dirs[:lookback_days + 1]:
+    for date_dir in _iter_date_dirs(opps_dir, lookback_days):
         for file_path in date_dir.glob("*.md"):
             try:
                 content = file_path.read_text(encoding="utf-8")
-
-                if not content.startswith("---"):
-                    continue
-
-                parts = content.split("---", 2)
-                if len(parts) < 3:
-                    continue
-
-                frontmatter = yaml.safe_load(parts[1])
-                if frontmatter and frontmatter.get("id") == opportunity_id:
+                frontmatter, _ = _parse_frontmatter(content, file_path)
+                if frontmatter.get("id") == opportunity_id:
                     return file_path
-
             except Exception as e:
-                logger.warning(f"Error reading {file_path}: {e}")
+                logger.warning("Error reading %s: %s", file_path, e)
                 continue
 
     return None
-
-
-def load_opportunity_with_all_stages(
-    market_ticker: str, lookback_days: int = 7, paper: bool = False
-) -> OpportunitySignal:
-    """Load opportunity file with all stages."""
-    file_path = find_opportunity_file(market_ticker, lookback_days, paper=paper)
-    if not file_path:
-        raise FileNotFoundError(f"Opportunity file not found: {market_ticker}")
-
-    return load_opportunity_from_file(file_path)
 
 
 def get_opportunity_markdown_body(file_path: Path) -> str:
@@ -389,10 +333,10 @@ def log_trade(trade: TradeExecution) -> None:
         with open(ledger_path, "a", encoding="utf-8") as f:
             f.write(trade_json)
 
-        logger.info(f"Logged trade {trade.id} to {ledger_path}")
+        logger.info("Logged trade %s to %s", trade.id, ledger_path)
 
     except Exception as e:
-        logger.error(f"Failed to log trade {trade.id}: {e}")
+        logger.error("Failed to log trade %s: %s", trade.id, e)
         raise
 
 
@@ -411,49 +355,35 @@ def log_trade_close(close: TradeClose) -> None:
         with open(ledger_path, "a", encoding="utf-8") as f:
             f.write(close_json)
 
-        logger.info(f"Logged trade close {close.id} to {ledger_path}")
+        logger.info("Logged trade close %s to %s", close.id, ledger_path)
 
     except Exception as e:
-        logger.error(f"Failed to log trade close {close.id}: {e}")
+        logger.error("Failed to log trade close %s: %s", close.id, e)
         raise
 
 
 def generate_opportunity_id() -> str:
     """Generate unique opportunity ID."""
-    return f"opp_{uuid4().hex[:8]}"
+    return _generate_id("opp")
 
 
 def generate_trade_id() -> str:
     """Generate unique trade execution ID."""
-    return f"trade_{uuid4().hex[:8]}"
+    return _generate_id("trade")
 
 
 def generate_close_id() -> str:
     """Generate unique trade closure ID."""
-    return f"close_{uuid4().hex[:8]}"
+    return _generate_id("close")
 
 
 def find_opportunity_file(market_ticker: str, lookback_days: int = 7, paper: bool = False) -> Path | None:
     """Find the opportunity markdown file for a given market ticker."""
     opps_dir = _get_opps_dir(paper)
 
-    if not opps_dir.exists():
-        return None
-
-    date_dirs = sorted(
-        [d for d in opps_dir.iterdir() if d.is_dir()],
-        key=lambda d: d.name,
-        reverse=True
-    )
-
-    for date_dir in date_dirs[:lookback_days + 1]:
+    for date_dir in _iter_date_dirs(opps_dir, lookback_days):
         file_path = date_dir / f"{market_ticker}.md"
         if file_path.exists():
             return file_path
 
     return None
-
-
-def opportunity_exists(market_ticker: str, lookback_days: int = 7, paper: bool = False) -> bool:
-    """Check if an opportunity file exists for a given market ticker."""
-    return find_opportunity_file(market_ticker, lookback_days, paper=paper) is not None

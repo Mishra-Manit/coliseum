@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any
 from uuid import uuid4
@@ -18,26 +19,6 @@ from coliseum.storage.state import (
 )
 
 logger = logging.getLogger(__name__)
-
-
-def normalize_kalshi_side(side: str | None) -> str | None:
-    """Normalize side text to YES/NO for state reconciliation."""
-    return _normalize_side(side)
-
-
-def normalize_probability_price(value: Any) -> float | None:
-    """Normalize Kalshi price to decimal probability (0-1)."""
-    return _normalize_price(value)
-
-
-def extract_fill_count(fill: dict[str, Any]) -> int | None:
-    """Extract filled contract count from a fill payload."""
-    return _extract_fill_count(fill)
-
-
-def extract_fill_price(fill: dict[str, Any], side: str | None) -> float | None:
-    """Extract fill price from a fill payload in decimal probability format."""
-    return _extract_fill_price(fill, side)
 
 
 async def fetch_market_side_price(
@@ -68,7 +49,8 @@ async def fetch_market_side_price(
     return price or None
 
 
-def _normalize_side(side: str | None) -> str | None:
+def normalize_kalshi_side(side: str | None) -> str | None:
+    """Normalize side text to YES/NO for state reconciliation."""
     if not side:
         return None
     normalized = side.strip().upper()
@@ -77,7 +59,8 @@ def _normalize_side(side: str | None) -> str | None:
     return None
 
 
-def _normalize_price(value: Any) -> float | None:
+def normalize_probability_price(value: Any) -> float | None:
+    """Normalize Kalshi price to decimal probability (0-1)."""
     if value is None:
         return None
     try:
@@ -91,7 +74,8 @@ def _normalize_price(value: Any) -> float | None:
     return price
 
 
-def _extract_fill_count(fill: dict[str, Any]) -> int | None:
+def extract_fill_count(fill: dict[str, Any]) -> int | None:
+    """Extract filled contract count from a fill payload."""
     for key in ("count", "contracts", "quantity", "filled_count", "size"):
         if key in fill and fill[key] is not None:
             try:
@@ -103,19 +87,20 @@ def _extract_fill_count(fill: dict[str, Any]) -> int | None:
     return None
 
 
-def _extract_fill_price(fill: dict[str, Any], side: str | None) -> float | None:
+def extract_fill_price(fill: dict[str, Any], side: str | None) -> float | None:
+    """Extract fill price from a fill payload in decimal probability format."""
     if side == "NO":
-        no_price = _normalize_price(fill.get("no_price"))
+        no_price = normalize_probability_price(fill.get("no_price"))
         if no_price is not None:
             return no_price
-        yes_price = _normalize_price(
+        yes_price = normalize_probability_price(
             fill.get("yes_price") or fill.get("price") or fill.get("fill_price")
         )
         if yes_price is not None:
             return 1.0 - yes_price
         return None
 
-    direct = _normalize_price(
+    direct = normalize_probability_price(
         fill.get("yes_price") or fill.get("price") or fill.get("fill_price") or fill.get("avg_price")
     )
     return direct
@@ -130,16 +115,16 @@ def _compute_average_entries(
         ticker = fill.get("ticker") or fill.get("market_ticker")
         if not ticker:
             continue
-        side = _normalize_side(fill.get("side"))
+        side = normalize_kalshi_side(fill.get("side"))
         if not side:
             continue
         action = fill.get("action")
         if action and str(action).lower() not in {"buy", "b"}:
             continue
-        count = _extract_fill_count(fill)
+        count = extract_fill_count(fill)
         if not count:
             continue
-        price = _extract_fill_price(fill, side)
+        price = extract_fill_price(fill, side)
         if price is None:
             continue
         key = (ticker, side)
@@ -159,7 +144,7 @@ def _map_kalshi_position(
     existing: Position | None,
 ) -> Position:
     """Map a Kalshi API position to a local Position model, preserving metadata from existing position."""
-    side = _normalize_side(kalshi_pos.side)
+    side = normalize_kalshi_side(kalshi_pos.side)
     position_id = existing.id if existing else f"pos_{uuid4().hex[:8]}"
     opportunity_id = existing.opportunity_id if existing else f"sync_{uuid4().hex[:8]}"
     contracts = kalshi_pos.contracts
@@ -188,17 +173,33 @@ async def sync_portfolio_from_kalshi(client: KalshiClient) -> PortfolioState:
         (pos.market_ticker, pos.side): pos for pos in existing_state.open_positions
     }
 
+    # Fetch all market prices concurrently (avoids N+1 sequential API calls)
+    market_results = await asyncio.gather(
+        *[client.get_market(pos.market_ticker) for pos in kalshi_positions],
+        return_exceptions=True,
+    )
+    markets: dict[str, Any] = {}
+    for pos, result in zip(kalshi_positions, market_results):
+        if isinstance(result, Exception):
+            logger.warning(
+                "Failed to fetch market data for %s: %s",
+                pos.market_ticker,
+                result,
+            )
+        else:
+            markets[pos.market_ticker] = result
+
     open_positions: list[Position] = []
     for kalshi_pos in kalshi_positions:
-        side = _normalize_side(kalshi_pos.side)
+        side = normalize_kalshi_side(kalshi_pos.side)
         if not side:
             continue
         key = (kalshi_pos.market_ticker, side)
         existing = existing_by_key.get(key)
 
         current_price = 0.0
-        try:
-            market = await client.get_market(kalshi_pos.market_ticker)
+        market = markets.get(kalshi_pos.market_ticker)
+        if market:
             if side == "YES":
                 current_price = normalize_probability_price(market.yes_bid) or 0.0
                 if current_price == 0.0:
@@ -207,12 +208,6 @@ async def sync_portfolio_from_kalshi(client: KalshiClient) -> PortfolioState:
                 current_price = normalize_probability_price(market.no_bid) or 0.0
                 if current_price == 0.0:
                     current_price = normalize_probability_price(market.no_ask) or 0.0
-        except Exception as exc:
-            logger.warning(
-                "Failed to fetch market data for %s: %s",
-                kalshi_pos.market_ticker,
-                exc,
-            )
 
         if current_price == 0.0 and existing:
             current_price = existing.current_price

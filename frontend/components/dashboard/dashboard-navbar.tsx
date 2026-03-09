@@ -79,7 +79,7 @@ export function DashboardNavbar() {
 
         <button
           onClick={() => mutate()}
-          className="p-1.5 rounded hover:bg-secondary text-muted-foreground/50 hover:text-muted-foreground transition-colors"
+          className="p-1.5 rounded hover:bg-secondary text-muted-foreground/70 hover:text-muted-foreground transition-colors"
           title="Refresh"
         >
           <RefreshCw className="h-3 w-3" />
@@ -100,7 +100,7 @@ export function DashboardNavbar() {
               }`}
             />
           </span>
-          <span className="text-[10px] font-mono text-muted-foreground/60 tracking-wider">
+          <span className="text-[10px] font-mono text-muted-foreground/70 tracking-wider">
             {!isOnline ? "OFFLINE" : isPaused ? "PAUSED" : "RUNNING"}
           </span>
         </div>
@@ -125,7 +125,7 @@ function TzSelector({
           className={`px-2 py-0.5 text-[9px] font-mono tracking-wider transition-colors ${
             tz === option
               ? "bg-primary/15 text-primary border-r border-border last:border-r-0"
-              : "text-muted-foreground/40 hover:text-muted-foreground/70 border-r border-border last:border-r-0"
+              : "text-muted-foreground/70 hover:text-muted-foreground/70 border-r border-border last:border-r-0"
           }`}
         >
           {option}
@@ -146,12 +146,12 @@ function StatPill({
 }) {
   return (
     <div className="flex items-baseline gap-1.5 shrink-0">
-      <span className="text-[9px] font-mono text-muted-foreground/40 tracking-[0.12em] uppercase">
+      <span className="text-[9px] font-mono text-muted-foreground/70 tracking-[0.12em] uppercase">
         {label}
       </span>
       <span
         className={`text-[11px] font-mono font-medium tabular-nums ${
-          dimmed ? "text-muted-foreground/30" : "text-foreground/80"
+          dimmed ? "text-muted-foreground/70" : "text-foreground/80"
         }`}
       >
         {value}

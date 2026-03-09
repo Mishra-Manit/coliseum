@@ -121,7 +121,7 @@ All manual agent invocations are automatically traced:
 python -m coliseum scout --scan-type full
 
 # Analyst pipeline
-python -m coliseum analyst --opportunity-id opp_abc123
+python -m coliseum analyst --id opp_abc123
 
 # Portfolio status
 python -m coliseum status
@@ -131,7 +131,7 @@ python -m coliseum status
 
 Start the autonomous system:
 ```bash
-python -m coliseum run
+python -m coliseum daemon
 ```
 
 All scheduled jobs (Scout scans, Guardian checks) will automatically create traces.

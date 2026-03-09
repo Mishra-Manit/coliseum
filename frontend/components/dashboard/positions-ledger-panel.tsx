@@ -38,13 +38,13 @@ export function PositionsLedgerPanel({
 
   return (
     <div className="flex flex-col h-full">
-      {/* Top half — Positions */}
-      <div className="flex flex-col h-1/2 border-b border-border overflow-hidden">
+      {/* Top — Positions (35%) */}
+      <div className="flex flex-col border-b border-border overflow-hidden" style={{ height: "35%" }}>
         <div className="flex items-center justify-between px-4 py-2.5 shrink-0 border-b border-border">
-          <span className="text-[9px] font-mono text-muted-foreground/40 tracking-[0.15em] uppercase">
+          <span className="text-[9px] font-mono text-muted-foreground/70 tracking-[0.15em] uppercase">
             Positions
           </span>
-          <span className="text-[9px] font-mono text-muted-foreground/30 tabular-nums">
+          <span className="text-[9px] font-mono text-muted-foreground/70 tabular-nums">
             {positions.length}
           </span>
         </div>
@@ -57,10 +57,10 @@ export function PositionsLedgerPanel({
         </div>
       </div>
 
-      {/* Bottom half — Ledger */}
-      <div className="flex flex-col h-1/2 overflow-hidden">
+      {/* Bottom — Ledger (65%) */}
+      <div className="flex flex-col overflow-hidden" style={{ height: "65%" }}>
         <div className="flex items-center justify-between px-4 py-2.5 shrink-0 border-b border-border">
-          <span className="text-[9px] font-mono text-muted-foreground/40 tracking-[0.15em] uppercase">
+          <span className="text-[9px] font-mono text-muted-foreground/70 tracking-[0.15em] uppercase">
             Ledger
           </span>
           <div className="flex items-center gap-3">
@@ -77,7 +77,7 @@ export function PositionsLedgerPanel({
                 {winRate}% win
               </span>
             )}
-            <span className="text-[9px] font-mono text-muted-foreground/30 tabular-nums">
+            <span className="text-[9px] font-mono text-muted-foreground/70 tabular-nums">
               {allEntries.length}
             </span>
           </div>
@@ -115,7 +115,7 @@ function PositionsContent({
 
   if (positions.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-full text-muted-foreground/30 gap-2">
+      <div className="flex flex-col items-center justify-center h-full text-muted-foreground/70 gap-2">
         <CircleDot className="h-6 w-6" />
         <p className="text-[11px] font-mono tracking-wider">NO POSITIONS</p>
       </div>
@@ -127,16 +127,16 @@ function PositionsContent({
       <Table>
         <TableHeader>
           <TableRow className="border-border hover:bg-transparent">
-            <TableHead className="text-[9px] text-muted-foreground/40 font-mono h-8 uppercase tracking-wider w-full px-4">
+            <TableHead className="text-[9px] text-muted-foreground/70 font-mono h-8 uppercase tracking-wider w-full px-4">
               Market
             </TableHead>
-            <TableHead className="text-[9px] text-muted-foreground/40 font-mono h-8 uppercase tracking-wider whitespace-nowrap px-2">
+            <TableHead className="text-[9px] text-muted-foreground/70 font-mono h-8 uppercase tracking-wider whitespace-nowrap px-2">
               Side
             </TableHead>
-            <TableHead className="text-[9px] text-muted-foreground/40 font-mono h-8 text-right uppercase tracking-wider whitespace-nowrap px-2">
+            <TableHead className="text-[9px] text-muted-foreground/70 font-mono h-8 text-right uppercase tracking-wider whitespace-nowrap px-2">
               Qty
             </TableHead>
-            <TableHead className="text-[9px] text-muted-foreground/40 font-mono h-8 text-right uppercase tracking-wider whitespace-nowrap px-4">
+            <TableHead className="text-[9px] text-muted-foreground/70 font-mono h-8 text-right uppercase tracking-wider whitespace-nowrap px-4">
               Entry
             </TableHead>
           </TableRow>
@@ -237,7 +237,7 @@ function LedgerContent({
 
   if (entries.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-full text-muted-foreground/30 gap-2">
+      <div className="flex flex-col items-center justify-center h-full text-muted-foreground/70 gap-2">
         <Receipt className="h-6 w-6" />
         <p className="text-[11px] font-mono tracking-wider">NO TRADES</p>
       </div>
@@ -251,7 +251,7 @@ function LedgerContent({
       <div className="px-4 py-3 space-y-4">
         {grouped.map(([dateLabel, dayEntries]) => (
           <div key={dateLabel}>
-            <p className="text-[9px] font-mono text-muted-foreground/30 uppercase tracking-[0.15em] mb-2">
+            <p className="text-[9px] font-mono text-muted-foreground/70 uppercase tracking-[0.15em] mb-2">
               {dateLabel}
             </p>
             <div className="space-y-0.5">
@@ -312,10 +312,10 @@ function LedgerRow({
       <div
         className={`shrink-0 ${
           isBuy
-            ? "text-sky-500/60"
+            ? "text-sky-500/70"
             : pnl >= 0
-              ? "text-emerald-500/60"
-              : "text-red-500/60"
+              ? "text-emerald-500/70"
+              : "text-red-500/70"
         }`}
       >
         {isBuy ? (
@@ -337,13 +337,13 @@ function LedgerRow({
           <span
             className={`text-[9px] font-mono ${
               entry.side === "YES"
-                ? "text-emerald-400/60"
-                : "text-red-400/60"
+                ? "text-emerald-400/70"
+                : "text-red-400/70"
             }`}
           >
             {entry.side}
           </span>
-          <span className="text-[9px] text-muted-foreground/30 font-mono">
+          <span className="text-[9px] text-muted-foreground/70 font-mono">
             ×{entry.contracts}
           </span>
         </div>
@@ -352,7 +352,7 @@ function LedgerRow({
       {/* Right: price/pnl + time */}
       <div className="shrink-0 text-right">
         {isBuy ? (
-          <p className="text-[10px] font-mono text-foreground/60 tabular-nums">
+          <p className="text-[10px] font-mono text-foreground/70 tabular-nums">
             {Math.round(entry.price * 100)}c
           </p>
         ) : (
@@ -368,7 +368,7 @@ function LedgerRow({
             {pnl >= 0 ? "+" : ""}${pnl.toFixed(2)}
           </p>
         )}
-        <p className="text-[9px] text-muted-foreground/30 font-mono mt-0.5 tabular-nums">
+        <p className="text-[9px] text-muted-foreground/70 font-mono mt-0.5 tabular-nums">
           {formatTime(entry.timestamp)}
         </p>
       </div>

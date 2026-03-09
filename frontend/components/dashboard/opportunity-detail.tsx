@@ -34,7 +34,7 @@ export function OpportunityDetailView({
 
   if (!opportunityId) {
     return (
-      <div className="flex flex-col items-center justify-center h-full text-muted-foreground/25 gap-2">
+      <div className="flex flex-col items-center justify-center h-full text-muted-foreground/70 gap-2">
         <FileText className="h-7 w-7" />
         <p className="text-[11px] font-mono tracking-wider">
           SELECT OPPORTUNITY
@@ -65,7 +65,7 @@ export function OpportunityDetailView({
 
   if (!data) {
     return (
-      <div className="flex flex-col items-center justify-center h-full text-muted-foreground/25 gap-2">
+      <div className="flex flex-col items-center justify-center h-full text-muted-foreground/70 gap-2">
         <p className="text-[11px] font-mono tracking-wider">NOT FOUND</p>
       </div>
     );
@@ -118,7 +118,7 @@ export function OpportunityDetailView({
               {summary.title}
             </h2>
             {summary.subtitle && (
-              <p className="text-[11px] text-muted-foreground/60 mt-1 leading-relaxed">
+              <p className="text-[11px] text-muted-foreground/70 mt-1 leading-relaxed">
                 {summary.subtitle}
               </p>
             )}
@@ -126,7 +126,7 @@ export function OpportunityDetailView({
 
           <button
             onClick={onClose}
-            className="p-1 rounded hover:bg-secondary text-muted-foreground/40 hover:text-muted-foreground shrink-0 transition-colors"
+            className="p-1 rounded hover:bg-secondary text-muted-foreground/70 hover:text-muted-foreground shrink-0 transition-colors"
           >
             <X className="h-3.5 w-3.5" />
           </button>
@@ -136,7 +136,7 @@ export function OpportunityDetailView({
         <div className="grid grid-cols-2 gap-2 mt-3">
           <div className="px-3 py-2 rounded border border-emerald-500/12 bg-emerald-500/4">
             <div className="flex items-center justify-between">
-              <span className="text-[9px] font-mono text-emerald-400/60 uppercase tracking-wider">
+              <span className="text-[9px] font-mono text-emerald-400/70 uppercase tracking-wider">
                 YES
               </span>
               <span className="text-[18px] font-mono font-bold text-emerald-400 tabular-nums leading-none">
@@ -152,7 +152,7 @@ export function OpportunityDetailView({
           </div>
           <div className="px-3 py-2 rounded border border-red-500/12 bg-red-500/4">
             <div className="flex items-center justify-between">
-              <span className="text-[9px] font-mono text-red-400/60 uppercase tracking-wider">
+              <span className="text-[9px] font-mono text-red-400/70 uppercase tracking-wider">
                 NO
               </span>
               <span className="text-[18px] font-mono font-bold text-red-400 tabular-nums leading-none">
@@ -172,13 +172,13 @@ export function OpportunityDetailView({
         </div>
 
         {/* Meta row */}
-        <div className="flex items-center gap-4 mt-2.5 text-[10px] font-mono text-muted-foreground/35">
+        <div className="flex items-center gap-4 mt-2.5 text-[10px] font-mono text-muted-foreground/70">
           <span className="flex items-center gap-1" title={closeFormatted}>
             <Clock className="h-3 w-3" />
             {closeFormatted}
           </span>
-          <span className="text-muted-foreground/20">·</span>
-          <span className="text-muted-foreground/25">{closeRelative}</span>
+          <span className="text-muted-foreground/70">·</span>
+          <span className="text-muted-foreground/70">{closeRelative}</span>
           <span className="flex items-center gap-1 ml-auto">
             <Target className="h-3 w-3" />
             {summary.market_ticker}

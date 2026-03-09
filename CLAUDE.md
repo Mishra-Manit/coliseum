@@ -55,16 +55,16 @@ backend/
 ## Essential Commands
 
 ```bash
-python -m coliseum init                          # Initialize data directory
-python -m coliseum daemon                        # Start long-lived autonomous daemon
-python -m coliseum run --once                    # Run full pipeline once then exit
-python -m coliseum scout                         # Run market scan manually
-python -m coliseum analyst --opportunity-id <id> # Run Analyst pipeline manually
-python -m coliseum trader --opportunity-id <id>  # Run Trader agent manually
-python -m coliseum guardian                      # Run Guardian reconciliation manually
-python -m coliseum status                        # Portfolio status
-python -m coliseum config                        # Display merged configuration
-python -m coliseum serve                         # Start dashboard API server (port 8000)
+python -m coliseum init                   # Initialize data directory
+python -m coliseum daemon                 # Start trading daemon + dashboard (production)
+python -m coliseum pipeline               # Run full pipeline once (testing/debug)
+python -m coliseum api                    # Start dashboard API only (no daemon)
+python -m coliseum scout                  # Run Scout manually
+python -m coliseum analyst --id <id>      # Run Analyst pipeline manually
+python -m coliseum trader --id <id>       # Run Trader agent manually
+python -m coliseum guardian               # Run Guardian reconciliation manually
+python -m coliseum status                 # Portfolio status
+python -m coliseum config                 # Display merged configuration
 # No tests are set up in this repository - do not use pytest
 ```
 

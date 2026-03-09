@@ -24,15 +24,14 @@ class ErrorEntry(BaseModel):
 
 
 def _get_errors_path() -> Path:
-    """Get the errors JSONL file path, ensuring parent dir exists."""
-    memory_dir = get_data_dir() / "memory"
-    memory_dir.mkdir(parents=True, exist_ok=True)
-    return memory_dir / "errors.jsonl"
+    """Get the errors JSONL file path."""
+    return get_data_dir() / "memory" / "errors.jsonl"
 
 
 def log_error(entry: ErrorEntry) -> None:
     """Append an error entry to the JSONL log."""
     errors_path = _get_errors_path()
+    errors_path.parent.mkdir(parents=True, exist_ok=True)
     line = entry.model_dump_json() + "\n"
 
     try:
