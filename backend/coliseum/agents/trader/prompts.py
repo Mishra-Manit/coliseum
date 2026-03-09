@@ -58,7 +58,7 @@ Remember: **Default to BUY. Only REJECT when there is concrete crazy flip risk o
 """
 
 
-def _build_trader_prompt(
+def build_trader_prompt(
     opportunity: OpportunitySignal,
     markdown_body: str,
     settings: Settings,

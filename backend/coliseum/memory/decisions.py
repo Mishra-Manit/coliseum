@@ -28,15 +28,14 @@ class DecisionEntry(BaseModel):
 
 
 def _get_decisions_path() -> Path:
-    """Get the decisions JSONL file path, ensuring parent dir exists."""
-    memory_dir = get_data_dir() / "memory"
-    memory_dir.mkdir(parents=True, exist_ok=True)
-    return memory_dir / "decisions.jsonl"
+    """Get the decisions JSONL file path."""
+    return get_data_dir() / "memory" / "decisions.jsonl"
 
 
 def log_decision(entry: DecisionEntry) -> None:
     """Append a decision entry to the JSONL log."""
     decisions_path = _get_decisions_path()
+    decisions_path.parent.mkdir(parents=True, exist_ok=True)
     line = entry.model_dump_json() + "\n"
 
     try:
