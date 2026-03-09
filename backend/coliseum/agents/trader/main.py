@@ -20,7 +20,7 @@ from coliseum.agents.trader.models import (
 )
 from coliseum.agents.trader.prompts import (
     build_trader_system_prompt,
-    _build_trader_prompt,
+    build_trader_prompt,
 )
 from coliseum.config import Settings, get_settings
 from coliseum.llm_providers import OpenAIModel, get_model_string
@@ -38,6 +38,8 @@ from coliseum.storage.files import (
 )
 from coliseum.memory.decisions import DecisionEntry, log_decision
 from coliseum.storage.state import (
+    PortfolioState,
+    PortfolioStats,
     Position,
     load_state,
     save_state,
@@ -129,6 +131,13 @@ def _register_telegram_tool(agent: Agent[TraderDependencies, TraderOutput]) -> N
             }
 
 
+def _calc_fill_price(taker_cost: float, maker_cost: float, fill_count: int, fallback_cents: int) -> float:
+    """Calculate average fill price in decimal (0-1)."""
+    if fill_count > 0:
+        return (taker_cost + maker_cost) / (fill_count * 100)
+    return fallback_cents / 100
+
+
 async def execute_working_order(
     client: KalshiClient,
     ticker: str,
@@ -187,15 +196,10 @@ async def execute_working_order(
             if order.is_filled:
                 # Fully filled — fall back to `contracts` if Kalshi omits fill counts
                 actual_fill_count = order.fill_count if order.fill_count > 0 else contracts
-                if order.fill_count > 0:
-                    fill_price_decimal = (
-                        (order.taker_fill_cost + order.maker_fill_cost)
-                        / (order.fill_count * 100)
-                    )
-                    total_cost = (order.taker_fill_cost + order.maker_fill_cost) / 100
-                else:
-                    fill_price_decimal = current_price / 100
-                    total_cost = actual_fill_count * fill_price_decimal
+                fill_price_decimal = _calc_fill_price(
+                    order.taker_fill_cost, order.maker_fill_cost, order.fill_count, current_price
+                )
+                total_cost = fill_price_decimal * actual_fill_count
 
                 return OrderResult(
                     order_id=order_id,
@@ -208,12 +212,8 @@ async def execute_working_order(
             # Check if partial fill is worth keeping
             fill_pct = order.fill_count / contracts if contracts > 0 else 0.0
             if fill_pct >= config.execution.min_fill_pct_to_keep:
-                # Keep partial fill
-                fill_price_decimal = (
-                    (order.taker_fill_cost + order.maker_fill_cost)
-                    / (order.fill_count * 100)
-                    if order.fill_count > 0
-                    else current_price / 100
+                fill_price_decimal = _calc_fill_price(
+                    order.taker_fill_cost, order.maker_fill_cost, order.fill_count, current_price
                 )
                 total_cost = (order.taker_fill_cost + order.maker_fill_cost) / 100
 
@@ -249,9 +249,8 @@ async def execute_working_order(
 
                 # Return partial fill if any
                 if order.fill_count > 0:
-                    fill_price_decimal = (
-                        (order.taker_fill_cost + order.maker_fill_cost)
-                        / (order.fill_count * 100)
+                    fill_price_decimal = _calc_fill_price(
+                        order.taker_fill_cost, order.maker_fill_cost, order.fill_count, current_price
                     )
                     total_cost = (order.taker_fill_cost + order.maker_fill_cost) / 100
                     return OrderResult(
@@ -284,19 +283,17 @@ async def execute_working_order(
     return OrderResult(status="error", error_message="Unexpected end of loop")
 
 
-_agent_factory: AgentFactory[TraderDependencies, TraderOutput] | None = None
+_agent_factory: dict[str, AgentFactory] = {}
 
 
 def get_agent(settings: Settings) -> Agent[TraderDependencies, TraderOutput]:
     """Get the singleton Trader agent instance."""
-    global _agent_factory
-
-    if _agent_factory is None:
-        _agent_factory = AgentFactory(
+    if "factory" not in _agent_factory:
+        _agent_factory["factory"] = AgentFactory(
             create_fn=lambda: _create_agent(settings),
             register_tools_fn=_register_tools,
         )
-    return _agent_factory.get_agent()
+    return _agent_factory["factory"].get_agent()
 
 
 async def run_trader(
@@ -347,7 +344,7 @@ async def run_trader(
             )
 
             markdown_body = get_opportunity_markdown_body(opp_file)
-            prompt = _build_trader_prompt(opportunity, markdown_body, settings)
+            prompt = build_trader_prompt(opportunity, markdown_body, settings)
 
             with logfire.span("agent decision", ticker=opportunity.market_ticker):
                 agent = get_agent(settings)
@@ -498,10 +495,13 @@ def _update_state_after_trade(
     """Update state.yaml with new position and adjust portfolio balances."""
     state = load_state()
 
-    state.portfolio.cash_balance -= total_cost
-    state.portfolio.positions_value += total_cost
-    state.portfolio.total_value = state.portfolio.cash_balance + state.portfolio.positions_value
-
+    new_cash = state.portfolio.cash_balance - total_cost
+    new_positions_value = state.portfolio.positions_value + total_cost
+    new_portfolio = PortfolioStats(
+        cash_balance=new_cash,
+        positions_value=new_positions_value,
+        total_value=new_cash + new_positions_value,
+    )
     position = Position(
         id=f"pos_{uuid4().hex[:8]}",
         market_ticker=opportunity.market_ticker,
@@ -511,7 +511,16 @@ def _update_state_after_trade(
         current_price=fill_price,
         opportunity_id=opportunity.id,
     )
-    state.open_positions.append(position)
-
-    save_state(state)
-    logger.info(f"Updated state: cash=${state.portfolio.cash_balance:.2f}, positions={len(state.open_positions)}")
+    new_state = PortfolioState(
+        last_updated=state.last_updated,
+        portfolio=new_portfolio,
+        open_positions=[*state.open_positions, position],
+        closed_positions=state.closed_positions,
+        seen_tickers=state.seen_tickers,
+    )
+    save_state(new_state)
+    logger.info(
+        "Updated state: cash=$%.2f, positions=%d",
+        new_cash,
+        len(new_state.open_positions),
+    )

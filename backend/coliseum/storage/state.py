@@ -122,8 +122,8 @@ def load_state() -> PortfolioState:
 def save_state(state: PortfolioState) -> None:
     """Atomically save portfolio state to data/state.yaml."""
     state_path = _get_state_path()
-    state.last_updated = datetime.now(timezone.utc)
     state_dict = state.model_dump(mode="json")
+    state_dict["last_updated"] = datetime.now(timezone.utc).isoformat()
 
     # Same directory as target so rename is atomic on the same filesystem
     temp_path: Path | None = None
@@ -158,8 +158,14 @@ def add_seen_ticker(ticker: str) -> None:
     """Append a ticker to seen_tickers in state.yaml if not already present."""
     state = load_state()
     if ticker not in state.seen_tickers:
-        state.seen_tickers.append(ticker)
-        save_state(state)
+        updated = PortfolioState(
+            last_updated=state.last_updated,
+            portfolio=state.portfolio,
+            open_positions=state.open_positions,
+            closed_positions=state.closed_positions,
+            seen_tickers=[*state.seen_tickers, ticker],
+        )
+        save_state(updated)
 
 
 def get_seen_tickers() -> list[str]:
