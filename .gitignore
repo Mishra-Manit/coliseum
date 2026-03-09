@@ -71,6 +71,8 @@ htmlcov/
 
 /docs/plans
 
+/demos
+
 # OS
 .DS_Store
 Thumbs.db

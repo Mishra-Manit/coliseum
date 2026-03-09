@@ -2,7 +2,7 @@
 
 ## Spec Version
 
-- Current version: `1.3.0`
+- Current version: `1.4.0`
 - Versioning scheme: `MAJOR.MINOR.PATCH` (semantic versioning)
 - Keep `CLAUDE.md` and `AGENTS.md` on the exact same version at all times
 
@@ -99,6 +99,7 @@ model = get_model_string(OpenAIModel.GPT_5_MINI)  # "openai-responses:gpt-5-mini
 3. **state.yaml is source of truth**: Only one process writes to it
 4. **RSA key for Kalshi**: Set `RSA_PRIVATE_KEY_PATH` in .env
 5. **Config/State sync**: After any structural change to `config.py` (Settings models) or `state.py` (state models), update `backend/data/config.yaml` and `backend/data/state.yaml` to match the new schema.
+6. **Pipeline test always in paper mode**: After any backend pipeline change, validate by running `python -m coliseum run --once`. **Never** set `trading.paper_mode: false` when testing — doing so places real-money orders on Kalshi. Confirm `paper_mode: true` in `backend/data/config.yaml` before every test run.
 
 ## Bash Guidelines
 
