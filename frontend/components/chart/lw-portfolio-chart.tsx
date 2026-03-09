@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { IChartApi, ISeriesApi } from "lightweight-charts";
 import type { ChartDataPoint } from "@/lib/types";
-import { getAreaData, getHistogramData, type Interval } from "@/lib/chart-utils";
+import { getChartSeries, type Interval } from "@/lib/chart-utils";
 import { RangeSwitcher } from "./range-switcher";
 
 // Colors matched to the Coliseum design system
@@ -90,6 +90,9 @@ export function LWPortfolioChart({
         handleScale: true,
       };
 
+      const priceFormatter = (price: number) =>
+        `${price >= 0 ? "+" : "-"}$${Math.abs(price).toFixed(2)}`;
+
       // Main chart — time scale hidden (histogram shows it below)
       const mainChart = createChart(mainRef.current, {
         ...sharedLayout,
@@ -99,10 +102,7 @@ export function LWPortfolioChart({
           fixLeftEdge: true,
           fixRightEdge: true,
         },
-        localization: {
-          priceFormatter: (price: number) =>
-            `${price >= 0 ? "+" : "-"}$${Math.abs(price).toFixed(2)}`,
-        },
+        localization: { priceFormatter },
       });
 
       // Histogram chart — shows time axis
@@ -122,10 +122,7 @@ export function LWPortfolioChart({
           borderVisible: false,
           scaleMargins: { top: 0.2, bottom: 0.05 },
         },
-        localization: {
-          priceFormatter: (price: number) =>
-            `${price >= 0 ? "+" : "-"}$${Math.abs(price).toFixed(2)}`,
-        },
+        localization: { priceFormatter },
       });
 
       // Baseline series: green above 0, red below 0
@@ -202,8 +199,7 @@ export function LWPortfolioChart({
   useEffect(() => {
     if (!chartsReady || !baselineRef.current || !histSeriesRef.current) return;
 
-    const areaData = getAreaData(data, interval);
-    const histData = getHistogramData(data, interval);
+    const { area: areaData, hist: histData } = getChartSeries(data, interval);
 
     baselineRef.current.setData(areaData);
     histSeriesRef.current.setData(histData);
@@ -221,7 +217,7 @@ export function LWPortfolioChart({
       {/* Chart toolbar */}
       <div className="flex items-center justify-between px-5 h-10 border-b border-border shrink-0">
         <div className="flex items-baseline gap-2.5">
-          <span className="text-[9px] font-mono text-muted-foreground/55 tracking-[0.14em] uppercase">
+          <span className="text-[9px] font-mono text-muted-foreground/70 tracking-[0.14em] uppercase">
             Cumulative P&L
           </span>
           {!isEmpty && (
@@ -242,7 +238,7 @@ export function LWPortfolioChart({
       <div ref={mainRef} className="flex-[13] min-h-0 relative">
         {isEmpty && (
           <div className="absolute inset-0 flex items-center justify-center">
-            <p className="text-[11px] font-mono text-muted-foreground/35 tracking-[0.14em]">
+            <p className="text-[11px] font-mono text-muted-foreground/70 tracking-[0.14em]">
               NO TRADE DATA YET
             </p>
           </div>
@@ -251,7 +247,7 @@ export function LWPortfolioChart({
 
       {/* Histogram section header */}
       <div className="flex items-center px-5 h-7 border-t border-border shrink-0">
-        <span className="text-[8px] font-mono text-muted-foreground/45 tracking-[0.14em] uppercase">
+        <span className="text-[8px] font-mono text-muted-foreground/70 tracking-[0.14em] uppercase">
           Daily P&L
         </span>
       </div>

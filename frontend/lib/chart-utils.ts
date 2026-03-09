@@ -1,6 +1,6 @@
 import type { ChartDataPoint } from "./types";
 
-export type Interval = "1D" | "1W" | "1M" | "1Y";
+export type Interval = "1D" | "1W" | "1M";
 
 export interface LWPoint {
   time: string;
@@ -32,8 +32,7 @@ function aggregateByPeriod(
   const periodKey = (date: string): string => {
     const [y, m] = date.split("-");
     if (interval === "1W") return isoWeekMonday(date);
-    if (interval === "1M") return `${y}-${m}-01`;
-    return `${y}-01-01`;
+    return `${y}-${m}-01`;
   };
 
   const groups = new Map<string, ChartDataPoint>();
@@ -60,24 +59,18 @@ function aggregateByPeriod(
   );
 }
 
-export function getAreaData(
+export function getChartSeries(
   daily: ChartDataPoint[],
   interval: Interval
-): LWPoint[] {
+): { area: LWPoint[]; hist: LWHistPoint[] } {
   const points =
     interval === "1D" ? daily : aggregateByPeriod(daily, interval);
-  return points.map((p) => ({ time: p.date, value: p.cumulative_pnl }));
-}
-
-export function getHistogramData(
-  daily: ChartDataPoint[],
-  interval: Interval
-): LWHistPoint[] {
-  const points =
-    interval === "1D" ? daily : aggregateByPeriod(daily, interval);
-  return points.map((p) => ({
-    time: p.date,
-    value: p.pnl,
-    color: p.pnl >= 0 ? HIST_GREEN : HIST_RED,
-  }));
+  return {
+    area: points.map((p) => ({ time: p.date, value: p.cumulative_pnl })),
+    hist: points.map((p) => ({
+      time: p.date,
+      value: p.pnl,
+      color: p.pnl >= 0 ? HIST_GREEN : HIST_RED,
+    })),
+  };
 }

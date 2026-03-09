@@ -1,8 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { SWRConfig } from "swr";
-import { TimezoneProvider } from "@/lib/timezone-context";
 import { DashboardNavbar } from "@/components/dashboard/dashboard-navbar";
 import { useChartData, usePortfolioState } from "@/hooks/use-api";
 import { LWPortfolioChart } from "@/components/chart/lw-portfolio-chart";
@@ -28,14 +26,14 @@ function StatRow({ label, value, sub, trend = "neutral" }: StatRowProps) {
 
   return (
     <div className="flex flex-col gap-0.5">
-      <span className="text-[8px] font-mono text-muted-foreground/50 tracking-[0.13em] uppercase">
+      <span className="text-[11px] font-mono text-muted-foreground/70 tracking-[0.13em] uppercase">
         {label}
       </span>
       <span className={`text-[13px] font-mono font-medium tabular-nums ${valueClass}`}>
         {value}
       </span>
       {sub && (
-        <span className="text-[9px] font-mono text-muted-foreground/40 tabular-nums">
+        <span className="text-[9px] font-mono text-muted-foreground/70 tabular-nums">
           {sub}
         </span>
       )}
@@ -59,10 +57,10 @@ function ChartSidebar() {
       : "0.0";
 
   return (
-    <aside className="w-52 shrink-0 border-r border-border flex flex-col overflow-hidden animate-fade-up stagger-1">
+    <aside className="w-36 shrink-0 border-r border-border flex flex-col overflow-hidden animate-fade-up stagger-1">
       {/* NAV header */}
-      <div className="p-4 border-b border-border shrink-0">
-        <p className="text-[8px] font-mono text-muted-foreground/50 tracking-[0.14em] uppercase mb-2">
+      <div className="p-3 border-b border-border shrink-0">
+        <p className="text-[8px] font-mono text-muted-foreground/70 tracking-[0.14em] uppercase mb-2">
           Portfolio NAV
         </p>
         <p className="text-[22px] font-mono font-bold text-foreground/90 tabular-nums leading-none">
@@ -83,7 +81,7 @@ function ChartSidebar() {
       </div>
 
       {/* Stats grid */}
-      <div className="flex flex-col gap-4 p-4 overflow-auto flex-1">
+      <div className="flex flex-col gap-3 p-3 overflow-auto flex-1">
         <StatRow
           label="Win Rate"
           value={stats ? `${(stats.win_rate * 100).toFixed(1)}%` : "—"}
@@ -130,7 +128,7 @@ function ChartSidebar() {
           <WinRatePanel stats={stats} />
         ) : (
           <div className="flex items-center justify-center py-6">
-            <span className="text-[10px] font-mono text-muted-foreground/35 tracking-wider">
+            <span className="text-[10px] font-mono text-muted-foreground/70 tracking-wider">
               NO DATA
             </span>
           </div>
@@ -165,22 +163,12 @@ function ChartMain() {
 
 export default function ChartPage() {
   return (
-    <SWRConfig
-      value={{
-        revalidateOnFocus: true,
-        revalidateOnReconnect: true,
-        errorRetryCount: 3,
-      }}
-    >
-      <TimezoneProvider>
-        <div className="flex flex-col h-screen bg-background tech-grid noise-bg overflow-hidden">
-          <DashboardNavbar />
-          <main className="flex-1 overflow-hidden flex min-h-0">
-            <ChartSidebar />
-            <ChartMain />
-          </main>
-        </div>
-      </TimezoneProvider>
-    </SWRConfig>
+    <div className="flex flex-col h-screen bg-background tech-grid noise-bg overflow-hidden">
+      <DashboardNavbar />
+      <main className="flex-1 overflow-hidden flex min-h-0">
+        <ChartSidebar />
+        <ChartMain />
+      </main>
+    </div>
   );
 }

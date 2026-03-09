@@ -2,7 +2,7 @@
 
 import type { Interval } from "@/lib/chart-utils";
 
-const INTERVALS: Interval[] = ["1D", "1W", "1M", "1Y"];
+const INTERVALS: Interval[] = ["1D", "1W", "1M"];
 
 interface RangeSwitcherProps {
   value: Interval;
