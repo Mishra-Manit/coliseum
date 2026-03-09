@@ -11,7 +11,9 @@ Commands:
 import argparse
 import asyncio
 import csv
+import shutil
 import sys
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -132,7 +134,7 @@ async def update() -> None:
     with open(CSV_PATH, newline="") as f:
         rows = list(csv.DictReader(f))
 
-    unresolved = [r for r in rows if not r["close_price"]]
+    unresolved = [r for r in rows if not r["close_price"] and not r["result"]]
     if not unresolved:
         print(f"All {len(rows)} markets already resolved.")
         return
@@ -144,19 +146,25 @@ async def update() -> None:
         for row in unresolved:
             try:
                 market = await client.get_market(row["ticker"])
-                if market.result:
+                if market.result in ("yes", "no"):
                     row["result"] = market.result
-                    # close_price = 100 if the tracked side won, 0 if it lost
                     row["close_price"] = 100 if market.result == row["side"] else 0
+                    row["resolved_at"] = datetime.now(timezone.utc).isoformat()
+                    updated += 1
+                elif market.result:
+                    # voided, scalar, or other non-binary outcome — exclude from analysis
+                    row["result"] = market.result
                     row["resolved_at"] = datetime.now(timezone.utc).isoformat()
                     updated += 1
             except Exception as e:
                 print(f"  Error fetching {row['ticker']}: {e}")
 
-    with open(CSV_PATH, "w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=COLUMNS)
+    with tempfile.NamedTemporaryFile("w", dir=CSV_PATH.parent, delete=False, newline="", suffix=".tmp") as tmp:
+        writer = csv.DictWriter(tmp, fieldnames=COLUMNS)
         writer.writeheader()
         writer.writerows(rows)
+        tmp_path = tmp.name
+    shutil.move(tmp_path, CSV_PATH)
 
     total_resolved = sum(1 for r in rows if r["close_price"])
     print(f"Updated {updated} markets. Total resolved: {total_resolved}/{len(rows)}.")
