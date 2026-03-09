@@ -1,15 +1,22 @@
-last_updated: '2026-03-09T19:54:23.973620+00:00'
+last_updated: '2026-03-09T22:10:07.374827+00:00'
 portfolio:
-  total_value: 23.27
-  cash_balance: 8.92
-  positions_value: 14.35
+  total_value: 23.14
+  cash_balance: 4.24
+  positions_value: 18.9
 open_positions:
+- id: pos_2fda073c
+  market_ticker: KXCPICORE-26FEB-T0.1
+  side: 'YES'
+  contracts: 5
+  average_entry: 0.93
+  current_price: 0.9
+  opportunity_id: opp_990aa3a9
 - id: pos_b4a14fc1
   market_ticker: KXCPI-26FEB-T0.0
   side: 'YES'
   contracts: 5
   average_entry: 0.96
-  current_price: 0.97
+  current_price: 0.96
   opportunity_id: opp_87e066c7
 - id: pos_eb1952a8
   market_ticker: KXCPI-26FEB-T0.1
@@ -23,7 +30,7 @@ open_positions:
   side: 'YES'
   contracts: 5
   average_entry: 0.93
-  current_price: 0.97
+  current_price: 0.99
   opportunity_id: opp_fb952a2b
 closed_positions:
 - market_ticker: KXNASCARRACE-ONLGF1AS26-ADAN
@@ -237,3 +244,4 @@ seen_tickers:
 - KXCPI-26FEB-T0.4
 - KXHIGHMIA-26MAR09-B84.5
 - KXCPI-26FEB-T0.1
+- KXCPICORE-26FEB-T0.1
