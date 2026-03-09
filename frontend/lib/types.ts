@@ -86,3 +86,30 @@ export interface LedgerEntry {
   paper: boolean;
   timestamp: string;
 }
+
+export interface ChartDataPoint {
+  date: string;
+  pnl: number;
+  cumulative_pnl: number;
+  nav: number;
+  trades: number;
+  wins: number;
+  losses: number;
+}
+
+export interface ChartStats {
+  total_pnl: number;
+  win_rate: number;
+  total_trades: number;
+  winning_trades: number;
+  losing_trades: number;
+  best_day: number;
+  worst_day: number;
+  current_nav: number;
+  initial_nav: number;
+}
+
+export interface ChartResponse {
+  daily: ChartDataPoint[];
+  stats: ChartStats;
+}
