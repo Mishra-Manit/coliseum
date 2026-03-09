@@ -597,6 +597,11 @@ def main() -> int:
         action="store_true",
         help="Enable debug logging",
     )
+    parser_run.add_argument(
+        "--once",
+        action="store_true",
+        help="[no-op, kept for backwards compatibility] Pipeline always runs once",
+    )
     parser_run.set_defaults(func=cmd_run)
 
     args = parser.parse_args()

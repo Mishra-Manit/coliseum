@@ -162,8 +162,10 @@ async def list_opportunities():
 @app.get("/api/opportunities/{opportunity_id}")
 async def get_opportunity(opportunity_id: str):
     """Get full opportunity detail including markdown body."""
-    file_path = find_opportunity_file_by_id(opportunity_id, paper=False) or \
-        find_opportunity_file_by_id(opportunity_id, paper=True)
+    file_path = (
+        find_opportunity_file_by_id(opportunity_id, paper=False)
+        or find_opportunity_file_by_id(opportunity_id, paper=True)
+    )
     if not file_path:
         raise HTTPException(
             status_code=404, detail=f"Opportunity {opportunity_id} not found"

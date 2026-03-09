@@ -283,17 +283,18 @@ async def execute_working_order(
     return OrderResult(status="error", error_message="Unexpected end of loop")
 
 
-_agent_factory: dict[str, AgentFactory] = {}
+_agent_factory: AgentFactory[TraderDependencies, TraderOutput] | None = None
 
 
 def get_agent(settings: Settings) -> Agent[TraderDependencies, TraderOutput]:
     """Get the singleton Trader agent instance."""
-    if "factory" not in _agent_factory:
-        _agent_factory["factory"] = AgentFactory(
+    global _agent_factory
+    if _agent_factory is None:
+        _agent_factory = AgentFactory(
             create_fn=lambda: _create_agent(settings),
             register_tools_fn=_register_tools,
         )
-    return _agent_factory["factory"].get_agent()
+    return _agent_factory.get_agent()
 
 
 async def run_trader(
