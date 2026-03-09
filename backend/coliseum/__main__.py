@@ -51,8 +51,6 @@ def cmd_init(args: argparse.Namespace) -> int:
 
         subdirs = [
             "opportunities",
-            "positions/open",
-            "positions/closed",
             "trades/buy",
             "trades/close",
             "memory/journal",
@@ -146,7 +144,7 @@ open_positions: []
         print("1. Copy .env.example to .env and add your API keys")
         print("2. Review and customize data/config.yaml if needed")
         print("3. Run 'python -m coliseum config' to verify configuration")
-        print("4. Run 'python -m coliseum run' to start the system\n")
+        print("4. Run 'python -m coliseum pipeline' to run the pipeline once\n")
 
         return 0
 
@@ -314,7 +312,7 @@ def cmd_analyst(args: argparse.Namespace) -> int:
     _init_logfire()
 
     try:
-        opportunity_id = args.opportunity_id
+        opportunity_id = args.id
         print(f"\n=== Analyst Pipeline ===\n")
         print(f"Opportunity ID: {opportunity_id}\n")
 
@@ -340,7 +338,7 @@ def cmd_trader(args: argparse.Namespace) -> int:
     _init_logfire()
 
     try:
-        opportunity_id = args.opportunity_id
+        opportunity_id = args.id
         print(f"\n=== Trader Agent ===\n")
         print(f"Opportunity ID: {opportunity_id}\n")
 
@@ -370,8 +368,8 @@ def cmd_trader(args: argparse.Namespace) -> int:
         return 1
 
 
-def cmd_serve(args: argparse.Namespace) -> int:
-    """Start the dashboard API server."""
+def cmd_api(args: argparse.Namespace) -> int:
+    """Start the dashboard API server (no trading daemon)."""
     try:
         import uvicorn
 
@@ -403,8 +401,6 @@ def cmd_serve(args: argparse.Namespace) -> int:
 def cmd_daemon(args: argparse.Namespace) -> int:
     """Start the autonomous daemon with integrated dashboard API."""
     try:
-        import os
-
         import uvicorn
 
         _init_logfire()
@@ -413,7 +409,6 @@ def cmd_daemon(args: argparse.Namespace) -> int:
             logging.getLogger().setLevel(logging.DEBUG)
 
         settings = get_settings()
-        os.environ["COLISEUM_START_DAEMON"] = "1"
 
         print("\n=== Coliseum Autonomous Daemon ===")
         print(f"\nVersion: {__version__}")
@@ -426,7 +421,7 @@ def cmd_daemon(args: argparse.Namespace) -> int:
         print("\nStarting daemon + dashboard... (Ctrl+C to stop)\n")
 
         uvicorn.run(
-            "coliseum.api.server:app",
+            "coliseum.api.server:daemon_app",
             host=args.host,
             port=args.port,
             reload=False,
@@ -448,8 +443,8 @@ def cmd_daemon(args: argparse.Namespace) -> int:
         return 1
 
 
-def cmd_run(args: argparse.Namespace) -> int:
-    """Start the autonomous trading system."""
+def cmd_pipeline(args: argparse.Namespace) -> int:
+    """Run the full pipeline once (Guardian -> Scout -> Analyst -> Trader)."""
     try:
         _init_logfire()
 
@@ -527,9 +522,9 @@ def main() -> int:
         help="Run Analyst pipeline (Researcher + Recommender) manually",
     )
     parser_analyst.add_argument(
-        "--opportunity-id",
+        "--id",
         required=True,
-        help="Opportunity ID to analyze",
+        help="Opportunity ID to analyze (e.g. opp_abc12345)",
     )
     parser_analyst.set_defaults(func=cmd_analyst)
 
@@ -538,33 +533,33 @@ def main() -> int:
         help="Run Trader agent to execute or reject a trade recommendation",
     )
     parser_trader.add_argument(
-        "--opportunity-id",
+        "--id",
         required=True,
-        help="Opportunity ID to trade",
+        help="Opportunity ID to trade (e.g. opp_abc12345)",
     )
     parser_trader.set_defaults(func=cmd_trader)
 
-    parser_serve = subparsers.add_parser(
-        "serve",
-        help="Start the dashboard API server",
+    parser_api = subparsers.add_parser(
+        "api",
+        help="Start the dashboard API server only (no trading daemon)",
     )
-    parser_serve.add_argument(
+    parser_api.add_argument(
         "--host",
         default="0.0.0.0",
         help="Host to bind to (default: 0.0.0.0)",
     )
-    parser_serve.add_argument(
+    parser_api.add_argument(
         "--port",
         type=int,
         default=8000,
         help="Port to bind to (default: 8000)",
     )
-    parser_serve.add_argument(
+    parser_api.add_argument(
         "--reload",
         action="store_true",
         help="Enable auto-reload for development",
     )
-    parser_serve.set_defaults(func=cmd_serve)
+    parser_api.set_defaults(func=cmd_api)
 
     parser_daemon = subparsers.add_parser(
         "daemon",
@@ -588,21 +583,16 @@ def main() -> int:
     )
     parser_daemon.set_defaults(func=cmd_daemon)
 
-    parser_run = subparsers.add_parser(
-        "run",
-        help="Start the autonomous trading system",
+    parser_pipeline = subparsers.add_parser(
+        "pipeline",
+        help="Run the full pipeline once (testing/debug)",
     )
-    parser_run.add_argument(
+    parser_pipeline.add_argument(
         "--debug",
         action="store_true",
         help="Enable debug logging",
     )
-    parser_run.add_argument(
-        "--once",
-        action="store_true",
-        help="[no-op, kept for backwards compatibility] Pipeline always runs once",
-    )
-    parser_run.set_defaults(func=cmd_run)
+    parser_pipeline.set_defaults(func=cmd_pipeline)
 
     args = parser.parse_args()
 
