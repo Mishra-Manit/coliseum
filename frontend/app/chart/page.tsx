@@ -57,9 +57,9 @@ function ChartSidebar() {
       : "0.0";
 
   return (
-    <aside className="w-40 shrink-0 border-r border-border flex flex-col overflow-hidden animate-fade-up stagger-1">
+    <aside className="w-36 shrink-0 border-r border-border flex flex-col overflow-hidden animate-fade-up stagger-1">
       {/* NAV header */}
-      <div className="p-4 border-b border-border shrink-0">
+      <div className="p-3 border-b border-border shrink-0">
         <p className="text-[8px] font-mono text-muted-foreground/50 tracking-[0.14em] uppercase mb-2">
           Portfolio NAV
         </p>
@@ -81,7 +81,7 @@ function ChartSidebar() {
       </div>
 
       {/* Stats grid */}
-      <div className="flex flex-col gap-4 p-4 overflow-auto flex-1">
+      <div className="flex flex-col gap-3 p-3 overflow-auto flex-1">
         <StatRow
           label="Win Rate"
           value={stats ? `${(stats.win_rate * 100).toFixed(1)}%` : "—"}
