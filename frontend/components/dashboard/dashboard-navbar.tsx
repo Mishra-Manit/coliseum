@@ -1,9 +1,9 @@
 "use client";
 
-import { RefreshCw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useConfig, useDaemonStatus, usePortfolioState } from "@/hooks/use-api";
 import { useTimezone, type Timezone } from "@/lib/timezone-context";
+import { SettingsModal } from "@/components/dashboard/settings-modal";
 
 function formatUptime(seconds: number): string {
   if (seconds < 60) return `${seconds}s`;
@@ -14,7 +14,7 @@ function formatUptime(seconds: number): string {
 }
 
 export function DashboardNavbar() {
-  const { data: config, mutate } = useConfig();
+  const { data: config } = useConfig();
   const { data: daemon } = useDaemonStatus();
   const { data: state } = usePortfolioState();
   const { tz, setTz } = useTimezone();
@@ -77,13 +77,7 @@ export function DashboardNavbar() {
         {/* Timezone selector */}
         <TzSelector tz={tz} setTz={setTz} />
 
-        <button
-          onClick={() => mutate()}
-          className="p-1.5 rounded hover:bg-secondary text-muted-foreground/70 hover:text-muted-foreground transition-colors"
-          title="Refresh"
-        >
-          <RefreshCw className="h-3 w-3" />
-        </button>
+        <SettingsModal />
 
         <div className="flex items-center gap-2 pl-3 border-l border-border">
           <span className="relative flex h-1.5 w-1.5">
