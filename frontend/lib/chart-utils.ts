@@ -60,24 +60,18 @@ function aggregateByPeriod(
   );
 }
 
-export function getAreaData(
+export function getChartSeries(
   daily: ChartDataPoint[],
   interval: Interval
-): LWPoint[] {
+): { area: LWPoint[]; hist: LWHistPoint[] } {
   const points =
     interval === "1D" ? daily : aggregateByPeriod(daily, interval);
-  return points.map((p) => ({ time: p.date, value: p.cumulative_pnl }));
-}
-
-export function getHistogramData(
-  daily: ChartDataPoint[],
-  interval: Interval
-): LWHistPoint[] {
-  const points =
-    interval === "1D" ? daily : aggregateByPeriod(daily, interval);
-  return points.map((p) => ({
-    time: p.date,
-    value: p.pnl,
-    color: p.pnl >= 0 ? HIST_GREEN : HIST_RED,
-  }));
+  return {
+    area: points.map((p) => ({ time: p.date, value: p.cumulative_pnl })),
+    hist: points.map((p) => ({
+      time: p.date,
+      value: p.pnl,
+      color: p.pnl >= 0 ? HIST_GREEN : HIST_RED,
+    })),
+  };
 }
