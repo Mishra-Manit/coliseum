@@ -9,6 +9,7 @@ import logfire
 
 from coliseum.config import Settings, get_settings
 from coliseum.services.kalshi import KalshiClient
+from coliseum.services.telegram import TelegramClient
 from coliseum.services.kalshi.config import KalshiConfig
 from coliseum.storage.files import (
     TradeClose,
@@ -176,6 +177,24 @@ async def execute_stop_loss_exits(
                 threshold=threshold,
                 sell_price_cents=sell_price,
             )
+            if settings.telegram.send_alerts and settings.telegram_bot_token:
+                try:
+                    msg = (
+                        f"STOP-LOSS TRIGGERED\n\n"
+                        f"Ticker: {pos.market_ticker}\n"
+                        f"Side: {pos.side}\n"
+                        f"Contracts: {pos.contracts}\n"
+                        f"Current Price: {pos.current_price:.2f}\n"
+                        f"Sell At: {sell_price}¢\n"
+                        f"Threshold: {threshold:.2f}"
+                    )
+                    async with TelegramClient(
+                        bot_token=settings.telegram_bot_token,
+                        default_chat_id=settings.telegram_chat_id,
+                    ) as tg:
+                        await tg.send_alert(msg)
+                except Exception as tg_exc:
+                    logger.warning("Stop-loss Telegram alert failed (non-fatal): %s", tg_exc)
         except Exception as exc:
             logger.error("Stop-loss sell failed for %s: %s", pos.market_ticker, exc)
 
