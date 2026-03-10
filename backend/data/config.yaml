@@ -30,7 +30,7 @@ execution:
 
 daemon:
   heartbeat_interval_minutes: 180 # Full pipeline cycle interval (3 hours)
-  guardian_interval_minutes: 1 # Guardian-only checks between full cycles (1 minute)
+  guardian_interval_minutes: 5 # Guardian-only checks between full cycles (5 minutes)
   max_consecutive_failures: 5 # Failures before pausing
 
 telegram:
