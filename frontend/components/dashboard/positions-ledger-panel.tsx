@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/table";
 import { useLedger, usePortfolioState } from "@/hooks/use-api";
 import type { LedgerEntry, Position } from "@/lib/types";
+import { FontSize } from "@/lib/typography";
 
 interface PositionsLedgerPanelProps {
   onSelectOpportunity?: (id: string) => void;
@@ -41,10 +42,10 @@ export function PositionsLedgerPanel({
       {/* Top — Positions (35%) */}
       <div className="flex flex-col border-b border-border overflow-hidden" style={{ height: "35%" }}>
         <div className="flex items-center justify-between px-4 py-2.5 shrink-0 border-b border-border">
-          <span className="text-[9px] font-mono text-muted-foreground/70 tracking-[0.15em] uppercase">
+          <span className={`${FontSize.small} font-mono text-muted-foreground/70 tracking-[0.15em] uppercase`}>
             Positions
           </span>
-          <span className="text-[9px] font-mono text-muted-foreground/70 tabular-nums">
+          <span className={`${FontSize.small} font-mono text-muted-foreground/70 tabular-nums`}>
             {positions.length}
           </span>
         </div>
@@ -60,13 +61,13 @@ export function PositionsLedgerPanel({
       {/* Bottom — Ledger (65%) */}
       <div className="flex flex-col overflow-hidden" style={{ height: "65%" }}>
         <div className="flex items-center justify-between px-4 py-2.5 shrink-0 border-b border-border">
-          <span className="text-[9px] font-mono text-muted-foreground/70 tracking-[0.15em] uppercase">
+          <span className={`${FontSize.small} font-mono text-muted-foreground/70 tracking-[0.15em] uppercase`}>
             Ledger
           </span>
           <div className="flex items-center gap-3">
             {winRate !== null && (
               <span
-                className={`text-[9px] font-mono tabular-nums ${
+                className={`${FontSize.small} font-mono tabular-nums ${
                   winRate >= 60
                     ? "text-emerald-400/70"
                     : winRate >= 40
@@ -77,7 +78,7 @@ export function PositionsLedgerPanel({
                 {winRate}% win
               </span>
             )}
-            <span className="text-[9px] font-mono text-muted-foreground/70 tabular-nums">
+            <span className={`${FontSize.small} font-mono text-muted-foreground/70 tabular-nums`}>
               {allEntries.length}
             </span>
           </div>
@@ -117,7 +118,7 @@ function PositionsContent({
     return (
       <div className="flex flex-col items-center justify-center h-full text-muted-foreground/70 gap-2">
         <CircleDot className="h-6 w-6" />
-        <p className="text-[11px] font-mono tracking-wider">NO POSITIONS</p>
+        <p className={`${FontSize.medium} font-mono tracking-wider`}>NO POSITIONS</p>
       </div>
     );
   }
@@ -127,16 +128,16 @@ function PositionsContent({
       <Table>
         <TableHeader>
           <TableRow className="border-border hover:bg-transparent">
-            <TableHead className="text-[9px] text-muted-foreground/70 font-mono h-8 uppercase tracking-wider w-full px-4">
+            <TableHead className={`${FontSize.small} text-muted-foreground/70 font-mono h-8 uppercase tracking-wider w-full px-4`}>
               Market
             </TableHead>
-            <TableHead className="text-[9px] text-muted-foreground/70 font-mono h-8 uppercase tracking-wider whitespace-nowrap px-2">
+            <TableHead className={`${FontSize.small} text-muted-foreground/70 font-mono h-8 uppercase tracking-wider whitespace-nowrap px-2`}>
               Side
             </TableHead>
-            <TableHead className="text-[9px] text-muted-foreground/70 font-mono h-8 text-right uppercase tracking-wider whitespace-nowrap px-2">
+            <TableHead className={`${FontSize.small} text-muted-foreground/70 font-mono h-8 text-right uppercase tracking-wider whitespace-nowrap px-2`}>
               Qty
             </TableHead>
-            <TableHead className="text-[9px] text-muted-foreground/70 font-mono h-8 text-right uppercase tracking-wider whitespace-nowrap px-4">
+            <TableHead className={`${FontSize.small} text-muted-foreground/70 font-mono h-8 text-right uppercase tracking-wider whitespace-nowrap px-4`}>
               Entry
             </TableHead>
           </TableRow>
@@ -158,14 +159,14 @@ function PositionsContent({
                     : "hover:bg-secondary/20"
                 }`}
               >
-                <TableCell className="text-[11px] text-foreground/80 font-mono py-2 max-w-0 w-full px-4">
+                <TableCell className={`${FontSize.medium} text-foreground/80 font-mono py-2 max-w-0 w-full px-4`}>
                   <span className="block truncate" title={pos.market_ticker}>
                     {pos.market_ticker}
                   </span>
                 </TableCell>
                 <TableCell className="py-2 px-2">
                   <span
-                    className={`text-[10px] font-mono font-semibold ${
+                    className={`${FontSize.small} font-mono font-semibold ${
                       pos.side === "YES"
                         ? "text-emerald-400"
                         : pos.side === "NO"
@@ -176,10 +177,10 @@ function PositionsContent({
                     {pos.side}
                   </span>
                 </TableCell>
-                <TableCell className="text-[11px] text-foreground/70 text-right py-2 font-mono tabular-nums px-2">
+                <TableCell className={`${FontSize.medium} text-foreground/70 text-right py-2 font-mono tabular-nums px-2`}>
                   {pos.contracts}
                 </TableCell>
-                <TableCell className="text-[11px] text-foreground/70 text-right py-2 font-mono tabular-nums px-4">
+                <TableCell className={`${FontSize.medium} text-foreground/70 text-right py-2 font-mono tabular-nums px-4`}>
                   {Math.round(pos.average_entry * 100)}c
                 </TableCell>
               </TableRow>
@@ -239,7 +240,7 @@ function LedgerContent({
     return (
       <div className="flex flex-col items-center justify-center h-full text-muted-foreground/70 gap-2">
         <Receipt className="h-6 w-6" />
-        <p className="text-[11px] font-mono tracking-wider">NO TRADES</p>
+        <p className={`${FontSize.medium} font-mono tracking-wider`}>NO TRADES</p>
       </div>
     );
   }
@@ -251,7 +252,7 @@ function LedgerContent({
       <div className="px-4 py-3 space-y-4">
         {grouped.map(([dateLabel, dayEntries]) => (
           <div key={dateLabel}>
-            <p className="text-[9px] font-mono text-muted-foreground/70 uppercase tracking-[0.15em] mb-2">
+            <p className={`${FontSize.small} font-mono text-muted-foreground/70 uppercase tracking-[0.15em] mb-2`}>
               {dateLabel}
             </p>
             <div className="space-y-0.5">
@@ -328,14 +329,14 @@ function LedgerRow({
       {/* Ticker + side */}
       <div className="flex-1 min-w-0">
         <p
-          className="text-[10px] font-mono text-foreground/70 truncate leading-tight"
+          className={`${FontSize.medium} font-mono text-foreground/70 truncate leading-tight`}
           title={entry.market_ticker}
         >
           {entry.market_ticker}
         </p>
         <div className="flex items-center gap-1 mt-0.5">
           <span
-            className={`text-[9px] font-mono ${
+            className={`${FontSize.small} font-mono ${
               entry.side === "YES"
                 ? "text-emerald-400/70"
                 : "text-red-400/70"
@@ -343,7 +344,7 @@ function LedgerRow({
           >
             {entry.side}
           </span>
-          <span className="text-[9px] text-muted-foreground/70 font-mono">
+          <span className={`${FontSize.small} text-muted-foreground/70 font-mono`}>
             ×{entry.contracts}
           </span>
         </div>
@@ -352,12 +353,12 @@ function LedgerRow({
       {/* Right: price/pnl + time */}
       <div className="shrink-0 text-right">
         {isBuy ? (
-          <p className="text-[10px] font-mono text-foreground/70 tabular-nums">
+          <p className={`${FontSize.medium} font-mono text-foreground/70 tabular-nums`}>
             {Math.round(entry.price * 100)}c
           </p>
         ) : (
           <p
-            className={`text-[10px] font-mono font-semibold tabular-nums ${
+            className={`${FontSize.medium} font-mono font-semibold tabular-nums ${
               pnl > 0
                 ? "text-emerald-400"
                 : pnl < 0
@@ -368,7 +369,7 @@ function LedgerRow({
             {pnl >= 0 ? "+" : ""}${pnl.toFixed(2)}
           </p>
         )}
-        <p className="text-[9px] text-muted-foreground/70 font-mono mt-0.5 tabular-nums">
+        <p className={`${FontSize.small} text-muted-foreground/70 font-mono mt-0.5 tabular-nums`}>
           {formatTime(entry.timestamp)}
         </p>
       </div>
