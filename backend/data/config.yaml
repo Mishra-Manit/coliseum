@@ -17,9 +17,7 @@ analyst:
   max_research_time_seconds: 300
 
 guardian:
-  profit_target_pct: 0.70
-  stop_loss_pct: 0.10
-  max_hold_days: 5 # Maximum days to hold any position
+  stop_loss_price: 0.80 # Sell any open position with current_price below this
 
 execution:
   use_limit_orders_only: true # NEVER change to false
@@ -32,7 +30,7 @@ execution:
 
 daemon:
   heartbeat_interval_minutes: 180 # Full pipeline cycle interval (3 hours)
-  guardian_interval_minutes: 60 # Guardian-only checks between full cycles (1 hour)
+  guardian_interval_minutes: 1 # Guardian-only checks between full cycles (1 minute)
   max_consecutive_failures: 5 # Failures before pausing
 
 telegram:

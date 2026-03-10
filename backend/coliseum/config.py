@@ -39,9 +39,7 @@ class AnalystConfig(BaseModel):
 class GuardianConfig(BaseModel):
     """Guardian agent monitoring parameters."""
 
-    profit_target_pct: float = 0.70
-    stop_loss_pct: float = 0.10
-    max_hold_days: int = 5             # Maximum days to hold any position
+    stop_loss_price: float = 0.80
 
 
 class ExecutionConfig(BaseModel):
