@@ -1,5 +1,5 @@
 project_root=/Users/manitmishra/Desktop/Coliseum
-branch=feat/chart-page
+branch=feat/live-position-updates
 base_branch=main
-worktree_path=/Users/manitmishra/Desktop/worktrees/Coliseum-feat-chart-page
-task=Add /chart page with TradingView-style portfolio charts and navbar button
+worktree_path=/Users/manitmishra/Desktop/worktrees/Coliseum-feat-live-position-updates
+task=live position updates via SSE — backend SSE endpoint with in-memory Kalshi price cache, frontend EventSource hook with reconnect, positions table Now/P&L columns
