@@ -178,9 +178,7 @@ def cmd_config(args: argparse.Namespace) -> int:
         print(f"  Max Research Time: {settings.analyst.max_research_time_seconds}s\n")
 
         print("Guardian:")
-        print(f"  Profit Target: {settings.guardian.profit_target_pct:.0%}")
-        print(f"  Stop Loss: {settings.guardian.stop_loss_pct:.0%}")
-        print(f"  Max Hold Days: {settings.guardian.max_hold_days}d\n")
+        print(f"  Stop Loss Price: {settings.guardian.stop_loss_price:.2f}\n")
 
         print("Execution:")
         print(f"  Use Limit Orders Only: {settings.execution.use_limit_orders_only}")
@@ -291,6 +289,7 @@ def cmd_guardian(args: argparse.Namespace) -> int:
         print(f"Entries Inspected: {result.reconciliation.entries_inspected}")
         print(f"Kept Open: {result.reconciliation.kept_open}")
         print(f"Closed: {result.reconciliation.newly_closed}")
+        print(f"Stop-Loss Exits: {result.reconciliation.stop_loss_exits}")
         print(f"Warnings: {result.reconciliation.warnings}\n")
 
         if result.warnings:

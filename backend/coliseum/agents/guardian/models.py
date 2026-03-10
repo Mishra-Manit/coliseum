@@ -11,6 +11,7 @@ class ReconciliationStats(BaseModel):
     entries_inspected: int = 0
     kept_open: int = 0
     newly_closed: int = 0
+    stop_loss_exits: int = 0
     warnings: int = 0
 
 
@@ -19,6 +20,7 @@ class GuardianResult(BaseModel):
 
     positions_synced: int = 0
     reconciliation: ReconciliationStats = Field(default_factory=ReconciliationStats)
+    stop_loss_tickers: list[str] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
     agent_summary: str = ""
 

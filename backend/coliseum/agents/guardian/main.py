@@ -130,6 +130,58 @@ def _extract_entry_rationale(opportunity_id: str | None) -> str | None:
         return None
 
 
+async def execute_stop_loss_exits(
+    state: PortfolioState,
+    client: KalshiClient,
+    settings: Settings,
+) -> list[str]:
+    """Sell any open position whose current_price is below the stop-loss threshold."""
+    threshold = settings.guardian.stop_loss_price
+    triggered: list[str] = []
+
+    for pos in state.open_positions:
+        if pos.current_price >= threshold:
+            continue
+
+        open_orders = await client.get_orders(ticker=pos.market_ticker, status="resting")
+        if any(o.action == "sell" for o in open_orders):
+            logger.info("Stop-loss sell already pending for %s", pos.market_ticker)
+            continue
+
+        side_lower = pos.side.lower()
+        sell_price = int(pos.current_price * 100)
+
+        try:
+            if side_lower == "yes":
+                await client.place_order(
+                    ticker=pos.market_ticker,
+                    side="yes",
+                    action="sell",
+                    count=pos.contracts,
+                    yes_price=sell_price,
+                )
+            else:
+                await client.place_order(
+                    ticker=pos.market_ticker,
+                    side="no",
+                    action="sell",
+                    count=pos.contracts,
+                    no_price=sell_price,
+                )
+            triggered.append(pos.market_ticker)
+            logfire.info(
+                "Stop-loss triggered",
+                ticker=pos.market_ticker,
+                current_price=pos.current_price,
+                threshold=threshold,
+                sell_price_cents=sell_price,
+            )
+        except Exception as exc:
+            logger.error("Stop-loss sell failed for %s: %s", pos.market_ticker, exc)
+
+    return triggered
+
+
 async def reconcile_closed_positions(
     old_open: list[Position],
     new_state: PortfolioState,
@@ -238,12 +290,18 @@ async def run_guardian(settings: Settings | None = None) -> GuardianResult:
                     open_positions=len(state.open_positions),
                 )
 
-            # Step 3: fetch recent fills for exit price calculation
+            # Step 3: execute stop-loss exits on positions below threshold
+            with logfire.span("stop loss check"):
+                stop_loss_tickers = await execute_stop_loss_exits(state, client, settings)
+                if stop_loss_tickers:
+                    logfire.info("Stop-loss exits placed", tickers=stop_loss_tickers)
+
+            # Step 4: fetch recent fills for exit price calculation
             with logfire.span("fetch fills"):
                 fills = await client.get_fills(limit=500)
                 logfire.info("Fills fetched", count=len(fills))
 
-            # Step 4: reconcile closed positions
+            # Step 5: reconcile closed positions
             with logfire.span("reconcile closed positions", inspected=len(pre_sync_state.open_positions)):
                 updated_state, stats, newly_closed = await reconcile_closed_positions(
                     old_open=pre_sync_state.open_positions,
@@ -258,13 +316,13 @@ async def run_guardian(settings: Settings | None = None) -> GuardianResult:
                     newly_closed=stats.newly_closed,
                 )
 
-            # Step 5: find positions not opened by our pipeline
+            # Step 6: find positions not opened by our pipeline
             missing = _find_positions_without_opportunity_id(updated_state)
 
         for missing_key in missing:
             logfire.warn("Position missing opportunity_id", position=missing_key)
 
-        # Step 6: LLM reflection — update learnings when trades close
+        # Step 7: LLM reflection — update learnings when trades close
         if newly_closed:
             try:
                 with logfire.span("scribe reflection", trades=len(newly_closed)):
@@ -282,11 +340,19 @@ async def run_guardian(settings: Settings | None = None) -> GuardianResult:
 
     return GuardianResult(
         positions_synced=len(updated_state.open_positions),
-        reconciliation=stats,
+        reconciliation=ReconciliationStats(
+            entries_inspected=stats.entries_inspected,
+            kept_open=stats.kept_open,
+            newly_closed=stats.newly_closed,
+            stop_loss_exits=len(stop_loss_tickers),
+            warnings=stats.warnings,
+        ),
+        stop_loss_tickers=stop_loss_tickers,
         warnings=missing,
         agent_summary=(
             f"Synced {len(updated_state.open_positions)} positions. "
             f"Reconciled {stats.newly_closed} closed. "
+            f"Stop-loss exits: {len(stop_loss_tickers)}. "
             f"{len(missing)} missing opportunity_id."
         ),
     )
