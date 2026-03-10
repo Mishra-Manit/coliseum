@@ -14,6 +14,18 @@ export interface Position {
   opportunity_id: string | null;
 }
 
+export interface EnrichedPosition extends Position {
+  unrealized_pnl: number;
+  pct_change: number;
+}
+
+export interface PortfolioStreamPayload {
+  open_positions: EnrichedPosition[];
+  portfolio: PortfolioStats;
+  timestamp: number;
+  error?: string;
+}
+
 export interface ClosedPosition {
   market_ticker: string;
   side: string;

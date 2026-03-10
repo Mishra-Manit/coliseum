@@ -3,6 +3,7 @@
 import asyncio
 import json
 import logging
+import time
 from collections import defaultdict
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -11,15 +12,20 @@ from typing import Any
 import yaml
 from fastapi import APIRouter, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from sse_starlette.sse import EventSourceResponse
 
 from coliseum.config import get_settings
 from coliseum.daemon import ColiseumDaemon
 from coliseum.pipeline import run_pipeline
+from coliseum.services.kalshi.client import KalshiClient
 from coliseum.storage.files import (
     find_opportunity_file_by_id,
     get_opportunity_markdown_body,
     load_opportunity_from_file,
 )
+from coliseum.storage.state import Position, load_state
+from coliseum.storage.sync import normalize_probability_price
 
 logger = logging.getLogger(__name__)
 
@@ -225,6 +231,42 @@ async def get_opportunity(opportunity_id: str):
     }
 
 
+@router.get("/api/stream/portfolio")
+async def stream_portfolio(request: Request) -> EventSourceResponse:
+    """SSE endpoint: pushes enriched portfolio state with live prices every 2 seconds."""
+
+    async def _generator():
+        async with _make_kalshi_client() as client:
+            while True:
+                if await request.is_disconnected():
+                    break
+                try:
+                    state = await asyncio.to_thread(load_state)
+                    positions = state.open_positions
+                    if positions:
+                        prices = await _fetch_prices_for_positions(client, positions)
+                        enriched = [
+                            _enrich_position(p, prices.get(p.market_ticker, p.current_price))
+                            for p in positions
+                        ]
+                    else:
+                        enriched = []
+                    payload = {
+                        "open_positions": [e.model_dump() for e in enriched],
+                        "portfolio": state.portfolio.model_dump(),
+                        "timestamp": time.time(),
+                    }
+                    yield {"data": json.dumps(payload)}
+                except asyncio.CancelledError:
+                    break
+                except Exception as e:
+                    logger.warning("SSE portfolio stream error: %s", e)
+                    yield {"data": json.dumps({"error": str(e)})}
+                await asyncio.sleep(2.0)
+
+    return EventSourceResponse(_generator())
+
+
 # ---------------------------------------------------------------------------
 # Trade ledger
 # ---------------------------------------------------------------------------
@@ -375,6 +417,103 @@ async def get_chart_data():
 
 _pipeline_running = False
 _pipeline_task: asyncio.Task[None] | None = None
+
+# In-memory price cache for SSE stream: ticker -> (price, fetched_at_epoch)
+_price_cache: dict[str, tuple[float, float]] = {}
+_price_cache_lock = asyncio.Lock()
+# TTL exceeds the 2s poll interval so concurrent SSE clients share cached values
+_PRICE_CACHE_TTL = 10.0
+
+
+class EnrichedPosition(BaseModel):
+    """Position view model enriched with live price and unrealized P&L."""
+
+    id: str
+    market_ticker: str
+    side: str
+    contracts: int
+    average_entry: float
+    current_price: float
+    unrealized_pnl: float
+    pct_change: float
+    opportunity_id: str | None
+
+
+def _make_kalshi_client() -> KalshiClient:
+    """Build an authenticated KalshiClient from current settings."""
+    settings = get_settings()
+    return KalshiClient(
+        api_key=settings.kalshi_api_key,
+        private_key_pem=settings.get_rsa_private_key(),
+    )
+
+
+def _enrich_position(pos: Position, current_price: float) -> EnrichedPosition:
+    """Compute unrealized P&L for an open position. Returns new object, no mutation."""
+    if pos.side == "YES":
+        pnl = (current_price - pos.average_entry) * pos.contracts
+    else:
+        pnl = (pos.average_entry - current_price) * pos.contracts
+    cost = pos.average_entry * pos.contracts
+    pct = (pnl / cost * 100) if cost > 0 else 0.0
+    return EnrichedPosition(
+        id=pos.id,
+        market_ticker=pos.market_ticker,
+        side=pos.side,
+        contracts=pos.contracts,
+        average_entry=pos.average_entry,
+        current_price=current_price,
+        unrealized_pnl=round(pnl, 4),
+        pct_change=round(pct, 2),
+        opportunity_id=pos.opportunity_id,
+    )
+
+
+async def _fetch_prices_for_positions(
+    client: KalshiClient,
+    positions: list[Position],
+) -> dict[str, float]:
+    """Fetch current bid prices for open positions, with TTL-based in-memory cache.
+
+    Lock is held for the full operation so concurrent SSE clients share a single
+    Kalshi fetch rather than firing duplicate requests.
+    """
+    async with _price_cache_lock:
+        now = time.time()
+        stale_tickers = {
+            p.market_ticker for p in positions
+            if p.market_ticker not in _price_cache
+            or now - _price_cache[p.market_ticker][1] > _PRICE_CACHE_TTL
+        }
+        stale = [p for p in positions if p.market_ticker in stale_tickers]
+        result: dict[str, float] = {
+            p.market_ticker: _price_cache[p.market_ticker][0]
+            for p in positions
+            if p.market_ticker not in stale_tickers
+        }
+        if not stale:
+            return result
+        markets = await asyncio.gather(
+            *[client.get_market(p.market_ticker) for p in stale],
+            return_exceptions=True,
+        )
+        fetch_time = time.time()
+        for p, market in zip(stale, markets):
+            if isinstance(market, Exception):
+                result[p.market_ticker] = p.current_price
+                continue
+            if p.side == "YES":
+                # Use bid (liquidation value) for conservative P&L estimate
+                price = normalize_probability_price(market.yes_bid) or 0.0
+                if price == 0.0:
+                    price = normalize_probability_price(market.yes_ask) or 0.0
+            else:
+                price = normalize_probability_price(market.no_bid) or 0.0
+                if price == 0.0:
+                    price = normalize_probability_price(market.no_ask) or 0.0
+            _price_cache[p.market_ticker] = (price, fetch_time)
+            result[p.market_ticker] = price
+        return result
 
 
 async def _execute_pipeline() -> None:

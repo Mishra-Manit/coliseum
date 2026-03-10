@@ -17,7 +17,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useLedger, usePortfolioState } from "@/hooks/use-api";
-import type { LedgerEntry, Position } from "@/lib/types";
+import { usePortfolioStream } from "@/hooks/use-portfolio-stream";
+import type { EnrichedPosition, LedgerEntry, Position } from "@/lib/types";
 import { FontSize } from "@/lib/typography";
 
 interface PositionsLedgerPanelProps {
@@ -29,8 +30,9 @@ export function PositionsLedgerPanel({
 }: PositionsLedgerPanelProps) {
   const { data: state, isLoading: stateLoading } = usePortfolioState();
   const { data: entries, isLoading: ledgerLoading } = useLedger(150);
+  const { data: streamData, connected: streamConnected } = usePortfolioStream();
 
-  const positions = state?.open_positions ?? [];
+  const positions = streamData?.open_positions ?? state?.open_positions ?? [];
   const allEntries = entries ?? [];
   const closes = allEntries.filter((e) => e.type === "close" && e.pnl != null);
   const wins = closes.filter((e) => (e.pnl ?? 0) > 0).length;
@@ -42,9 +44,17 @@ export function PositionsLedgerPanel({
       {/* Top — Positions (35%) */}
       <div className="flex flex-col border-b border-border overflow-hidden" style={{ height: "35%" }}>
         <div className="flex items-center justify-between px-4 py-2.5 shrink-0 border-b border-border">
-          <span className={`${FontSize.small} font-mono text-muted-foreground/70 tracking-[0.15em] uppercase`}>
-            Positions
-          </span>
+          <div className="flex items-center gap-2">
+            <span className={`${FontSize.small} font-mono text-muted-foreground/70 tracking-[0.15em] uppercase`}>
+              Positions
+            </span>
+            {streamConnected && (
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-60" />
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
+              </span>
+            )}
+          </div>
           <span className={`${FontSize.small} font-mono text-muted-foreground/70 tabular-nums`}>
             {positions.length}
           </span>
@@ -95,15 +105,20 @@ export function PositionsLedgerPanel({
   );
 }
 
+function isEnriched(p: Position | EnrichedPosition): p is EnrichedPosition {
+  return "unrealized_pnl" in p;
+}
+
 function PositionsContent({
   positions,
   isLoading,
   onSelectOpportunity,
 }: {
-  positions: Position[];
+  positions: (Position | EnrichedPosition)[];
   isLoading: boolean;
   onSelectOpportunity?: (id: string) => void;
 }) {
+
   if (isLoading) {
     return (
       <div className="p-4 space-y-2">
@@ -128,7 +143,7 @@ function PositionsContent({
       <Table>
         <TableHeader>
           <TableRow className="border-border hover:bg-transparent">
-            <TableHead className={`${FontSize.small} text-muted-foreground/70 font-mono h-8 uppercase tracking-wider w-full px-4`}>
+            <TableHead className={`${FontSize.small} text-muted-foreground/70 font-mono h-8 uppercase tracking-wider min-w-0 w-[35%] px-4`}>
               Market
             </TableHead>
             <TableHead className={`${FontSize.small} text-muted-foreground/70 font-mono h-8 uppercase tracking-wider whitespace-nowrap px-2`}>
@@ -139,6 +154,12 @@ function PositionsContent({
             </TableHead>
             <TableHead className={`${FontSize.small} text-muted-foreground/70 font-mono h-8 text-right uppercase tracking-wider whitespace-nowrap px-4`}>
               Entry
+            </TableHead>
+            <TableHead className={`${FontSize.small} text-muted-foreground/70 font-mono h-8 text-right uppercase tracking-wider whitespace-nowrap px-2`}>
+              Now
+            </TableHead>
+            <TableHead className={`${FontSize.small} text-muted-foreground/70 font-mono h-8 text-right uppercase tracking-wider whitespace-nowrap px-4`}>
+              P&amp;L
             </TableHead>
           </TableRow>
         </TableHeader>
@@ -182,6 +203,29 @@ function PositionsContent({
                 </TableCell>
                 <TableCell className={`${FontSize.medium} text-foreground/70 text-right py-2 font-mono tabular-nums px-4`}>
                   {Math.round(pos.average_entry * 100)}c
+                </TableCell>
+                <TableCell className="text-[11px] text-foreground/70 text-right py-2 font-mono tabular-nums px-2 whitespace-nowrap">
+                  {isEnriched(pos) && pos.current_price > 0
+                    ? `${Math.round(pos.current_price * 100)}c`
+                    : "--"}
+                </TableCell>
+                <TableCell className="text-[11px] text-right py-2 font-mono tabular-nums px-4 whitespace-nowrap">
+                  {isEnriched(pos) ? (
+                    <span
+                      className={
+                        pos.unrealized_pnl >= 0 ? "text-emerald-400" : "text-red-400"
+                      }
+                    >
+                      {pos.unrealized_pnl >= 0 ? "+" : ""}$
+                      {pos.unrealized_pnl.toFixed(2)}
+                      <span className="text-[9px] text-muted-foreground/70 ml-1">
+                        ({pos.pct_change >= 0 ? "+" : ""}
+                        {pos.pct_change.toFixed(1)}%)
+                      </span>
+                    </span>
+                  ) : (
+                    <span className="text-muted-foreground/50">--</span>
+                  )}
                 </TableCell>
               </TableRow>
             );
