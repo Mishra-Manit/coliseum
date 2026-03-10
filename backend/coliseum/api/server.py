@@ -241,7 +241,7 @@ async def stream_portfolio(request: Request) -> EventSourceResponse:
                 if await request.is_disconnected():
                     break
                 try:
-                    state = load_state()
+                    state = await asyncio.to_thread(load_state)
                     positions = state.open_positions
                     if positions:
                         prices = await _fetch_prices_for_positions(client, positions)
@@ -420,7 +420,9 @@ _pipeline_task: asyncio.Task[None] | None = None
 
 # In-memory price cache for SSE stream: ticker -> (price, fetched_at_epoch)
 _price_cache: dict[str, tuple[float, float]] = {}
-_PRICE_CACHE_TTL = 3.0
+_price_cache_lock = asyncio.Lock()
+# TTL exceeds the 2s poll interval so concurrent SSE clients share cached values
+_PRICE_CACHE_TTL = 10.0
 
 
 class EnrichedPosition(BaseModel):
@@ -471,39 +473,47 @@ async def _fetch_prices_for_positions(
     client: KalshiClient,
     positions: list[Position],
 ) -> dict[str, float]:
-    """Fetch current bid prices for open positions, with TTL-based in-memory cache."""
-    now = time.time()
-    stale = [
-        p for p in positions
-        if p.market_ticker not in _price_cache
-        or now - _price_cache[p.market_ticker][1] > _PRICE_CACHE_TTL
-    ]
-    result: dict[str, float] = {
-        p.market_ticker: _price_cache[p.market_ticker][0]
-        for p in positions
-        if p.market_ticker not in [s.market_ticker for s in stale]
-    }
-    if not stale:
+    """Fetch current bid prices for open positions, with TTL-based in-memory cache.
+
+    Lock is held for the full operation so concurrent SSE clients share a single
+    Kalshi fetch rather than firing duplicate requests.
+    """
+    async with _price_cache_lock:
+        now = time.time()
+        stale_tickers = {
+            p.market_ticker for p in positions
+            if p.market_ticker not in _price_cache
+            or now - _price_cache[p.market_ticker][1] > _PRICE_CACHE_TTL
+        }
+        stale = [p for p in positions if p.market_ticker in stale_tickers]
+        result: dict[str, float] = {
+            p.market_ticker: _price_cache[p.market_ticker][0]
+            for p in positions
+            if p.market_ticker not in stale_tickers
+        }
+        if not stale:
+            return result
+        markets = await asyncio.gather(
+            *[client.get_market(p.market_ticker) for p in stale],
+            return_exceptions=True,
+        )
+        fetch_time = time.time()
+        for p, market in zip(stale, markets):
+            if isinstance(market, Exception):
+                result[p.market_ticker] = p.current_price
+                continue
+            if p.side == "YES":
+                # Use bid (liquidation value) for conservative P&L estimate
+                price = normalize_probability_price(market.yes_bid) or 0.0
+                if price == 0.0:
+                    price = normalize_probability_price(market.yes_ask) or 0.0
+            else:
+                price = normalize_probability_price(market.no_bid) or 0.0
+                if price == 0.0:
+                    price = normalize_probability_price(market.no_ask) or 0.0
+            _price_cache[p.market_ticker] = (price, fetch_time)
+            result[p.market_ticker] = price
         return result
-    markets = await asyncio.gather(
-        *[client.get_market(p.market_ticker) for p in stale],
-        return_exceptions=True,
-    )
-    for p, market in zip(stale, markets):
-        if isinstance(market, Exception):
-            result[p.market_ticker] = p.current_price
-            continue
-        if p.side == "YES":
-            price = normalize_probability_price(market.yes_bid) or 0.0
-            if price == 0.0:
-                price = normalize_probability_price(market.yes_ask) or 0.0
-        else:
-            price = normalize_probability_price(market.no_bid) or 0.0
-            if price == 0.0:
-                price = normalize_probability_price(market.no_ask) or 0.0
-        _price_cache[p.market_ticker] = (price, now)
-        result[p.market_ticker] = price
-    return result
 
 
 async def _execute_pipeline() -> None:

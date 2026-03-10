@@ -20,8 +20,6 @@ export function usePortfolioStream(): {
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-
     function connect() {
       const es = new EventSource(SSE_URL);
       esRef.current = es;
@@ -48,6 +46,7 @@ export function usePortfolioStream(): {
       es.onerror = () => {
         setConnected(false);
         es.close();
+        if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
         reconnectTimer.current = setTimeout(connect, RECONNECT_DELAY_MS);
       };
     }

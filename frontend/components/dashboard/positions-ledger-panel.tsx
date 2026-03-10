@@ -105,6 +105,10 @@ export function PositionsLedgerPanel({
   );
 }
 
+function isEnriched(p: Position | EnrichedPosition): p is EnrichedPosition {
+  return "unrealized_pnl" in p;
+}
+
 function PositionsContent({
   positions,
   isLoading,
@@ -114,8 +118,6 @@ function PositionsContent({
   isLoading: boolean;
   onSelectOpportunity?: (id: string) => void;
 }) {
-  const isEnriched = (p: Position | EnrichedPosition): p is EnrichedPosition =>
-    "unrealized_pnl" in p;
 
   if (isLoading) {
     return (
@@ -153,10 +155,10 @@ function PositionsContent({
             <TableHead className={`${FontSize.small} text-muted-foreground/70 font-mono h-8 text-right uppercase tracking-wider whitespace-nowrap px-4`}>
               Entry
             </TableHead>
-            <TableHead className="text-[9px] text-muted-foreground/70 font-mono h-8 text-right uppercase tracking-wider whitespace-nowrap px-2">
+            <TableHead className={`${FontSize.small} text-muted-foreground/70 font-mono h-8 text-right uppercase tracking-wider whitespace-nowrap px-2`}>
               Now
             </TableHead>
-            <TableHead className="text-[9px] text-muted-foreground/70 font-mono h-8 text-right uppercase tracking-wider whitespace-nowrap px-4">
+            <TableHead className={`${FontSize.small} text-muted-foreground/70 font-mono h-8 text-right uppercase tracking-wider whitespace-nowrap px-4`}>
               P&amp;L
             </TableHead>
           </TableRow>
@@ -203,7 +205,9 @@ function PositionsContent({
                   {Math.round(pos.average_entry * 100)}c
                 </TableCell>
                 <TableCell className="text-[11px] text-foreground/70 text-right py-2 font-mono tabular-nums px-2 whitespace-nowrap">
-                  {pos.current_price > 0 ? `${Math.round(pos.current_price * 100)}c` : "--"}
+                  {isEnriched(pos) && pos.current_price > 0
+                    ? `${Math.round(pos.current_price * 100)}c`
+                    : "--"}
                 </TableCell>
                 <TableCell className="text-[11px] text-right py-2 font-mono tabular-nums px-4 whitespace-nowrap">
                   {isEnriched(pos) ? (
