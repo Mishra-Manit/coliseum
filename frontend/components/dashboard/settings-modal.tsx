@@ -9,6 +9,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { useConfig } from "@/hooks/use-api";
+import type { ColiseumConfig } from "@/lib/types";
 import { Skeleton } from "@/components/ui/skeleton";
 
 type SettingRow = {
@@ -35,11 +36,11 @@ function formatSeconds(seconds: number): string {
   return s > 0 ? `${m}m ${s}s` : `${m}m`;
 }
 
-function buildSections(config: Record<string, unknown>): AgentSection[] {
-  const daemon = (config.daemon ?? {}) as Record<string, unknown>;
-  const analyst = (config.analyst ?? {}) as Record<string, unknown>;
-  const execution = (config.execution ?? {}) as Record<string, unknown>;
-  const guardian = (config.guardian ?? {}) as Record<string, unknown>;
+function buildSections(config: ColiseumConfig): AgentSection[] {
+  const daemon = config.daemon ?? {};
+  const analyst = config.analyst ?? {};
+  const execution = config.execution ?? {};
+  const guardian = config.guardian ?? {};
 
   return [
     {
@@ -110,10 +111,10 @@ function buildSections(config: Record<string, unknown>): AgentSection[] {
       agent: "GUARDIAN",
       rows: [
         {
-          label: "Max hold days",
+          label: "Stop-loss threshold",
           value:
-            typeof guardian.max_hold_days === "number"
-              ? `${guardian.max_hold_days}d`
+            typeof guardian.stop_loss_price === "number"
+              ? `${Math.round(guardian.stop_loss_price * 100)}¢`
               : "—",
         },
       ],
@@ -170,7 +171,7 @@ export function SettingsModal() {
 
   const sections =
     config && !isLoading
-      ? buildSections(config as unknown as Record<string, unknown>)
+      ? buildSections(config)
       : [];
 
   return (
