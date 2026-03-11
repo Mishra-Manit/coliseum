@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { BarChart2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -70,7 +71,7 @@ export function DashboardNavbar() {
           dimmed={openCount === 0}
         />
         {daemon?.available && (
-          <StatPill label="UP" value={formatUptime(daemon.uptime_seconds)} />
+          <UptimePill serverSeconds={daemon.uptime_seconds} />
         )}
         {daemon?.available && (
           <StatPill label="CYCLES" value={String(daemon.cycles_completed)} />
@@ -123,6 +124,21 @@ export function DashboardNavbar() {
       </div>
     </nav>
   );
+}
+
+function UptimePill({ serverSeconds }: { serverSeconds: number }) {
+  const [seconds, setSeconds] = useState(serverSeconds);
+
+  useEffect(() => {
+    setSeconds(serverSeconds);
+  }, [serverSeconds]);
+
+  useEffect(() => {
+    const id = setInterval(() => setSeconds((s) => s + 1), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  return <StatPill label="UP" value={formatUptime(seconds)} />;
 }
 
 function TzSelector({
