@@ -1,5 +1,5 @@
 project_root=/Users/manitmishra/Desktop/Coliseum
-branch=feat/live-position-updates
+branch=fix/analyst-console-logging
 base_branch=main
-worktree_path=/Users/manitmishra/Desktop/worktrees/Coliseum-feat-live-position-updates
-task=live position updates via SSE — backend SSE endpoint with in-memory Kalshi price cache, frontend EventSource hook with reconnect, positions table Now/P&L columns
+worktree_path=/Users/manitmishra/Desktop/worktrees/Coliseum-fix-analyst-console-logging
+task=Add logger.info calls to analyst pipeline so analyst progress is visible in terminal console output
