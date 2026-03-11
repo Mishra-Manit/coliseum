@@ -1,8 +1,8 @@
-last_updated: '2026-03-09T22:10:07.374827+00:00'
+last_updated: '2026-03-10T23:21:13.641424+00:00'
 portfolio:
-  total_value: 23.14
-  cash_balance: 4.24
-  positions_value: 18.9
+  total_value: 22.939999999999998
+  cash_balance: 9.24
+  positions_value: 13.7
 open_positions:
 - id: pos_2fda073c
   market_ticker: KXCPICORE-26FEB-T0.1
@@ -23,15 +23,8 @@ open_positions:
   side: 'YES'
   contracts: 5
   average_entry: 0.9399999999999998
-  current_price: 0.93
+  current_price: 0.88
   opportunity_id: opp_00d31eba
-- id: pos_73e84b1e
-  market_ticker: KXHIGHMIA-26MAR09-B84.5
-  side: 'YES'
-  contracts: 5
-  average_entry: 0.93
-  current_price: 0.99
-  opportunity_id: opp_fb952a2b
 closed_positions:
 - market_ticker: KXNASCARRACE-ONLGF1AS26-ADAN
   side: 'NO'
@@ -205,6 +198,30 @@ closed_positions:
     cluster of additional negative reviews could still move the displayed score down
     to 92 or below before close; Sources -- https://www.rottentomatoes.com/m/hoppers
     ; https://editorial.rottentomatoes.com/article/hoppers-first-reviews-john-hamms-latest-comedy-hops-to-it/'
+- market_ticker: KXHIGHMIA-26MAR09-B84.5
+  side: 'YES'
+  contracts: 5
+  entry_price: 0.93
+  exit_price: 1.0
+  pnl: 0.35
+  opportunity_id: opp_fb952a2b
+  closed_at: '2026-03-10T14:32:02.245118Z'
+  entry_rationale: '1) Outcome Status -- STRONGLY FAVORED: Miami International Airport
+    has already reached 84°F at 1:53 pm and 2:53 pm EDT on March 9, 2026, and the
+    official NWS digital forecast keeps the rest of the day at 84°F or lower, making
+    the 84-85°F band the most likely settled outcome. 2) Supporting Evidence -- NOAA/NWS
+    observation history shows 84°F at both 13:53 and 14:53 EDT, while the hourly forecast
+    peaks at 84°F before easing this evening. 3) Resolution Source -- Kalshi states
+    weather markets settle from the final NWS Daily Climate Report for the relevant
+    station. 4) Risk Checklist -- clear resolution source identified, no formal appeal
+    path, strong position from the observed high already inside the band, and same-day
+    official corroboration all pass. 5) Risk Level -- LOW; this was the single lowest-risk
+    available candidate and is selected as FORCED_FALLBACK because no Tier 4+ market
+    in the prefetched universe was near-decided. 6) Remaining Risks -- A late 85°F
+    reading still wins YES, but an unexpected 86°F+ spike would flip the market; otherwise
+    none identified. 7) Sources -- https://forecast.weather.gov/data/obhistory/KMIA.html
+    ; https://forecast.weather.gov/MapClick.php?FcstType=digital&lat=25.7947&lg=english&lon=-80.3371
+    ; https://help.kalshi.com/markets/popular-markets/weather-markets'
 seen_tickers:
 - KXWOHOCKEY-MEN26CGOLD-USA
 - KXNCAABBGAME-26FEB201400LSUIND-LSU

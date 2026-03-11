@@ -7,6 +7,7 @@
 - BLS macro-statistic markets priced 95–96% YES require an explicit government-shutdown and release-timing check because a missed or postponed publication can still cause a total loss despite a correct underlying outcome.
 - WTI daily-settlement threshold markets priced around 96% YES are reliable when the contract resolves from the exchange’s official published settlement and the remaining risk is only pre-settlement price movement.
 - Rotten Tomatoes threshold markets are favorable YES buys when the live score is at least 2 points above the strike, the review count is already large, and the remaining risk is only late-review drift before the fixed snapshot time.
+- Same-day weather band YES entries are favorable when the official station has already recorded a temperature inside the target band and the NWS digital forecast keeps the rest of the climate day at or below the band ceiling.
 
 ## Execution Patterns
 - Orders placed within 2h of close fill faster
