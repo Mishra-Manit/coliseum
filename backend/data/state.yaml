@@ -1,30 +1,9 @@
-last_updated: '2026-03-10T23:21:13.641424+00:00'
+last_updated: '2026-03-11T21:07:23.779781+00:00'
 portfolio:
-  total_value: 22.939999999999998
-  cash_balance: 9.24
-  positions_value: 13.7
-open_positions:
-- id: pos_2fda073c
-  market_ticker: KXCPICORE-26FEB-T0.1
-  side: 'YES'
-  contracts: 5
-  average_entry: 0.93
-  current_price: 0.9
-  opportunity_id: opp_990aa3a9
-- id: pos_b4a14fc1
-  market_ticker: KXCPI-26FEB-T0.0
-  side: 'YES'
-  contracts: 5
-  average_entry: 0.96
-  current_price: 0.96
-  opportunity_id: opp_87e066c7
-- id: pos_eb1952a8
-  market_ticker: KXCPI-26FEB-T0.1
-  side: 'YES'
-  contracts: 5
-  average_entry: 0.9399999999999998
-  current_price: 0.88
-  opportunity_id: opp_00d31eba
+  total_value: 24.24
+  cash_balance: 24.24
+  positions_value: 0.0
+open_positions: []
 closed_positions:
 - market_ticker: KXNASCARRACE-ONLGF1AS26-ADAN
   side: 'NO'
@@ -222,6 +201,81 @@ closed_positions:
     none identified. 7) Sources -- https://forecast.weather.gov/data/obhistory/KMIA.html
     ; https://forecast.weather.gov/MapClick.php?FcstType=digital&lat=25.7947&lg=english&lon=-80.3371
     ; https://help.kalshi.com/markets/popular-markets/weather-markets'
+- market_ticker: KXCPICORE-26FEB-T0.1
+  side: 'YES'
+  contracts: 5
+  entry_price: 0.93
+  exit_price: 1.0
+  pnl: 0.35
+  opportunity_id: opp_990aa3a9
+  closed_at: '2026-03-11T15:14:29.650628Z'
+  entry_rationale: 'STRONGLY FAVORED: February 2026 core CPI above 0.1% is supported
+    by multiple fresh previews, with FXStreet/Wells Fargo estimating core CPI at 0.19%
+    m/m and CEPR estimating about 0.3% m/m, both above this market’s threshold. Supporting
+    Evidence: the strike is only 0.1%, while recent previews place the expected print
+    roughly 0.09-0.20 percentage points higher, and the BLS schedule lists the official
+    February 2026 CPI release for Wednesday, March 11, 2026 at 8:30 a.m. ET. Resolution
+    Source: the U.S. Bureau of Labor Statistics Consumer Price Index release is the
+    contract-defining authority. Risk Checklist: clear resolution source identified,
+    no formal appeals or review path, recent corroboration within the last 72 hours,
+    and stable inputs because the market resolves from a single scheduled government
+    publication. Risk Level: LOW; after excluding Tier 1 crypto and Tier 2 speaking
+    markets and ranking the remainder by reversal risk, this was the single lowest-risk
+    available candidate. Remaining Risks: a downside surprise to 0.1% or lower or
+    an unexpected publication delay, but no formal challenge path is identified. Sources:
+    https://www.bls.gov/cpi/ ; https://www.bls.gov/schedule/2026/03_sched_list.htm
+    ; https://www.fxstreet.com/analysis/february-cpi-preview-disinflation-progress-looks-to-be-stalling-again-202603061528/
+    ; https://cepr.net/publications/february-2026-cpi-preview/'
+- market_ticker: KXCPI-26FEB-T0.0
+  side: 'YES'
+  contracts: 5
+  entry_price: 0.96
+  exit_price: 1.0
+  pnl: 0.2
+  opportunity_id: opp_87e066c7
+  closed_at: '2026-03-11T15:14:29.685149Z'
+  entry_rationale: 'STRONGLY FAVORED: BUY_YES on "Will CPI rise more than 0.0% in
+    February 2026?" because the February CPI release is scheduled for Wednesday, March
+    11, 2026 at 8:30 a.m. ET and recent economist previews point to a positive monthly
+    print, with Bloomberg consensus at 0.2% m/m and Wells Fargo at 0.21% m/m, leaving
+    a 0.0% or negative print as the residual tail outcome. Supporting Evidence: this
+    market only requires any positive monthly increase after rounding, and both the
+    consensus and Wells Fargo estimate sit about 0.2 percentage points above the strike;
+    Resolution Source: the U.S. Bureau of Labor Statistics scheduled CPI release is
+    the authoritative publication that determines settlement. Risk Checklist: passed
+    clear resolution source, no formal appeals or official challenge path, recent
+    corroboration within 72 hours, and stable inputs because February price data are
+    already fixed before publication; Risk Level: LOW, and this was selected as the
+    single lowest-risk available candidate after excluding Tier 1 crypto and Tier
+    2 speaking markets and ranking the remaining eligible markets by reversal risk.
+    Remaining Risks: a surprise 0.0% or negative rounded headline print or an unexpected
+    publication delay, but no formal challenge process is identified; Sources: https://www.bls.gov/schedule/2026/03_sched.htm
+    https://www.bls.gov/schedule/2026/ https://externalcontent.blob.core.windows.net/pdfs/WellsFargoCommentary20260306.pdf
+    https://externalcontent.blob.core.windows.net/pdfs/pdfs/WellsFargo06032026.pdf'
+- market_ticker: KXCPI-26FEB-T0.1
+  side: 'YES'
+  contracts: 5
+  entry_price: 0.9399999999999998
+  exit_price: 1.0
+  pnl: 0.3
+  opportunity_id: opp_00d31eba
+  closed_at: '2026-03-11T15:14:29.722215Z'
+  entry_rationale: 'Outcome Status -- STRONGLY FAVORED: the Cleveland Fed Inflation
+    Nowcasting page updated 03/09/2026 shows February 2026 headline CPI at 0.25% month-over-month,
+    so this contract’s >0.1% threshold currently has a 0.15-point cushion. Supporting
+    Evidence -- the forecasted 0.25% print is above the strike, and the U.S. Bureau
+    of Labor Statistics lists the official February CPI release for Wednesday, March
+    11, 2026 at 8:30 a.m. ET, giving this market a fixed near-term resolution event.
+    Resolution Source -- the official determining authority is the U.S. Bureau of
+    Labor Statistics CPI release. Risk Checklist -- passed required items (clear resolution
+    source; no formal appeals or review path identified for a routine CPI publication)
+    and optional items (strong position versus threshold; recent corroboration from
+    a same-day nowcast update). Risk Level -- LOW; after excluding Tier 1 crypto and
+    Tier 2 speaking markets and deprioritizing Tier 3 weather, this was the single
+    lowest-risk available candidate in the provided 31-market universe. Remaining
+    Risks -- a downside CPI surprise to 0.1% or lower or an unexpected publication
+    delay, but no formal challenge risk is identified. Sources -- https://www.clevelandfed.org/indicators-and-data/inflation-nowcasting
+    ; https://www.bls.gov/schedule/news_release/cpi.htm'
 seen_tickers:
 - KXWOHOCKEY-MEN26CGOLD-USA
 - KXNCAABBGAME-26FEB201400LSUIND-LSU
@@ -262,3 +316,7 @@ seen_tickers:
 - KXHIGHMIA-26MAR09-B84.5
 - KXCPI-26FEB-T0.1
 - KXCPICORE-26FEB-T0.1
+- KXPCECORE-26JAN-T0.3
+- KXHIGHTATL-26MAR11-B86.5
+- KXAPRPOTUS-26MAR13-43.8
+- KXALBUMSALES-KIS-300000
