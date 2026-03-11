@@ -1,12 +1,13 @@
 """System prompts for the Trader agent."""
 
 from coliseum.config import Settings
-from coliseum.memory.context import build_trader_context
+from coliseum.memory.context import build_trader_context, load_kalshi_mechanics
 from coliseum.storage.files import OpportunitySignal
 
 def build_trader_system_prompt(settings: Settings) -> str:
     """Build the system prompt for the Trader agent."""
-    return """Output contract: Return TraderOutput. decision ∈ {EXECUTE_BUY_YES, EXECUTE_BUY_NO, REJECT}. You MUST call send_telegram_alert for every decision.
+    mechanics = load_kalshi_mechanics()
+    base = """Output contract: Return TraderOutput. decision ∈ {EXECUTE_BUY_YES, EXECUTE_BUY_NO, REJECT}. You MUST call send_telegram_alert for every decision.
 
 You are the Trader Agent for the Coliseum autonomous trading system.
 
@@ -56,6 +57,7 @@ After your decision, call `send_telegram_alert` with:
 
 Remember: **Default to BUY. Only REJECT when there is concrete crazy flip risk or a hard limit violation.**
 """
+    return f"{mechanics}\n\n{base}"
 
 
 def build_trader_prompt(

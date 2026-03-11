@@ -11,6 +11,7 @@ from pydantic_ai.models.openai import OpenAIResponsesModelSettings
 from coliseum.agents.agent_factory import AgentFactory
 from coliseum.agents.analyst.models import AnalystDependencies, RecommenderOutput
 from coliseum.agents.analyst.prompts import RECOMMENDER_PROMPT
+from coliseum.memory.context import load_kalshi_mechanics
 from coliseum.agents.analyst.shared import (
     format_opportunity_header,
     load_opportunity,
@@ -29,11 +30,13 @@ logger = logging.getLogger(__name__)
 
 
 def _create_agent() -> Agent[AnalystDependencies, RecommenderOutput]:
+    mechanics = load_kalshi_mechanics()
+    system_prompt = f"{mechanics}\n\n{RECOMMENDER_PROMPT}"
     return Agent(
         model=get_model_string(OpenAIModel.GPT_5_4),
         output_type=RecommenderOutput,
         deps_type=AnalystDependencies,
-        system_prompt=RECOMMENDER_PROMPT,
+        system_prompt=system_prompt,
         model_settings=OpenAIResponsesModelSettings(openai_reasoning_effort="low"),
     )
 

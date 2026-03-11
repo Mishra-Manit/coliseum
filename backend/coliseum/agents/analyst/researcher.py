@@ -12,6 +12,7 @@ from coliseum.agents.agent_factory import AgentFactory
 from coliseum.agents.analyst.market_type_context import get_market_type_context
 from coliseum.agents.analyst.models import AnalystDependencies, ResearcherOutput
 from coliseum.agents.analyst.prompts import RESEARCHER_PROMPT
+from coliseum.memory.context import load_kalshi_mechanics
 from coliseum.agents.analyst.shared import (
     format_opportunity_header,
     load_opportunity,
@@ -25,11 +26,13 @@ logger = logging.getLogger(__name__)
 
 
 def _create_agent() -> Agent[AnalystDependencies, ResearcherOutput]:
+    mechanics = load_kalshi_mechanics()
+    system_prompt = f"{mechanics}\n\n{RESEARCHER_PROMPT}"
     return Agent(
         model=get_model_string(OpenAIModel.GPT_5_4),
         output_type=ResearcherOutput,
         deps_type=AnalystDependencies,
-        system_prompt=RESEARCHER_PROMPT,
+        system_prompt=system_prompt,
         builtin_tools=[WebSearchTool()],
         model_settings=OpenAIResponsesModelSettings(openai_reasoning_effort="medium"),
     )

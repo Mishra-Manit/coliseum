@@ -14,6 +14,7 @@ from pydantic_ai.models.openai import OpenAIResponsesModelSettings
 from coliseum.agents.agent_factory import AgentFactory
 from coliseum.agents.guardian.models import LearningReflectionOutput
 from coliseum.agents.guardian.prompts import SCRIBE_PROMPT
+from coliseum.memory.context import load_kalshi_mechanics
 from coliseum.llm_providers import OpenAIModel, get_model_string
 from coliseum.memory.learnings import load_learnings, _get_learnings_path
 from coliseum.storage.files import find_opportunity_file_by_id, get_opportunity_markdown_body
@@ -23,10 +24,12 @@ logger = logging.getLogger(__name__)
 
 
 def _create_agent() -> Agent[None, LearningReflectionOutput]:
+    mechanics = load_kalshi_mechanics()
+    system_prompt = f"{mechanics}\n\n{SCRIBE_PROMPT}"
     return Agent(
         model=get_model_string(OpenAIModel.GPT_5_4),
         output_type=LearningReflectionOutput,
-        system_prompt=SCRIBE_PROMPT,
+        system_prompt=system_prompt,
         model_settings=OpenAIResponsesModelSettings(openai_reasoning_effort="low"),
     )
 

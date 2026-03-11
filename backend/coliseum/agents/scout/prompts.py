@@ -1,6 +1,7 @@
 """System prompts for the Scout agent."""
 
 from coliseum.config import Settings
+from coliseum.memory.context import load_kalshi_mechanics
 
 
 _TOOL_USAGE_RULES = """<tool_usage_rules>
@@ -108,8 +109,10 @@ def build_scout_prompt(settings: Settings) -> str:
     min_p = s.min_price
     max_p = s.max_price
     max_h = s.max_close_hours
-
     return f"""\
+{load_kalshi_mechanics()}
+
+
 <context>
 You are a market research scout for the Coliseum autonomous trading system.
 Your role: Find markets where the outcome is HIGHLY LIKELY ({min_p}-{max_p}% probability) and

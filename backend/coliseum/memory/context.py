@@ -4,9 +4,15 @@ import logging
 
 from coliseum.memory.decisions import DecisionEntry, load_recent_decisions
 from coliseum.memory.learnings import load_learnings
-from coliseum.storage.state import PortfolioState, load_state
+from coliseum.storage.state import PortfolioState, get_data_dir, load_state
 
 logger = logging.getLogger(__name__)
+
+
+def load_kalshi_mechanics() -> str:
+    """Load the Kalshi platform mechanics reference document."""
+    path = get_data_dir() / "memory" / "kalshi_mechanics.md"
+    return path.read_text(encoding="utf-8")
 
 
 def _format_decisions(decisions: list[DecisionEntry]) -> str:

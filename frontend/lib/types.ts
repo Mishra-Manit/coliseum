@@ -73,6 +73,7 @@ export interface ColiseumConfig {
   analyst: Record<string, unknown>;
   guardian: Record<string, unknown>;
   execution: Record<string, unknown>;
+  daemon: Record<string, unknown>;
   telegram: Record<string, unknown>;
 }
 
