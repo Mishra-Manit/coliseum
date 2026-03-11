@@ -36,19 +36,25 @@ async def run_analyst(
     1. Researcher conducts research and appends to opportunity file
     2. Recommender evaluates research and appends recommendation
     """
+    logger.info("Analyst starting: %s", opportunity_id)
     with logfire.span("analyst pipeline", opportunity_id=opportunity_id):
         with logfire.span("researcher", opportunity_id=opportunity_id):
+            logger.info("Researcher starting")
             await run_researcher(
                 opportunity_id=opportunity_id,
                 settings=settings,
             )
             logfire.info("Research complete")
+            logger.info("Researcher complete")
 
         with logfire.span("recommender", opportunity_id=opportunity_id):
+            logger.info("Recommender starting")
             _, opportunity = await run_recommender(
                 opportunity_id=opportunity_id,
                 settings=settings,
             )
             logfire.info("Recommendation complete")
+            logger.info("Recommender complete: status=%s", opportunity.status)
 
+    logger.info("Analyst complete: %s status=%s", opportunity_id, opportunity.status)
     return opportunity

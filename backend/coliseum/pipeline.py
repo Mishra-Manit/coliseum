@@ -89,15 +89,18 @@ async def run_pipeline(settings: Settings) -> JournalCycleSummary:
             with logfire.span("opportunity {ticker}", ticker=opp.market_ticker, opportunity_id=opp.id, index=i, total=total):
                 with logfire.span("analyst", opportunity_id=opp.id):
                     try:
+                        logger.info("Analyst starting for %s (%d/%d)", opp.market_ticker, i, total)
                         analyzed = await run_analyst(
                             opportunity_id=opp.id,
                             settings=settings,
                         )
                         analyst_summaries.append(f"{opp.market_ticker}: status={analyzed.status}")
                         logfire.info("Analyst complete", status=analyzed.status)
+                        logger.info("Analyst complete for %s: status=%s", opp.market_ticker, analyzed.status)
                     except Exception as e:
                         errors.append(f"Analyst({opp.market_ticker}): {e}")
                         logfire.error("Analyst failed", error=str(e))
+                        logger.error("Analyst failed for %s: %s", opp.market_ticker, e)
                         continue
 
                 with logfire.span("trader", opportunity_id=opp.id):
