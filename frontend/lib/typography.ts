@@ -8,8 +8,8 @@
  * are intentional hierarchy markers and are not governed by this enum.
  */
 export const FontSize = {
-  small: "text-[9px]",
-  medium: "text-[11px]",
+  small: "text-[10px]",
+  medium: "text-[12px]",
 } as const;
 
 export type FontSizeKey = keyof typeof FontSize;

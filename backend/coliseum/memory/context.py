@@ -22,7 +22,7 @@ def _format_decisions(decisions: list[DecisionEntry]) -> str:
     for d in decisions:
         price_str = f"@ {d.price * 100:.0f}¢" if d.price else ""
         status_str = f"({d.execution_status})" if d.execution_status else ""
-        reason_str = f' — "{d.reasoning[:80]}"' if d.reasoning else ""
+        reason_str = f' — "{d.reasoning[:400]}"' if d.reasoning else ""
         lines.append(f"  - {d.action} {d.ticker} {price_str} {status_str}{reason_str}")
     return "\n".join(lines)
 
