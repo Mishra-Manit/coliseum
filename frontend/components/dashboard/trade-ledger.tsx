@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useLedger } from "@/hooks/use-api";
+import { BgTint, BorderTint } from "@/lib/styles";
 import type { LedgerEntry } from "@/lib/types";
 
 function groupByDate(entries: LedgerEntry[]): [string, LedgerEntry[]][] {
@@ -73,10 +74,10 @@ export function TradeLedger({ onSelectOpportunity }: TradeLedgerProps) {
                 variant="outline"
                 className={`text-[10px] font-mono border ${
                   winRate >= 60
-                    ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
+                    ? `${BorderTint.yesBadge} ${BgTint.winBg} text-emerald-400`
                     : winRate >= 40
-                    ? "border-amber-500/30 bg-amber-500/10 text-amber-400"
-                    : "border-red-500/30 bg-red-500/10 text-red-400"
+                    ? `${BorderTint.amberBadge} ${BgTint.amberRateBg} text-amber-400`
+                    : `${BorderTint.noBadge} ${BgTint.lossBg} text-red-400`
                 }`}
               >
                 {winRate}% win
@@ -151,7 +152,7 @@ function LedgerRow({
       disabled={!isClickable}
       className={`w-full text-left flex items-center gap-2.5 px-2.5 py-2 rounded-lg border transition-all duration-150 ${
         isClickable
-          ? "border-transparent hover:border-amber-600/20 hover:bg-amber-500/5 cursor-pointer"
+          ? `border-transparent hover:${BorderTint.amberSelected} hover:${BgTint.amberHover} cursor-pointer`
           : "border-transparent cursor-default"
       }`}
     >
@@ -159,10 +160,10 @@ function LedgerRow({
       <div
         className={`shrink-0 p-1.5 rounded-md ${
           isBuy
-            ? "bg-sky-500/10 text-sky-400"
+            ? `${BgTint.skyIconBg} text-sky-400`
             : (entry.pnl ?? 0) >= 0
-            ? "bg-emerald-500/10 text-emerald-400"
-            : "bg-red-500/10 text-red-400"
+            ? `${BgTint.winBg} text-emerald-400`
+            : `${BgTint.lossBg} text-red-400`
         }`}
       >
         {isBuy ? (

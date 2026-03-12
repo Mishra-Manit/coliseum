@@ -38,6 +38,16 @@ export const O80 = {
   violetStatus:   "text-violet-400/80",
 } as const;
 
+/** /90 — hover/active states, high-contrast foreground */
+export const O90 = {
+  foreground: "text-foreground/90",
+} as const;
+
+/** /75 — intermediate opacity: unselected opportunity titles */
+export const O75 = {
+  foreground: "text-foreground/75",
+} as const;
+
 /** /60 — tertiary elements, inactive nav, chart annotations */
 export const O60 = {
   mutedText:    "text-muted-foreground/60",

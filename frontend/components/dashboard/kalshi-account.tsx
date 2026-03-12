@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { usePortfolioState } from "@/hooks/use-api";
+import { BgTint, BorderTint } from "@/lib/styles";
 
 interface KalshiAccountProps {
   onSelectOpportunity?: (id: string) => void;
@@ -80,7 +81,7 @@ export function KalshiAccount({ onSelectOpportunity }: KalshiAccountProps) {
                       }
                       className={`border-border transition-colors ${
                         isClickable
-                          ? "cursor-pointer hover:bg-amber-500/5 hover:border-amber-600/20"
+                          ? `cursor-pointer hover:${BgTint.amberHover} hover:${BorderTint.amberSelected}`
                           : "hover:bg-secondary/40"
                       }`}
                     >
@@ -97,9 +98,9 @@ export function KalshiAccount({ onSelectOpportunity }: KalshiAccountProps) {
                           variant="outline"
                           className={`text-[10px] px-1.5 h-[18px] font-mono font-semibold ${
                             pos.side === "YES"
-                              ? "border-emerald-500/30 text-emerald-400 bg-emerald-500/5"
+                              ? `${BorderTint.yesBadge} text-emerald-400 ${BgTint.emeraldBox}`
                               : pos.side === "NO"
-                              ? "border-red-500/30 text-red-400 bg-red-500/5"
+                              ? `${BorderTint.noBadge} text-red-400 ${BgTint.redBox}`
                               : "border-border text-muted-foreground"
                           }`}
                         >
