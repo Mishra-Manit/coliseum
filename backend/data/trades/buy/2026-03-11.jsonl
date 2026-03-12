@@ -1,2 +1,3 @@
 {"id":"trade_e73b2b2f","position_id":"pos_8521b47e","opportunity_id":"opp_1460bf58","market_ticker":"KXHIGHPHIL-26MAR12-T73","side":"NO","action":"BUY","contracts":2,"price":0.96,"total":1.92,"paper":false,"executed_at":"2026-03-11T21:53:31.588059Z"}
 {"id":"trade_7e270944","position_id":"pos_85c309ff","opportunity_id":"opp_36260a55","market_ticker":"KXINX-26MAR13H1600-T6475","side":"NO","action":"BUY","contracts":2,"price":0.94,"total":1.88,"paper":false,"executed_at":"2026-03-11T22:37:13.235874Z"}
+{"id":"trade_df8de3f5","position_id":"pos_bd09b16b","opportunity_id":"opp_b4c06bad","market_ticker":"KXLOWTCHI-26MAR11-B28.5","side":"NO","action":"BUY","contracts":2,"price":0.95,"total":1.9,"paper":false,"executed_at":"2026-03-11T22:58:09.290232Z"}

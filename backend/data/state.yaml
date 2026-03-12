@@ -1,9 +1,16 @@
-last_updated: '2026-03-11T22:37:13.599950+00:00'
+last_updated: '2026-03-11T22:58:09.728659+00:00'
 portfolio:
-  total_value: 24.14
-  cash_balance: 20.42
-  positions_value: 3.7199999999999998
+  total_value: 24.090000000000003
+  cash_balance: 18.51
+  positions_value: 5.58
 open_positions:
+- id: pos_b5527d5e
+  market_ticker: KXLOWTCHI-26MAR11-B28.5
+  side: 'NO'
+  contracts: 2
+  average_entry: 0.95
+  current_price: 0.94
+  opportunity_id: opp_b4c06bad
 - id: pos_1a706486
   market_ticker: KXINX-26MAR13H1600-T6475
   side: 'NO'
@@ -16,7 +23,7 @@ open_positions:
   side: 'NO'
   contracts: 2
   average_entry: 0.96
-  current_price: 0.94
+  current_price: 0.93
   opportunity_id: opp_1460bf58
 closed_positions:
 - market_ticker: KXNASCARRACE-ONLGF1AS26-ADAN
@@ -333,3 +340,5 @@ seen_tickers:
 - KXALBUMSALES-KIS-300000
 - KXHIGHPHIL-26MAR12-T73
 - KXINX-26MAR13H1600-T6475
+- KXWTIW-26MAR13-B90.5
+- KXLOWTCHI-26MAR11-B28.5
