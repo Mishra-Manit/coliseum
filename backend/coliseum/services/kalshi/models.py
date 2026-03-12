@@ -71,15 +71,15 @@ class Market(BaseModel):
 
 class Balance(BaseModel):
     balance: int = 0
-    payout: int = 0
+    portfolio_value: int = 0
 
     @property
     def balance_usd(self) -> float:
         return self.balance / 100
 
     @property
-    def payout_usd(self) -> float:
-        return self.payout / 100
+    def portfolio_value_usd(self) -> float:
+        return self.portfolio_value / 100
 
 
 class Position(BaseModel):

@@ -268,7 +268,7 @@ class KalshiClient:
         data = await self._request("GET", "portfolio/balance", auth_required=True)
         return Balance(
             balance=data.get("balance", 0),
-            payout=data.get("payout", 0),
+            portfolio_value=data.get("portfolio_value", 0),
         )
 
     async def get_positions(
