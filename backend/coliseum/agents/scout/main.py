@@ -1,5 +1,6 @@
 """Scout Agent: Market discovery and opportunity filtering."""
 
+import asyncio
 import json
 import logging
 
@@ -100,6 +101,17 @@ async def _prefetch_markets_for_scan(
         markets = filtered_markets
         logger.info("Scout prefetch filtered to %d markets with spread <= %d cents", len(markets), max_spread)
 
+    # Fetch event titles in parallel for all unique event tickers
+    unique_event_tickers = list({m.event_ticker for m in markets if m.event_ticker})
+    event_results = await asyncio.gather(
+        *[client.get_event(et) for et in unique_event_tickers],
+        return_exceptions=True,
+    )
+    event_title_map: dict[str, str] = {
+        et: (res.get("title") or "" if isinstance(res, dict) else "")
+        for et, res in zip(unique_event_tickers, event_results)
+    }
+
     market_descriptions = [
         (
             f"{m.ticker} - {m.title} | {m.subtitle}"
@@ -129,6 +141,7 @@ async def _prefetch_markets_for_scan(
             "volume": m.volume,
             "open_interest": m.open_interest,
             "close_time": m.close_time.isoformat() if m.close_time else None,
+            "event_title": event_title_map.get(m.event_ticker, ""),
         }
         for m in markets
     ]

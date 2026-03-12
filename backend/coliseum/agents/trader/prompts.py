@@ -68,13 +68,14 @@ def build_trader_prompt(
     """Construct trading decision prompt."""
     memory_context = build_trader_context()
 
+    event_title_line = f"**Event**: {opportunity.event_title}\n" if opportunity.event_title else ""
     return f"""You are evaluating a trade for execution.
 
 ## Opportunity Details
 
 **ID**: {opportunity.id}
 **Event Ticker**: {opportunity.event_ticker}
-**Market**: {opportunity.market_ticker}
+{event_title_line}**Market**: {opportunity.market_ticker}
 **Title**: {opportunity.title}
 **Outcome**: {opportunity.subtitle or "N/A"}
 **YES Price**: {opportunity.yes_price:.2%} ({opportunity.yes_price * 100:.1f}¢)

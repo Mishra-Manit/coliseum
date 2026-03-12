@@ -209,6 +209,11 @@ class KalshiClient:
         raw_markets = await self._paginate("markets", params, limit, "markets")
         return [Market.from_api(m) for m in raw_markets]
 
+    async def get_event(self, event_ticker: str) -> dict[str, Any]:
+        """Fetch event metadata for a given event ticker."""
+        data = await self._request("GET", f"events/{event_ticker}")
+        return data.get("event", {})
+
     async def get_markets_for_event(self, event_ticker: str) -> list[Market]:
         data = await self._request("GET", f"events/{event_ticker}")
         raw_markets = data.get("markets", [])

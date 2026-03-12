@@ -26,6 +26,10 @@ class OpportunitySignal(BaseModel):
     event_ticker: str = Field(
         description="Kalshi event ticker from market data (e.g., 'KXNFL-2024')"
     )
+    event_title: str = Field(
+        default="",
+        description="Human-readable event name from Kalshi events API (e.g., 'Lowest temperature in Chicago on Mar 11, 2026?')"
+    )
     market_ticker: str = Field(
         description="Kalshi market ticker from market data 'ticker' field (e.g., 'KXNFL-2024-KC-WIN')"
     )
@@ -176,10 +180,11 @@ def save_opportunity(opportunity: OpportunitySignal, paper: bool = False) -> Pat
         mode="json", exclude={"title", "subtitle", "rationale"}
     )
 
+    event_line = f"**Event**: {opportunity.event_title}\n" if opportunity.event_title else ""
     subtitle_section = f"\n**Outcome**: {opportunity.subtitle}\n" if opportunity.subtitle else ""
 
     body = f"""# {opportunity.title}
-{subtitle_section}
+{event_line}{subtitle_section}
 ## Scout Assessment
 
 **Rationale**: {opportunity.rationale}

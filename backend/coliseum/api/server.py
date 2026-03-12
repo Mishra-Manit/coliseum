@@ -192,6 +192,7 @@ async def list_opportunities():
                 "close_time": str(fm.get("close_time", "")),
                 "discovered_at": str(fm.get("discovered_at", "")),
                 "status": fm.get("status", "pending"),
+                "event_title": fm.get("event_title", ""),
                 "action": fm.get("action"),
                 "date_folder": opp["date_folder"],
             }
@@ -215,6 +216,7 @@ async def get_opportunity(opportunity_id: str):
         "summary": {
             "id": opp.id,
             "event_ticker": opp.event_ticker,
+            "event_title": opp.event_title,
             "market_ticker": opp.market_ticker,
             "title": opp.title,
             "subtitle": opp.subtitle,
