@@ -2,9 +2,8 @@
 
 ## Spec Version
 
-- Current version: `1.4.0`
-- Versioning scheme: `MAJOR.MINOR.PATCH` (semantic versioning)
-- Keep `CLAUDE.md` and `AGENTS.md` on the exact same version at all times
+- Current version: `1.4.1`
+- Versioning scheme: `MAJOR.MINOR.PATCH` (semantic versioning)`
 
 > **CRITICAL**: Always activate the venv before running backend code:
 > ```bash

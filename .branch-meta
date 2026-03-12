@@ -1,5 +1,0 @@
-project_root=/Users/manitmishra/Desktop/Coliseum
-branch=fix/analyst-console-logging
-base_branch=main
-worktree_path=/Users/manitmishra/Desktop/worktrees/Coliseum-fix-analyst-console-logging
-task=Add logger.info calls to analyst pipeline so analyst progress is visible in terminal console output
