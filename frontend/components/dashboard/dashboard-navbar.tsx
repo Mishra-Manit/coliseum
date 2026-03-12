@@ -5,7 +5,8 @@ import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { BarChart2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { useConfig, useDaemonStatus, usePortfolioState } from "@/hooks/use-api";
+import { useConfig, useDaemonStatus } from "@/hooks/use-api";
+import { usePortfolioStream } from "@/hooks/use-portfolio-stream";
 import { useTimezone, type Timezone } from "@/lib/timezone-context";
 import { SettingsModal } from "@/components/dashboard/settings-modal";
 import { FontSize } from "@/lib/typography";
@@ -21,7 +22,7 @@ function formatUptime(seconds: number): string {
 export function DashboardNavbar() {
   const { data: config } = useConfig();
   const { data: daemon } = useDaemonStatus();
-  const { data: state } = usePortfolioState();
+  const { data: stream } = usePortfolioStream();
   const { tz, setTz } = useTimezone();
   const pathname = usePathname();
 
@@ -31,9 +32,9 @@ export function DashboardNavbar() {
   const isOnline = daemon?.available ?? false;
   const isPaused = daemon?.paused ?? false;
 
-  const totalValue = state?.portfolio?.total_value ?? 0;
-  const cashBalance = state?.portfolio?.cash_balance ?? 0;
-  const openCount = state?.open_positions?.length ?? 0;
+  const totalValue = stream?.portfolio?.total_value ?? 0;
+  const cashBalance = stream?.portfolio?.cash_balance ?? 0;
+  const openCount = stream?.open_positions?.length ?? 0;
 
   return (
     <nav className="sticky top-0 z-50 h-11 border-b border-border bg-card/80 backdrop-blur-xl flex items-center px-5">
