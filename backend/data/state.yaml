@@ -1,23 +1,30 @@
-last_updated: '2026-03-12T16:20:50.121977+00:00'
+last_updated: '2026-03-12T21:11:42.196472+00:00'
 portfolio:
-  total_value: 23.89
-  cash_balance: 18.15
-  positions_value: 5.74
+  total_value: 7.76
+  cash_balance: 16.26
+  positions_value: 7.74
 open_positions:
-- id: pos_b2c9c95a
-  market_ticker: KXWTIW-26MAR13-B91.5
+- id: pos_d13f45d9
+  market_ticker: KXHIGHAUS-26MAR12-B69.5
   side: 'NO'
   contracts: 2
-  average_entry: 0.95
+  average_entry: 0.94
   current_price: 0.93
-  opportunity_id: opp_6342b134
+  opportunity_id: opp_f6370cfe
 - id: pos_73da3fa8
   market_ticker: KXHIGHAUS-26MAR12-B71.5
   side: 'NO'
   contracts: 2
   average_entry: 0.96
-  current_price: 0.95
+  current_price: 0.98
   opportunity_id: opp_147812bf
+- id: pos_b2c9c95a
+  market_ticker: KXWTIW-26MAR13-B91.5
+  side: 'NO'
+  contracts: 2
+  average_entry: 0.95
+  current_price: 0.97
+  opportunity_id: opp_6342b134
 - id: pos_26f34014
   market_ticker: KXHIGHPHIL-26MAR12-T73
   side: 'NO'
@@ -294,3 +301,4 @@ closed_positions:
 seen_tickers:
 - KXWTIW-26MAR13-B91.5
 - KXPCECORE-26JAN-T0.3
+- KXHIGHAUS-26MAR12-B69.5
