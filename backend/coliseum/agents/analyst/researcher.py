@@ -1,6 +1,7 @@
 """Researcher Agent: Deep research and synthesis without trading decisions."""
 
 import logging
+import re
 import time
 from datetime import datetime, timezone
 
@@ -46,6 +47,13 @@ def get_agent() -> Agent[AnalystDependencies, ResearcherOutput]:
     return _agent_factory.get_agent()
 
 
+def _strip_cite_tokens(text: str) -> str:
+    """Strip OpenAI Responses API citation tokens that leak when structured output is used."""
+    text = re.sub(r'citeturn\d+(?:search|view)\d+', '', text)
+    text = re.sub(r'fileciteturn\d+file\d+(?:turn\d+file\d+)*', '', text)
+    return text
+
+
 async def run_researcher(
     opportunity_id: str,
     settings: Settings,
@@ -63,6 +71,7 @@ async def run_researcher(
     agent = get_agent()
     result = await agent.run(prompt, deps=deps)
     output = result.output
+    output = ResearcherOutput(synthesis=_strip_cite_tokens(output.synthesis))
 
     duration = time.time() - start_time
     completed_at = datetime.now(timezone.utc)
