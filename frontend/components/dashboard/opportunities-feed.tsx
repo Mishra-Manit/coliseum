@@ -97,6 +97,13 @@ function OpportunityRow({
         />
 
         <div className="flex-1 min-w-0">
+          {/* Event context */}
+          {opportunity.event_title && (
+            <p className={`${FontSize.small} font-mono text-muted-foreground/70 tracking-wide truncate mb-0.5`}>
+              {opportunity.event_title}
+            </p>
+          )}
+
           {/* Title */}
           <p
             className={`${FontSize.medium} font-medium leading-snug line-clamp-2 transition-colors ${

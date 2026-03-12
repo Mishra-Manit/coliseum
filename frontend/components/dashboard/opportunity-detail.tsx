@@ -76,6 +76,7 @@ export function OpportunityDetailView({
 
   const strippedMarkdown = markdown_body
     .replace(/^#\s+.+\n?/, "")
+    .replace(/^\*\*Event\*\*:.*\n?/m, "")
     .replace(/^\*\*Outcome\*\*:.*\n?/m, "")
     .replace(/^Outcome:.*\n?/m, "")
     .replace(/^\n+/, "")
@@ -114,6 +115,12 @@ export function OpportunityDetailView({
                 </span>
               )}
             </div>
+
+            {summary.event_title && (
+              <p className={`${FontSize.small} font-mono text-muted-foreground/70 tracking-wider mb-1 truncate`}>
+                {summary.event_title}
+              </p>
+            )}
 
             <h2 className="text-[14px] font-semibold text-foreground leading-snug">
               {summary.title}

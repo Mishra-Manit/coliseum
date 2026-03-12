@@ -48,6 +48,7 @@ export interface PortfolioState {
 export interface OpportunitySummary {
   id: string;
   event_ticker: string;
+  event_title: string;
   market_ticker: string;
   title: string;
   subtitle: string;
