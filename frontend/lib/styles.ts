@@ -5,16 +5,16 @@
  * To change every element at a given level, update the string
  * values in the corresponding group — one edit, global effect.
  *
- * O70  — secondary text: labels, metadata, icons, muted info
- * O80  — primary content: values, card backgrounds, status colors
- * O60  — tertiary: charts return pct, nav inactive links
- * O50  — very muted: agent section headers
+ * Muted  — secondary text: labels, metadata, icons, muted info (/70)
+ * Base   — primary content: values, card backgrounds, status colors (/80)
+ * Faint  — tertiary: charts return pct, nav inactive links (/60)
+ * Ghost  — very muted: agent section headers (/50)
  * BgTint   — colored backgrounds, grouped by opacity level
  * BorderTint — colored borders, grouped by opacity level
  */
 
 /** /70 — secondary text, labels, muted foreground, icons */
-export const O70 = {
+export const Muted = {
   mutedText:    "text-muted-foreground/70",
   foreground:   "text-foreground/70",
   emeraldLabel: "text-emerald-400/70",
@@ -28,7 +28,7 @@ export const O70 = {
 } as const;
 
 /** /80 — primary values, card backgrounds, status colors */
-export const O80 = {
+export const Base = {
   foreground:     "text-foreground/80",
   card:           "bg-card/80",
   secondary:      "bg-secondary/80",
@@ -39,24 +39,24 @@ export const O80 = {
 } as const;
 
 /** /90 — hover/active states, high-contrast foreground */
-export const O90 = {
+export const Strong = {
   foreground: "text-foreground/90",
 } as const;
 
 /** /75 — intermediate opacity: unselected opportunity titles */
-export const O75 = {
+export const Soft = {
   foreground: "text-foreground/75",
 } as const;
 
 /** /60 — tertiary elements, inactive nav, chart annotations */
-export const O60 = {
+export const Faint = {
   mutedText:    "text-muted-foreground/60",
   foreground:   "text-foreground/60",
   opacityClass: "opacity-60",
 } as const;
 
 /** /50 — very muted: agent section labels, placeholder states */
-export const O50 = {
+export const Ghost = {
   mutedText: "text-muted-foreground/50",
 } as const;
 

@@ -5,15 +5,15 @@ import { FileText, ChevronRight } from "lucide-react";
 import { useOpportunities } from "@/hooks/use-api";
 import type { OpportunitySummary } from "@/lib/types";
 import { FontSize } from "@/lib/typography";
-import { O70, O75, O80, O90, BgTint, BorderTint } from "@/lib/styles";
+import { Muted, Soft, Base, Strong, BgTint, BorderTint } from "@/lib/styles";
 
 const statusColors: Record<string, { dot: string; text: string }> = {
-  pending:    { dot: "bg-yellow-500",  text: O80.yellowStatus },
-  researched: { dot: "bg-sky-500",     text: O80.skyStatus },
-  recommended:{ dot: "bg-emerald-500", text: O80.emeraldStatus },
-  traded:     { dot: "bg-violet-500",  text: O80.violetStatus },
-  rejected:   { dot: "bg-red-500",     text: O70.redLabel },
-  expired:    { dot: "bg-zinc-600",    text: O70.mutedText },
+  pending:    { dot: "bg-yellow-500",  text: Base.yellowStatus },
+  researched: { dot: "bg-sky-500",     text: Base.skyStatus },
+  recommended:{ dot: "bg-emerald-500", text: Base.emeraldStatus },
+  traded:     { dot: "bg-violet-500",  text: Base.violetStatus },
+  rejected:   { dot: "bg-red-500",     text: Muted.redLabel },
+  expired:    { dot: "bg-zinc-600",    text: Muted.mutedText },
 };
 
 interface OpportunitiesFeedProps {
@@ -32,10 +32,10 @@ export function OpportunitiesFeed({
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
-        <span className={`${FontSize.medium} font-mono ${O70.mutedText} tracking-[0.15em] uppercase`}>
+        <span className={`${FontSize.medium} font-mono ${Muted.mutedText} tracking-[0.15em] uppercase`}>
           Opportunities
         </span>
-        <span className={`${FontSize.small} font-mono ${O70.mutedText} tabular-nums`}>
+        <span className={`${FontSize.small} font-mono ${Muted.mutedText} tabular-nums`}>
           {opps.length}
         </span>
       </div>
@@ -49,7 +49,7 @@ export function OpportunitiesFeed({
             ))}
           </div>
         ) : opps.length === 0 ? (
-          <div className={`flex flex-col items-center justify-center h-full min-h-[300px] ${O70.mutedText} gap-2`}>
+          <div className={`flex flex-col items-center justify-center h-full min-h-[300px] ${Muted.mutedText} gap-2`}>
             <FileText className="h-6 w-6" />
             <p className={`${FontSize.medium} font-mono tracking-wider`}>NO OPPORTUNITIES</p>
           </div>
@@ -100,7 +100,7 @@ function OpportunityRow({
         <div className="flex-1 min-w-0">
           {/* Event context */}
           {opportunity.event_title && (
-            <p className={`${FontSize.small} font-mono ${O70.mutedText} tracking-wide truncate mb-0.5`}>
+            <p className={`${FontSize.small} font-mono ${Muted.mutedText} tracking-wide truncate mb-0.5`}>
               {opportunity.event_title}
             </p>
           )}
@@ -108,7 +108,7 @@ function OpportunityRow({
           {/* Title */}
           <p
             className={`${FontSize.medium} font-medium leading-snug line-clamp-2 transition-colors ${
-              isSelected ? "text-foreground" : `${O75.foreground} group-hover:${O90.foreground}`
+              isSelected ? "text-foreground" : `${Soft.foreground} group-hover:${Strong.foreground}`
             }`}
           >
             {opportunity.title}
@@ -147,7 +147,7 @@ function OpportunityRow({
                   style={{ width: `${yesPercent}%` }}
                 />
               </div>
-              <span className={`${FontSize.small} font-mono ${O70.mutedText} tabular-nums w-6 text-right`}>
+              <span className={`${FontSize.small} font-mono ${Muted.mutedText} tabular-nums w-6 text-right`}>
                 {yesPercent}c
               </span>
             </div>
@@ -157,14 +157,14 @@ function OpportunityRow({
         <ChevronRight
           className={`h-3.5 w-3.5 shrink-0 mt-1 transition-all duration-150 ${
             isSelected
-              ? O70.amberLabel
-              : `${O70.mutedText} group-hover:${O70.mutedText}`
+              ? Muted.amberLabel
+              : `${Muted.mutedText} group-hover:${Muted.mutedText}`
           }`}
         />
       </div>
 
       {/* Time */}
-      <p className={`${FontSize.small} font-mono ${O70.mutedText} mt-1.5 ml-3.5 tracking-wide`}>
+      <p className={`${FontSize.small} font-mono ${Muted.mutedText} mt-1.5 ml-3.5 tracking-wide`}>
         {formatDistanceToNow(new Date(opportunity.discovered_at), {
           addSuffix: true,
         })}

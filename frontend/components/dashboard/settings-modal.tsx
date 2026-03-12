@@ -11,7 +11,7 @@ import {
 import { useConfig } from "@/hooks/use-api";
 import type { ColiseumConfig } from "@/lib/types";
 import { Skeleton } from "@/components/ui/skeleton";
-import { O70, O80, O50 } from "@/lib/styles";
+import { Muted, Base, Ghost } from "@/lib/styles";
 
 type SettingRow = {
   label: string;
@@ -126,10 +126,10 @@ function buildSections(config: ColiseumConfig): AgentSection[] {
 function SettingsRow({ label, value }: SettingRow) {
   return (
     <div className="flex items-center justify-between py-1.5">
-      <span className={`text-[11px] font-mono ${O70.mutedText} tracking-wide`}>
+      <span className={`text-[11px] font-mono ${Muted.mutedText} tracking-wide`}>
         {label}
       </span>
-      <span className={`text-[11px] font-mono font-medium ${O80.foreground} tabular-nums`}>
+      <span className={`text-[11px] font-mono font-medium ${Base.foreground} tabular-nums`}>
         {value}
       </span>
     </div>
@@ -139,7 +139,7 @@ function SettingsRow({ label, value }: SettingRow) {
 function AgentBlock({ agent, rows }: AgentSection) {
   return (
     <div>
-      <p className={`text-[9px] font-mono font-bold ${O50.mutedText} tracking-[0.2em] uppercase mb-1`}>
+      <p className={`text-[9px] font-mono font-bold ${Ghost.mutedText} tracking-[0.2em] uppercase mb-1`}>
         {agent}
       </p>
       <div className="divide-y divide-border/50">
@@ -179,7 +179,7 @@ export function SettingsModal() {
     <Dialog>
       <DialogTrigger asChild>
         <button
-          className={`p-1.5 rounded hover:bg-secondary ${O70.mutedText} hover:text-muted-foreground transition-colors`}
+          className={`p-1.5 rounded hover:bg-secondary ${Muted.mutedText} hover:text-muted-foreground transition-colors`}
           title="Agent settings"
         >
           <Settings className="h-3 w-3" />
@@ -187,7 +187,7 @@ export function SettingsModal() {
       </DialogTrigger>
       <DialogContent className="w-80 border border-border rounded-md p-5">
         <DialogHeader className="mb-4">
-          <DialogTitle className={`text-xs font-mono font-bold tracking-[0.15em] uppercase ${O80.foreground}`}>
+          <DialogTitle className={`text-xs font-mono font-bold tracking-[0.15em] uppercase ${Base.foreground}`}>
             Agent time settings
           </DialogTitle>
         </DialogHeader>
