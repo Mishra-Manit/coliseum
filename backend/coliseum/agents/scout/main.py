@@ -182,7 +182,7 @@ async def run_scout(
 
             deps = ScoutDependencies(settings=settings, prefetched_markets=prefetched_markets)
 
-            with logfire.span("agent run", markets=len(prefetched_markets)):
+            with logfire.span("scout agent run", markets=len(prefetched_markets)):
                 agent = get_scout_agent(settings)
                 scout_cfg = settings.scout
                 memory_context = build_scout_context()

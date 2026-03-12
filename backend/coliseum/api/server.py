@@ -450,10 +450,7 @@ def _make_kalshi_client() -> KalshiClient:
 
 def _enrich_position(pos: Position, current_price: float) -> EnrichedPosition:
     """Compute unrealized P&L for an open position. Returns new object, no mutation."""
-    if pos.side == "YES":
-        pnl = (current_price - pos.average_entry) * pos.contracts
-    else:
-        pnl = (pos.average_entry - current_price) * pos.contracts
+    pnl = (current_price - pos.average_entry) * pos.contracts
     cost = pos.average_entry * pos.contracts
     pct = (pnl / cost * 100) if cost > 0 else 0.0
     return EnrichedPosition(

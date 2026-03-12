@@ -10,13 +10,20 @@ from coliseum.config import Settings
 
 logger = logging.getLogger(__name__)
 
+_logfire_initialized = False
+
 
 def initialize_logfire(settings: Settings) -> None:
     """
     Initialize Logfire with comprehensive instrumentation.
 
-    Must be called ONCE at application startup, BEFORE any agent code runs.
+    Idempotent — safe to call multiple times; only the first call takes effect.
+    Must be called at application startup, BEFORE any agent code runs.
     """
+    global _logfire_initialized
+    if _logfire_initialized:
+        return
+    _logfire_initialized = True
     if not settings.logfire_token:
         logger.warning("Logfire token not set - observability disabled")
         logfire.configure(send_to_logfire=False)
