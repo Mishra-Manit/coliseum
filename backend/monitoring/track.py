@@ -39,6 +39,8 @@ COLUMNS = [
     "result",
     "close_price",
     "resolved_at",
+    "event_title",
+    "category",
 ]
 
 
@@ -59,7 +61,7 @@ def _append_rows(rows: list[dict]) -> None:
         writer.writerows(rows)
 
 
-def _make_row(m, side: str, entry_price: int, now: str) -> dict:
+def _make_row(m, side: str, entry_price: int, now: str, event_title: str = "", category: str = "") -> dict:
     return {
         "ticker": m.ticker,
         "event_ticker": m.event_ticker,
@@ -74,6 +76,8 @@ def _make_row(m, side: str, entry_price: int, now: str) -> dict:
         "result": "",
         "close_price": "",
         "resolved_at": "",
+        "event_title": event_title,
+        "category": category,
     }
 
 
@@ -91,8 +95,18 @@ async def collect() -> None:
             status="open",
         )
 
-    # Same pre-filters as scout/main.py
-    markets = [m for m in markets if m.volume >= s.min_volume]
+        # Same pre-filters as scout/main.py
+        markets = [m for m in markets if m.volume >= s.min_volume]
+
+        # Fetch event metadata for all unique event tickers in this batch
+        unique_tickers = {m.event_ticker for m in markets}
+        event_data: dict[str, tuple[str, str]] = {}
+        for et in unique_tickers:
+            try:
+                event = await client.get_event(et)
+                event_data[et] = (event.get("title", ""), event.get("category", ""))
+            except Exception:
+                event_data[et] = ("", "")
 
     existing = _load_existing_keys()
     new_rows: list[dict] = []
@@ -100,6 +114,7 @@ async def collect() -> None:
     for m in markets:
         yes_in_range = s.min_price <= (m.yes_ask or 0) <= s.max_price
         no_in_range = s.min_price <= (m.no_ask or 0) <= s.max_price
+        event_title, category = event_data.get(m.event_ticker, ("", ""))
 
         if (
             yes_in_range
@@ -108,7 +123,7 @@ async def collect() -> None:
             and (m.yes_ask - m.yes_bid) <= s.max_spread_cents
             and (m.ticker, "yes") not in existing
         ):
-            new_rows.append(_make_row(m, "yes", m.yes_ask, now))
+            new_rows.append(_make_row(m, "yes", m.yes_ask, now, event_title, category))
             existing.add((m.ticker, "yes"))
 
         if (
@@ -118,7 +133,7 @@ async def collect() -> None:
             and (m.no_ask - m.no_bid) <= s.max_spread_cents
             and (m.ticker, "no") not in existing
         ):
-            new_rows.append(_make_row(m, "no", m.no_ask, now))
+            new_rows.append(_make_row(m, "no", m.no_ask, now, event_title, category))
             existing.add((m.ticker, "no"))
 
     _append_rows(new_rows)
