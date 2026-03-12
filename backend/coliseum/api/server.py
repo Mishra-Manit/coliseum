@@ -253,9 +253,17 @@ async def stream_portfolio(request: Request) -> EventSourceResponse:
                         ]
                     else:
                         enriched = []
+                    live_positions_value = sum(
+                        e.current_price * p.contracts
+                        for e, p in zip(enriched, positions)
+                    )
                     payload = {
                         "open_positions": [e.model_dump() for e in enriched],
-                        "portfolio": state.portfolio.model_dump(),
+                        "portfolio": {
+                            "cash_balance": state.portfolio.cash_balance,
+                            "positions_value": live_positions_value,
+                            "total_value": state.portfolio.cash_balance + live_positions_value,
+                        },
                         "timestamp": time.time(),
                     }
                     yield {"data": json.dumps(payload)}
