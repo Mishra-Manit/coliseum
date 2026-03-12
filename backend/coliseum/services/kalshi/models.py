@@ -50,19 +50,29 @@ class Market(BaseModel):
         return str(self.volume)
 
     @classmethod
-    def from_api(cls, data: dict[str, Any]) -> Market:
+    def from_api(cls, data: dict[str, Any]) -> "Market":
+        def _c(key: str) -> int:
+            """Convert FixedPointDollars string to cents int."""
+            v = data.get(key)
+            return round(float(v) * 100) if v is not None else 0
+
+        def _i(key: str) -> int:
+            """Convert FixedPointCount string to int."""
+            v = data.get(key)
+            return int(float(v)) if v is not None else 0
+
         return cls(
             ticker=data.get("ticker", ""),
             event_ticker=data.get("event_ticker", ""),
             title=data.get("title", ""),
             subtitle=data.get("yes_sub_title", data.get("subtitle", "")),
-            yes_bid=data.get("yes_bid", 0),
-            no_bid=data.get("no_bid", 0),
-            yes_ask=data.get("yes_ask", 0),
-            no_ask=data.get("no_ask", 0),
-            volume=data.get("volume", 0),
-            volume_24h=data.get("volume_24h", 0),
-            open_interest=data.get("open_interest", 0),
+            yes_bid=_c("yes_bid_dollars"),
+            no_bid=_c("no_bid_dollars"),
+            yes_ask=_c("yes_ask_dollars"),
+            no_ask=_c("no_ask_dollars"),
+            volume=_i("volume_fp"),
+            volume_24h=_i("volume_24h_fp"),
+            open_interest=_i("open_interest_fp"),
             close_time=data.get("close_time"),
             status=data.get("status", "unknown"),
             result=data.get("result"),
@@ -125,6 +135,7 @@ class Order(BaseModel):
     yes_price: int = 0
     no_price: int = 0
     remaining_count: int = 0
+    fill_count: int = 0
     queue_position: int | None = None
     expiration_time: datetime | None = None
     action: str = ""
@@ -132,9 +143,7 @@ class Order(BaseModel):
     updated_time: datetime | None = None
     client_order_id: str = ""
     order_group_id: str = ""
-    taker_fill_count: int = 0
     taker_fill_cost: int = 0
-    maker_fill_count: int = 0
     maker_fill_cost: int = 0
 
     @field_validator("created_time", "updated_time", "expiration_time", mode="before")
@@ -148,10 +157,6 @@ class Order(BaseModel):
             return datetime.fromisoformat(v.replace("Z", "+00:00"))
         except (ValueError, AttributeError):
             return None
-
-    @property
-    def fill_count(self) -> int:
-        return self.taker_fill_count + self.maker_fill_count
 
     @property
     def is_filled(self) -> bool:

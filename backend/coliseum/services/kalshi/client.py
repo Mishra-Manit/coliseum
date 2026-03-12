@@ -289,15 +289,19 @@ class KalshiClient:
 
         positions = []
         for pos in data.get("market_positions", []):
+            def _c(key: str) -> int:
+                v = pos.get(key)
+                return round(float(v) * 100) if v is not None else 0
+
             positions.append(
                 Position(
                     market_ticker=pos.get("ticker", ""),
                     event_ticker=pos.get("event_ticker", ""),
-                    event_exposure=pos.get("event_exposure", 0),
-                    position=pos.get("position", 0),
-                    realized_pnl=pos.get("realized_pnl", 0),
-                    resting_orders_count=pos.get("resting_orders_count", 0),
-                    total_traded=pos.get("total_traded", 0),
+                    event_exposure=_c("market_exposure_dollars"),
+                    position=int(float(pos.get("position_fp") or 0)),
+                    realized_pnl=_c("realized_pnl_dollars"),
+                    resting_orders_count=pos.get("resting_orders_count") or 0,
+                    total_traded=_c("total_traded_dollars"),
                 )
             )
         return positions
@@ -348,14 +352,14 @@ class KalshiClient:
             "ticker": ticker,
             "side": side,
             "action": action,
-            "count": count,
+            "count_fp": f"{count:.2f}",
             "type": type,
         }
 
         if yes_price is not None:
-            order_data["yes_price"] = yes_price
+            order_data["yes_price_dollars"] = f"{yes_price / 100:.4f}"
         if no_price is not None:
-            order_data["no_price"] = no_price
+            order_data["no_price_dollars"] = f"{no_price / 100:.4f}"
         if client_order_id:
             order_data["client_order_id"] = client_order_id
         if expiration_time:
@@ -363,7 +367,7 @@ class KalshiClient:
 
         logger.info(
             f"Placing order: {action} {count} {side} contracts on {ticker} "
-            f"@ {yes_price or no_price}¢"
+            f"@ {yes_price or no_price}¢ (${(yes_price or no_price or 0) / 100:.4f})"
         )
 
         data = await self._request(
@@ -386,9 +390,9 @@ class KalshiClient:
     ) -> Order:
         amend_data: dict[str, Any] = {}
         if count is not None:
-            amend_data["count"] = count
+            amend_data["count_fp"] = f"{count:.2f}"
         if price is not None:
-            amend_data["price"] = price
+            amend_data["yes_price_dollars"] = f"{price / 100:.4f}"
 
         logger.info(f"Amending order {order_id}: {amend_data}")
         data = await self._request(
@@ -416,6 +420,16 @@ class KalshiClient:
         )
 
     def _parse_order(self, data: dict[str, Any]) -> Order:
+        def _c(key: str) -> int:
+            """Convert FixedPointDollars string to cents int."""
+            v = data.get(key)
+            return round(float(v) * 100) if v is not None else 0
+
+        def _i(key: str) -> int:
+            """Convert FixedPointCount string to int."""
+            v = data.get(key)
+            return int(float(v)) if v is not None else 0
+
         return Order(
             order_id=data.get("order_id", ""),
             ticker=data.get("ticker", ""),
@@ -423,9 +437,10 @@ class KalshiClient:
             side=data.get("side", "yes"),
             type=data.get("type", "limit"),
             status=data.get("status", "resting"),
-            yes_price=data.get("yes_price", 0),
-            no_price=data.get("no_price", 0),
-            remaining_count=data.get("remaining_count", 0),
+            yes_price=_c("yes_price_dollars"),
+            no_price=_c("no_price_dollars"),
+            remaining_count=_i("remaining_count_fp"),
+            fill_count=_i("fill_count_fp"),
             queue_position=data.get("queue_position"),
             expiration_time=data.get("expiration_time"),
             action=data.get("action", ""),
@@ -433,8 +448,6 @@ class KalshiClient:
             updated_time=data.get("updated_time"),
             client_order_id=data.get("client_order_id", ""),
             order_group_id=data.get("order_group_id") or "",
-            taker_fill_count=data.get("taker_fill_count", 0),
-            taker_fill_cost=data.get("taker_fill_cost", 0),
-            maker_fill_count=data.get("maker_fill_count", 0),
-            maker_fill_cost=data.get("maker_fill_cost", 0),
+            taker_fill_cost=_c("taker_fill_cost_dollars"),
+            maker_fill_cost=_c("maker_fill_cost_dollars"),
         )

@@ -24,6 +24,7 @@ from coliseum.storage.sync import (
     extract_fill_price,
     fetch_market_side_price,
     normalize_kalshi_side,
+    resolve_market_price,
     sync_portfolio_from_kalshi,
 )
 
@@ -206,13 +207,52 @@ async def reconcile_closed_positions(
 ) -> tuple[PortfolioState, ReconciliationStats, list[ClosedPosition]]:
     """Detect positions that closed since last sync and move them to closed_positions."""
     new_open_keys = {(pos.market_ticker, pos.side) for pos in new_state.open_positions}
+    already_closed_keys = {(pos.market_ticker, pos.side) for pos in new_state.closed_positions}
     stats = ReconciliationStats()
     newly_closed: list[ClosedPosition] = []
+
+    pending_keeps: list[Position] = []
 
     for pos in old_open:
         stats.entries_inspected += 1
         key = (pos.market_ticker, pos.side)
         if key in new_open_keys:
+            stats.kept_open += 1
+            continue
+        if key in already_closed_keys:
+            logger.warning(
+                "Guardian skipping %s: already reconciled as closed in a prior run",
+                pos.market_ticker,
+            )
+            stats.duplicate_close_skipped += 1
+            continue
+
+        try:
+            market = await client.get_market(pos.market_ticker)
+            if market.status == "closed":
+                fresh_price = resolve_market_price(market, pos.side) or pos.current_price
+                pending_keeps.append(Position(
+                    id=pos.id,
+                    market_ticker=pos.market_ticker,
+                    side=pos.side,
+                    contracts=pos.contracts,
+                    average_entry=pos.average_entry,
+                    current_price=fresh_price,
+                    opportunity_id=pos.opportunity_id,
+                ))
+                stats.kept_open += 1
+                logger.info(
+                    "Guardian holding %s: market closed pending settlement",
+                    pos.market_ticker,
+                )
+                continue
+        except Exception as exc:
+            logger.warning(
+                "Guardian could not verify market status for %s, holding: %s",
+                pos.market_ticker,
+                exc,
+            )
+            pending_keeps.append(pos)
             stats.kept_open += 1
             continue
 
@@ -258,7 +298,7 @@ async def reconcile_closed_positions(
 
     updated_state = PortfolioState(
         portfolio=new_state.portfolio,
-        open_positions=new_state.open_positions,
+        open_positions=new_state.open_positions + pending_keeps,
         closed_positions=new_state.closed_positions + newly_closed,
         seen_tickers=new_state.seen_tickers,
     )
@@ -339,6 +379,7 @@ async def run_guardian(settings: Settings | None = None) -> GuardianResult:
                     inspected=stats.entries_inspected,
                     kept_open=stats.kept_open,
                     newly_closed=stats.newly_closed,
+                    duplicate_close_skipped=stats.duplicate_close_skipped,
                 )
 
             # Step 6: find positions not opened by our pipeline
@@ -369,6 +410,7 @@ async def run_guardian(settings: Settings | None = None) -> GuardianResult:
             entries_inspected=stats.entries_inspected,
             kept_open=stats.kept_open,
             newly_closed=stats.newly_closed,
+            duplicate_close_skipped=stats.duplicate_close_skipped,
             stop_loss_exits=len(stop_loss_tickers),
             warnings=stats.warnings,
         ),

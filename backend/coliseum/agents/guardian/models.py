@@ -11,6 +11,7 @@ class ReconciliationStats(BaseModel):
     entries_inspected: int = 0
     kept_open: int = 0
     newly_closed: int = 0
+    duplicate_close_skipped: int = 0
     stop_loss_exits: int = 0
     warnings: int = 0
 

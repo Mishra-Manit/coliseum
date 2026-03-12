@@ -8,7 +8,8 @@ from typing import Any
 from uuid import uuid4
 
 from coliseum.services.kalshi import KalshiClient
-from coliseum.services.kalshi.models import Position as KalshiPosition
+from coliseum.services.kalshi.models import Market, Position as KalshiPosition
+from coliseum.storage.files import find_opportunity_file, load_opportunity_from_file
 from coliseum.storage.state import (
     ClosedPosition,
     PortfolioState,
@@ -38,15 +39,10 @@ async def fetch_market_side_price(
         else:
             return 1.0 if result == "no" else 0.0
 
-    if side == "YES":
-        price = normalize_probability_price(market.yes_bid) or 0.0
-        if price == 0.0:
-            price = normalize_probability_price(market.yes_ask) or 0.0
-    else:
-        price = normalize_probability_price(market.no_bid) or 0.0
-        if price == 0.0:
-            price = normalize_probability_price(market.no_ask) or 0.0
-    return price or None
+    if market.status == "closed":
+        return None
+
+    return resolve_market_price(market, side)
 
 
 def normalize_kalshi_side(side: str | None) -> str | None:
@@ -74,12 +70,39 @@ def normalize_probability_price(value: Any) -> float | None:
     return price
 
 
+def resolve_market_price(market: "Market", side: str) -> float | None:
+    """Resolve best available price for a side, with cross-side fallback.
+
+    Priority: direct bid → direct ask → derived from opposite ask → derived from opposite bid.
+    Returns None for closed/pending-settlement markets or when all sources are zero.
+    """
+    if market.status == "closed":
+        return None
+    if side == "YES":
+        price = normalize_probability_price(market.yes_bid) or 0.0
+        if price == 0.0:
+            price = normalize_probability_price(market.yes_ask) or 0.0
+        if price == 0.0 and market.no_ask > 0:
+            price = normalize_probability_price(100 - market.no_ask) or 0.0
+        if price == 0.0 and market.no_bid > 0:
+            price = normalize_probability_price(100 - market.no_bid) or 0.0
+    else:
+        price = normalize_probability_price(market.no_bid) or 0.0
+        if price == 0.0:
+            price = normalize_probability_price(market.no_ask) or 0.0
+        if price == 0.0 and market.yes_ask > 0:
+            price = normalize_probability_price(100 - market.yes_ask) or 0.0
+        if price == 0.0 and market.yes_bid > 0:
+            price = normalize_probability_price(100 - market.yes_bid) or 0.0
+    return price or None
+
+
 def extract_fill_count(fill: dict[str, Any]) -> int | None:
     """Extract filled contract count from a fill payload."""
-    for key in ("count", "contracts", "quantity", "filled_count", "size"):
+    for key in ("count_fp", "count", "contracts", "quantity", "filled_count", "size"):
         if key in fill and fill[key] is not None:
             try:
-                count = int(fill[key])
+                count = int(float(fill[key]))
             except (TypeError, ValueError):
                 continue
             if count > 0:
@@ -90,20 +113,23 @@ def extract_fill_count(fill: dict[str, Any]) -> int | None:
 def extract_fill_price(fill: dict[str, Any], side: str | None) -> float | None:
     """Extract fill price from a fill payload in decimal probability format."""
     if side == "NO":
-        no_price = normalize_probability_price(fill.get("no_price"))
+        no_price = normalize_probability_price(
+            fill.get("no_price_dollars") or fill.get("no_price")
+        )
         if no_price is not None:
             return no_price
         yes_price = normalize_probability_price(
-            fill.get("yes_price") or fill.get("price") or fill.get("fill_price")
+            fill.get("yes_price_dollars") or fill.get("yes_price")
+            or fill.get("price") or fill.get("fill_price")
         )
         if yes_price is not None:
             return 1.0 - yes_price
         return None
 
-    direct = normalize_probability_price(
-        fill.get("yes_price") or fill.get("price") or fill.get("fill_price") or fill.get("avg_price")
+    return normalize_probability_price(
+        fill.get("yes_price_dollars") or fill.get("yes_price")
+        or fill.get("price") or fill.get("fill_price") or fill.get("avg_price")
     )
-    return direct
 
 
 def _compute_average_entries(
@@ -142,11 +168,12 @@ def _map_kalshi_position(
     avg_entry: float,
     current_price: float,
     existing: Position | None,
+    resolved_opportunity_id: str | None = None,
 ) -> Position:
     """Map a Kalshi API position to a local Position model, preserving metadata from existing position."""
     side = normalize_kalshi_side(kalshi_pos.side)
     position_id = existing.id if existing else f"pos_{uuid4().hex[:8]}"
-    opportunity_id = existing.opportunity_id if existing else f"sync_{uuid4().hex[:8]}"
+    opportunity_id = resolved_opportunity_id
     contracts = kalshi_pos.contracts
     return Position(
         id=position_id,
@@ -200,15 +227,7 @@ async def sync_portfolio_from_kalshi(client: KalshiClient) -> PortfolioState:
         current_price = 0.0
         market = markets.get(kalshi_pos.market_ticker)
         if market:
-            if side == "YES":
-                current_price = normalize_probability_price(market.yes_bid) or 0.0
-                if current_price == 0.0:
-                    current_price = normalize_probability_price(market.yes_ask) or 0.0
-            else:
-                current_price = normalize_probability_price(market.no_bid) or 0.0
-                if current_price == 0.0:
-                    current_price = normalize_probability_price(market.no_ask) or 0.0
-
+            current_price = resolve_market_price(market, side) or 0.0
         if current_price == 0.0 and existing:
             current_price = existing.current_price
 
@@ -219,13 +238,46 @@ async def sync_portfolio_from_kalshi(client: KalshiClient) -> PortfolioState:
             elif existing:
                 avg_entry = existing.average_entry
 
+        # Resolve opportunity_id: prefer a real opp_ ID from existing record, then look
+        # up the opportunity file by market ticker, else None. Deliberately skip any
+        # legacy sync_ IDs (generated by old code when no existing record was found) so
+        # they don't get perpetuated across reconciliation runs.
+        existing_opp_id = existing.opportunity_id if existing else None
+        if existing_opp_id and existing_opp_id.startswith("opp_"):
+            opp_id = existing_opp_id
+        else:
+            opp_file = (
+                find_opportunity_file(kalshi_pos.market_ticker)
+                or find_opportunity_file(kalshi_pos.market_ticker, paper=True)
+            )
+            opp_id = load_opportunity_from_file(opp_file).id if opp_file else None
+
         open_positions.append(
             _map_kalshi_position(
                 kalshi_pos=kalshi_pos,
                 avg_entry=avg_entry,
                 current_price=current_price,
                 existing=existing,
+                resolved_opportunity_id=opp_id,
             )
+        )
+
+    # Filter out positions already reconciled as closed — Kalshi API can lag
+    # after a limit sell fills, causing closed positions to reappear here.
+    already_closed_keys = {
+        (pos.market_ticker, pos.side)
+        for pos in existing_state.closed_positions
+    }
+    pre_filter_count = len(open_positions)
+    open_positions = [
+        p for p in open_positions
+        if (p.market_ticker, p.side) not in already_closed_keys
+    ]
+    filtered = pre_filter_count - len(open_positions)
+    if filtered > 0:
+        logger.warning(
+            "Filtered %d already-closed position(s) from Kalshi sync (Kalshi API lag)",
+            filtered,
         )
 
     positions_value = sum(

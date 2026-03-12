@@ -25,7 +25,7 @@ from coliseum.storage.files import (
     load_opportunity_from_file,
 )
 from coliseum.storage.state import Position, load_state
-from coliseum.storage.sync import normalize_probability_price
+from coliseum.storage.sync import resolve_market_price
 
 logger = logging.getLogger(__name__)
 
@@ -501,15 +501,7 @@ async def _fetch_prices_for_positions(
             if isinstance(market, Exception):
                 result[p.market_ticker] = p.current_price
                 continue
-            if p.side == "YES":
-                # Use bid (liquidation value) for conservative P&L estimate
-                price = normalize_probability_price(market.yes_bid) or 0.0
-                if price == 0.0:
-                    price = normalize_probability_price(market.yes_ask) or 0.0
-            else:
-                price = normalize_probability_price(market.no_bid) or 0.0
-                if price == 0.0:
-                    price = normalize_probability_price(market.no_ask) or 0.0
+            price = resolve_market_price(market, p.side) or p.current_price
             _price_cache[p.market_ticker] = (price, fetch_time)
             result[p.market_ticker] = price
         return result
