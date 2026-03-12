@@ -10,6 +10,7 @@ import { usePortfolioStream } from "@/hooks/use-portfolio-stream";
 import { useTimezone, type Timezone } from "@/lib/timezone-context";
 import { SettingsModal } from "@/components/dashboard/settings-modal";
 import { FontSize } from "@/lib/typography";
+import { Muted, Base, Faint, BgTint, BorderTint } from "@/lib/styles";
 
 function formatUptime(seconds: number): string {
   if (seconds < 60) return `${seconds}s`;
@@ -37,7 +38,7 @@ export function DashboardNavbar() {
   const openCount = stream?.open_positions?.length ?? 0;
 
   return (
-    <nav className="sticky top-0 z-50 h-11 border-b border-border bg-card/80 backdrop-blur-xl flex items-center px-5">
+    <nav className={`sticky top-0 z-50 h-11 border-b border-border ${Base.card} backdrop-blur-xl flex items-center px-5`}>
       {/* Wordmark */}
       <div className="flex items-center gap-3 shrink-0">
         <span className="font-mono text-xs font-bold text-foreground tracking-[0.2em] uppercase">
@@ -46,14 +47,14 @@ export function DashboardNavbar() {
         {paperMode ? (
           <Badge
             variant="outline"
-            className={`border-yellow-600/25 bg-yellow-600/8 text-yellow-500/70 ${FontSize.small} h-[18px] px-1.5 font-mono tracking-wider`}
+            className={`${BorderTint.paperBadge} ${BgTint.paperBadge} ${Muted.yellowBadge} ${FontSize.small} h-[18px] px-1.5 font-mono tracking-wider`}
           >
             PAPER
           </Badge>
         ) : (
           <Badge
             variant="outline"
-            className={`border-emerald-600/25 bg-emerald-600/8 text-emerald-400/70 ${FontSize.small} h-[18px] px-1.5 font-mono tracking-wider`}
+            className={`${BorderTint.liveBadge} ${BgTint.liveBadge} ${Muted.emeraldLabel} ${FontSize.small} h-[18px] px-1.5 font-mono tracking-wider`}
           >
             LIVE
           </Badge>
@@ -87,7 +88,7 @@ export function DashboardNavbar() {
           className={`flex items-center gap-1.5 px-2 py-0.5 rounded transition-colors ${
             pathname === "/chart"
               ? "text-primary bg-primary/10"
-              : "text-muted-foreground/60 hover:text-muted-foreground"
+              : `${Faint.mutedText} hover:text-muted-foreground`
           }`}
         >
           <BarChart2 className="w-3 h-3" />
@@ -106,7 +107,7 @@ export function DashboardNavbar() {
         <div className="flex items-center gap-2 pl-3 border-l border-border">
           <span className="relative flex h-1.5 w-1.5">
             {isOnline && !isPaused && (
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-60" />
+              <span className={`animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 ${Faint.opacityClass}`} />
             )}
             <span
               className={`relative inline-flex rounded-full h-1.5 w-1.5 ${
@@ -118,7 +119,7 @@ export function DashboardNavbar() {
               }`}
             />
           </span>
-          <span className={`${FontSize.small} font-mono text-muted-foreground/70 tracking-wider`}>
+          <span className={`${FontSize.small} font-mono ${Muted.mutedText} tracking-wider`}>
             {!isOnline ? "OFFLINE" : isPaused ? "PAUSED" : "RUNNING"}
           </span>
         </div>
@@ -158,7 +159,7 @@ function TzSelector({
           className={`px-2 py-0.5 ${FontSize.small} font-mono tracking-wider transition-colors ${
             tz === option
               ? "bg-primary/15 text-primary border-r border-border last:border-r-0"
-              : "text-muted-foreground/70 hover:text-muted-foreground/70 border-r border-border last:border-r-0"
+              : `${Muted.mutedText} hover:${Muted.mutedText} border-r border-border last:border-r-0`
           }`}
         >
           {option}
@@ -179,12 +180,12 @@ function StatPill({
 }) {
   return (
     <div className="flex items-baseline gap-1.5 shrink-0">
-      <span className={`${FontSize.small} font-mono text-muted-foreground/70 tracking-[0.12em] uppercase`}>
+      <span className={`${FontSize.small} font-mono ${Muted.mutedText} tracking-[0.12em] uppercase`}>
         {label}
       </span>
       <span
         className={`${FontSize.medium} font-mono font-medium tabular-nums ${
-          dimmed ? "text-muted-foreground/70" : "text-foreground/80"
+          dimmed ? Muted.mutedText : Base.foreground
         }`}
       >
         {value}

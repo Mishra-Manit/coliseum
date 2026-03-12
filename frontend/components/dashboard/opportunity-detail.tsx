@@ -8,6 +8,7 @@ import remarkGfm from "remark-gfm";
 import { useOpportunityDetail } from "@/hooks/use-api";
 import { useTimezone, formatInTz } from "@/lib/timezone-context";
 import { FontSize } from "@/lib/typography";
+import { Muted, BgTint, BorderTint } from "@/lib/styles";
 
 interface OpportunityDetailProps {
   opportunityId: string | null;
@@ -35,7 +36,7 @@ export function OpportunityDetailView({
 
   if (!opportunityId) {
     return (
-      <div className="flex flex-col items-center justify-center h-full text-muted-foreground/70 gap-2">
+      <div className={`flex flex-col items-center justify-center h-full ${Muted.mutedText} gap-2`}>
         <FileText className="h-7 w-7" />
         <p className={`${FontSize.medium} font-mono tracking-wider`}>
           SELECT OPPORTUNITY
@@ -66,7 +67,7 @@ export function OpportunityDetailView({
 
   if (!data) {
     return (
-      <div className="flex flex-col items-center justify-center h-full text-muted-foreground/70 gap-2">
+      <div className={`flex flex-col items-center justify-center h-full ${Muted.mutedText} gap-2`}>
         <p className={`${FontSize.medium} font-mono tracking-wider`}>NOT FOUND</p>
       </div>
     );
@@ -100,7 +101,7 @@ export function OpportunityDetailView({
           <div className="min-w-0 flex-1">
             {/* Status + action row */}
             <div className="flex items-center gap-2 mb-2">
-              <span className={`${FontSize.small} font-mono text-amber-500/70 uppercase tracking-wider border border-amber-600/20 bg-amber-500/6 px-1.5 py-0.5 rounded`}>
+              <span className={`${FontSize.small} font-mono ${Muted.amberLabel} uppercase tracking-wider border ${BorderTint.amberSelected} ${BgTint.amberBadge} px-1.5 py-0.5 rounded`}>
                 {summary.status}
               </span>
               {summary.action && (
@@ -117,7 +118,7 @@ export function OpportunityDetailView({
             </div>
 
             {summary.event_title && (
-              <p className={`${FontSize.small} font-mono text-muted-foreground/70 tracking-wider mb-1 truncate`}>
+              <p className={`${FontSize.small} font-mono ${Muted.mutedText} tracking-wider mb-1 truncate`}>
                 {summary.event_title}
               </p>
             )}
@@ -126,7 +127,7 @@ export function OpportunityDetailView({
               {summary.title}
             </h2>
             {summary.subtitle && (
-              <p className={`${FontSize.medium} text-muted-foreground/70 mt-1 leading-relaxed`}>
+              <p className={`${FontSize.medium} ${Muted.mutedText} mt-1 leading-relaxed`}>
                 {summary.subtitle}
               </p>
             )}
@@ -134,7 +135,7 @@ export function OpportunityDetailView({
 
           <button
             onClick={onClose}
-            className="p-1 rounded hover:bg-secondary text-muted-foreground/70 hover:text-muted-foreground shrink-0 transition-colors"
+            className={`p-1 rounded hover:bg-secondary ${Muted.mutedText} hover:text-muted-foreground shrink-0 transition-colors`}
           >
             <X className="h-3.5 w-3.5" />
           </button>
@@ -142,9 +143,9 @@ export function OpportunityDetailView({
 
         {/* Price levels */}
         <div className="grid grid-cols-2 gap-2 mt-3">
-          <div className="px-3 py-2 rounded border border-emerald-500/12 bg-emerald-500/4">
+          <div className={`px-3 py-2 rounded border ${BorderTint.yesBox} ${BgTint.yesBox}`}>
             <div className="flex items-center justify-between">
-              <span className={`${FontSize.small} font-mono text-emerald-400/70 uppercase tracking-wider`}>
+              <span className={`${FontSize.small} font-mono ${Muted.emeraldLabel} uppercase tracking-wider`}>
                 YES
               </span>
               <span className="text-[18px] font-mono font-bold text-emerald-400 tabular-nums leading-none">
@@ -158,9 +159,9 @@ export function OpportunityDetailView({
               />
             </div>
           </div>
-          <div className="px-3 py-2 rounded border border-red-500/12 bg-red-500/4">
+          <div className={`px-3 py-2 rounded border ${BorderTint.noBox} ${BgTint.noBox}`}>
             <div className="flex items-center justify-between">
-              <span className={`${FontSize.small} font-mono text-red-400/70 uppercase tracking-wider`}>
+              <span className={`${FontSize.small} font-mono ${Muted.redLabel} uppercase tracking-wider`}>
                 NO
               </span>
               <span className="text-[18px] font-mono font-bold text-red-400 tabular-nums leading-none">
@@ -180,13 +181,13 @@ export function OpportunityDetailView({
         </div>
 
         {/* Meta row */}
-        <div className={`flex items-center gap-4 mt-2.5 ${FontSize.small} font-mono text-muted-foreground/70`}>
+        <div className={`flex items-center gap-4 mt-2.5 ${FontSize.small} font-mono ${Muted.mutedText}`}>
           <span className="flex items-center gap-1" title={closeFormatted}>
             <Clock className="h-3 w-3" />
             {closeFormatted}
           </span>
-          <span className="text-muted-foreground/70">·</span>
-          <span className="text-muted-foreground/70">{closeRelative}</span>
+          <span className={Muted.mutedText}>·</span>
+          <span className={Muted.mutedText}>{closeRelative}</span>
           <span className="flex items-center gap-1 ml-auto">
             <Target className="h-3 w-3" />
             {summary.market_ticker}
