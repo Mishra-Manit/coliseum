@@ -159,7 +159,7 @@ function TzSelector({
           className={`px-2 py-0.5 ${FontSize.small} font-mono tracking-wider transition-colors ${
             tz === option
               ? "bg-primary/15 text-primary border-r border-border last:border-r-0"
-              : `${Muted.mutedText} hover:${Muted.mutedText} border-r border-border last:border-r-0`
+              : `${Muted.mutedText} ${Muted.mutedTextHover} border-r border-border last:border-r-0`
           }`}
         >
           {option}

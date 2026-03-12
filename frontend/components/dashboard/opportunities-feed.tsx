@@ -108,7 +108,7 @@ function OpportunityRow({
           {/* Title */}
           <p
             className={`${FontSize.medium} font-medium leading-snug line-clamp-2 transition-colors ${
-              isSelected ? "text-foreground" : `${Soft.foreground} group-hover:${Strong.foreground}`
+              isSelected ? "text-foreground" : `${Soft.foreground} ${Strong.foregroundGroupHover}`
             }`}
           >
             {opportunity.title}
@@ -158,7 +158,7 @@ function OpportunityRow({
           className={`h-3.5 w-3.5 shrink-0 mt-1 transition-all duration-150 ${
             isSelected
               ? Muted.amberLabel
-              : `${Muted.mutedText} group-hover:${Muted.mutedText}`
+              : `${Muted.mutedText} ${Muted.mutedTextGroupHover}`
           }`}
         />
       </div>

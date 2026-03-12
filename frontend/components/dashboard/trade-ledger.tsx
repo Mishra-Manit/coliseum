@@ -152,7 +152,7 @@ function LedgerRow({
       disabled={!isClickable}
       className={`w-full text-left flex items-center gap-2.5 px-2.5 py-2 rounded-lg border transition-all duration-150 ${
         isClickable
-          ? `border-transparent hover:${BorderTint.amberSelected} hover:${BgTint.amberHover} cursor-pointer`
+          ? `border-transparent ${BorderTint.amberSelectedHover} ${BgTint.amberHoverState} cursor-pointer`
           : "border-transparent cursor-default"
       }`}
     >

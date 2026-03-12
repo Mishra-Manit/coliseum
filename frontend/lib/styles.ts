@@ -15,16 +15,18 @@
 
 /** /70 — secondary text, labels, muted foreground, icons */
 export const Muted = {
-  mutedText:    "text-muted-foreground/70",
-  foreground:   "text-foreground/70",
-  emeraldLabel: "text-emerald-400/70",
-  redLabel:     "text-red-400/70",
-  amberLabel:   "text-amber-500/70",
-  amberWinRate: "text-amber-400/70",
-  skyIcon:      "text-sky-500/70",
-  emeraldIcon:  "text-emerald-500/70",
-  redIcon:      "text-red-500/70",
-  yellowBadge:  "text-yellow-500/70",
+  mutedText:           "text-muted-foreground/70",
+  mutedTextHover:      "hover:text-muted-foreground/70",
+  mutedTextGroupHover: "group-hover:text-muted-foreground/70",
+  foreground:          "text-foreground/70",
+  emeraldLabel:        "text-emerald-400/70",
+  redLabel:            "text-red-400/70",
+  amberLabel:          "text-amber-500/70",
+  amberWinRate:        "text-amber-400/70",
+  skyIcon:             "text-sky-500/70",
+  emeraldIcon:         "text-emerald-500/70",
+  redIcon:             "text-red-500/70",
+  yellowBadge:         "text-yellow-500/70",
 } as const;
 
 /** /80 — primary values, card backgrounds, status colors */
@@ -40,7 +42,8 @@ export const Base = {
 
 /** /90 — hover/active states, high-contrast foreground */
 export const Strong = {
-  foreground: "text-foreground/90",
+  foreground:           "text-foreground/90",
+  foregroundGroupHover: "group-hover:text-foreground/90",
 } as const;
 
 /** /75 — intermediate opacity: unselected opportunity titles */
@@ -72,11 +75,14 @@ export const Ghost = {
  */
 export const BgTint = {
   // /4 — price boxes and row hover
-  yesBox:        "bg-emerald-500/4",
-  noBox:         "bg-red-500/4",
-  amberRowHover: "bg-amber-500/4",
+  yesBox:             "bg-emerald-500/4",
+  noBox:              "bg-red-500/4",
+  amberRowHover:      "bg-amber-500/4",
+  // hover state versions (must be full strings for Tailwind scanning)
+  amberRowHoverState: "hover:bg-amber-500/4",
+  amberHoverState:    "hover:bg-amber-500/5",
   // /5 — subtle hover backgrounds
-  amberHover:    "bg-amber-500/5",
+  amberHover:         "bg-amber-500/5",
   emeraldBox:    "bg-emerald-500/5",
   redBox:        "bg-red-500/5",
   // /6 — status badge fill
@@ -113,7 +119,8 @@ export const BorderTint = {
   yesBox:        "border-emerald-500/12",
   noBox:         "border-red-500/12",
   // /20 — selected row / status badge
-  amberSelected: "border-amber-600/20",
+  amberSelected:      "border-amber-600/20",
+  amberSelectedHover: "hover:border-amber-600/20",
   // /25 — navbar mode badge borders
   paperBadge:    "border-yellow-600/25",
   liveBadge:     "border-emerald-600/25",

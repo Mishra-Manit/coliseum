@@ -21,7 +21,7 @@ export function RangeSwitcher({ value, onChange }: RangeSwitcherProps) {
           className={`px-2.5 py-1 ${FontSize.small} font-mono tracking-[0.1em] transition-colors border-r border-border last:border-r-0 ${
             value === interval
               ? "bg-primary/15 text-primary"
-              : `${Faint.mutedText} hover:${Muted.mutedText}`
+              : `${Faint.mutedText} ${Muted.mutedTextHover}`
           }`}
         >
           {interval}

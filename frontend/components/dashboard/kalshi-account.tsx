@@ -81,7 +81,7 @@ export function KalshiAccount({ onSelectOpportunity }: KalshiAccountProps) {
                       }
                       className={`border-border transition-colors ${
                         isClickable
-                          ? `cursor-pointer hover:${BgTint.amberHover} hover:${BorderTint.amberSelected}`
+                          ? `cursor-pointer ${BgTint.amberHoverState} ${BorderTint.amberSelectedHover}`
                           : "hover:bg-secondary/40"
                       }`}
                     >

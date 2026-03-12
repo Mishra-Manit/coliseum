@@ -177,7 +177,7 @@ function PositionsContent({
                 }
                 className={`${BorderTint.tableRow} transition-colors ${
                   isClickable
-                    ? `cursor-pointer hover:${BgTint.amberRowHover}`
+                    ? `cursor-pointer ${BgTint.amberRowHoverState}`
                     : "hover:bg-secondary/20"
                 }`}
               >
@@ -337,7 +337,7 @@ function LedgerRow({
       disabled={!isClickable}
       className={`w-full text-left flex items-center gap-2.5 px-2 py-1.5 rounded transition-colors ${
         isClickable
-          ? `hover:${BgTint.amberRowHover} cursor-pointer`
+          ? `${BgTint.amberRowHoverState} cursor-pointer`
           : "cursor-default"
       }`}
     >
