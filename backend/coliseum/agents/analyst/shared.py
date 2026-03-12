@@ -29,10 +29,15 @@ def format_opportunity_header(opportunity: OpportunitySignal) -> str:
         if opportunity.subtitle
         else ""
     )
+    event_title_line = (
+        f"**Event**: {opportunity.event_title}\n"
+        if opportunity.event_title
+        else ""
+    )
 
     return f"""**ID**: {opportunity.id}
 **Event Ticker**: {opportunity.event_ticker}
-**Market Ticker**: {opportunity.market_ticker}
+{event_title_line}**Market Ticker**: {opportunity.market_ticker}
 **Market**: {opportunity.title}
 {subtitle_info}**Current YES Price**: {opportunity.yes_price:.2f} ({opportunity.yes_price * 100:.1f}¢)
 **Current NO Price**: {opportunity.no_price:.2f} ({opportunity.no_price * 100:.1f}¢)

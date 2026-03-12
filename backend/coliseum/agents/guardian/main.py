@@ -105,10 +105,7 @@ async def _compute_exit_outcome(
         else:
             logger.warning("Guardian using market price estimate for %s", pos.market_ticker)
 
-    if side == "YES":
-        pnl = round((exit_price - entry_price) * contracts, 4)
-    else:
-        pnl = round((entry_price - exit_price) * contracts, 4)
+    pnl = round((exit_price - entry_price) * contracts, 4)
 
     return exit_price, pnl
 
@@ -319,6 +316,15 @@ async def run_guardian(settings: Settings | None = None) -> GuardianResult:
             with logfire.span("fetch fills"):
                 fills = await client.get_fills(limit=500)
                 logfire.info("Fills fetched", count=len(fills))
+
+            # Re-sync after stop-loss sells so reconciliation sees the position as gone
+            if stop_loss_tickers:
+                with logfire.span("re-sync after stop loss"):
+                    state = await sync_portfolio_from_kalshi(client)
+                    logfire.info(
+                        "Re-synced after stop-loss",
+                        open_positions=len(state.open_positions),
+                    )
 
             # Step 5: reconcile closed positions
             with logfire.span("reconcile closed positions", inspected=len(pre_sync_state.open_positions)):
