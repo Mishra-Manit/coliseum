@@ -10,6 +10,8 @@
 - Same-day weather band YES entries are favorable when the official station has already recorded a temperature inside the target band and the NWS digital forecast keeps the rest of the climate day at or below the band ceiling.
 - CPI and Core CPI BLS threshold markets are favorable high-price YES buys when multiple fresh economist previews and the Cleveland Fed nowcast all clear the strike and the contract resolves only from the scheduled BLS release.
 - CPI-family thresholds at 0.0% and 0.1% must be evaluated on the published one-decimal BLS figure because a raw positive print can still resolve NO after rounding.
+- Same-day weather band NO entries are unsafe when the target band sits only 2–3°F below the latest forecast low and several overnight hours remain before the climate day ends.
+- S&P 500 downside-threshold NO entries remain vulnerable to overnight macro shocks even with roughly 4% spot-to-strike cushion over a two-session holding window.
 
 ## Execution Patterns
 - Orders placed within 2h of close fill faster
@@ -18,6 +20,7 @@
 - Buying 95–96¢ YES is justified in mechanically resolved reference-price markets when the source publication is fixed and there is no appeal or discretionary revision path.
 - In review-aggregate markets, paying up for YES is justified only after verifying the contract uses a strict-above threshold and checking that the current margin over the strike can absorb plausible late updates.
 - For CPI-family markets, paying 93–96¢ YES is justified only when the best live forecasts still clear the contract threshold after one-decimal rounding rather than merely in raw percentage terms.
+- Do not force fallback entries into 92–96¢ NO positions when the remaining risk window still includes overnight weather movement or multiple cash-equity sessions.
 
 ## Error Patterns
 - Kalshi API may return 429 during maintenance windows — skip scout cycles then

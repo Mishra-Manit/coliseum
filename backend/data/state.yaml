@@ -1,85 +1,24 @@
-last_updated: '2026-03-11T22:58:09.728659+00:00'
+last_updated: '2026-03-12T16:04:27.269234+00:00'
 portfolio:
-  total_value: 24.090000000000003
-  cash_balance: 18.51
-  positions_value: 5.58
+  total_value: 23.9
+  cash_balance: 20.06
+  positions_value: 3.84
 open_positions:
-- id: pos_b5527d5e
-  market_ticker: KXLOWTCHI-26MAR11-B28.5
-  side: 'NO'
-  contracts: 2
-  average_entry: 0.95
-  current_price: 0.94
-  opportunity_id: opp_b4c06bad
-- id: pos_1a706486
-  market_ticker: KXINX-26MAR13H1600-T6475
-  side: 'NO'
-  contracts: 2
-  average_entry: 0.94
-  current_price: 0.92
-  opportunity_id: opp_36260a55
-- id: pos_2580b873
-  market_ticker: KXHIGHPHIL-26MAR12-T73
+- id: pos_73da3fa8
+  market_ticker: KXHIGHAUS-26MAR12-B71.5
   side: 'NO'
   contracts: 2
   average_entry: 0.96
   current_price: 0.93
-  opportunity_id: opp_1460bf58
+  opportunity_id: opp_147812bf
+- id: pos_26f34014
+  market_ticker: KXHIGHPHIL-26MAR12-T73
+  side: 'NO'
+  contracts: 2
+  average_entry: 0.96
+  current_price: 0.99
+  opportunity_id: sync_59ee8574
 closed_positions:
-- market_ticker: KXNASCARRACE-ONLGF1AS26-ADAN
-  side: 'NO'
-  contracts: 5
-  entry_price: 0.96
-  exit_price: 1.0
-  pnl: -0.20000000000000018
-  opportunity_id: sync_e047f731
-  closed_at: '2026-03-05T05:21:30.724813Z'
-  entry_rationale: null
-- market_ticker: KXNASCARRACE-ONLGF1AS26-LARI
-  side: 'NO'
-  contracts: 4
-  entry_price: 0.95
-  exit_price: 1.0
-  pnl: -0.20000000000000018
-  opportunity_id: sync_c8bb6634
-  closed_at: '2026-03-05T05:21:30.757822Z'
-  entry_rationale: null
-- market_ticker: KXAAAGASW-26MAR02-3.008
-  side: 'NO'
-  contracts: 5
-  entry_price: 0.96
-  exit_price: 1.0
-  pnl: -0.20000000000000018
-  opportunity_id: sync_e29a905c
-  closed_at: '2026-03-05T05:21:30.790124Z'
-  entry_rationale: null
-- market_ticker: KXNYTHEAD-26FEB-T1
-  side: 'NO'
-  contracts: 5
-  entry_price: 0.93
-  exit_price: 1.0
-  pnl: -0.34999999999999976
-  opportunity_id: sync_ee70b444
-  closed_at: '2026-03-05T05:21:30.823812Z'
-  entry_rationale: null
-- market_ticker: KXTRUTHSOCIAL-26FEB28-B129
-  side: 'NO'
-  contracts: 10
-  entry_price: 0.96
-  exit_price: 1.0
-  pnl: -0.40000000000000036
-  opportunity_id: sync_58a784af
-  closed_at: '2026-03-05T05:21:30.854613Z'
-  entry_rationale: null
-- market_ticker: KXTRUMPSAYMONTH-26MAR01-TURN
-  side: 'NO'
-  contracts: 1
-  entry_price: 0.96
-  exit_price: 1.0
-  pnl: -0.040000000000000036
-  opportunity_id: sync_627a95c7
-  closed_at: '2026-03-05T05:21:30.889148Z'
-  entry_rationale: null
 - market_ticker: KXNBAMENTION-26MAR06LALDEN-INJU
   side: 'YES'
   contracts: 5
@@ -297,48 +236,53 @@ closed_positions:
     Risks -- a downside CPI surprise to 0.1% or lower or an unexpected publication
     delay, but no formal challenge risk is identified. Sources -- https://www.clevelandfed.org/indicators-and-data/inflation-nowcasting
     ; https://www.bls.gov/schedule/news_release/cpi.htm'
+- market_ticker: KXINX-26MAR13H1600-T6475
+  side: 'NO'
+  contracts: 2
+  entry_price: 0.94
+  exit_price: 0.75
+  pnl: -0.38
+  opportunity_id: opp_36260a55
+  closed_at: '2026-03-12T04:32:48.995771Z'
+  entry_rationale: 'Outcome Status -- STRONGLY FAVORED: the S&P 500 closed at 6,775.80
+    on March 11, 2026, leaving 300.80 index points of cushion above the 6,475 cutoff
+    going into the March 13, 2026 close.  Supporting Evidence -- the contract wins
+    on NO unless the index falls 4.4393% or more from that close within roughly 45.5
+    hours, which is a larger required move than the narrower S&P band markets in this
+    universe and makes this the safest remaining non-excluded reference-price candidate.  Resolution
+    Source -- Kalshi''s underlying reference is the official S&P 500 index value published
+    by S&P Dow Jones Indices, whose methodology states index levels are available
+    through S&P DJI''s website and major quote vendors; Risk Checklist -- passed clear
+    resolution source, no formal appeals/reviews, strong position from a 300.80-point
+    cushion, and recent corroboration from a same-day close.  Risk Level -- LOW; this
+    was selected as the single lowest-risk available candidate after eliminating Tier
+    1 crypto and Tier 2 speaking markets and deprioritizing Tier 3 weather markets
+    under the scan rules. Remaining Risks -- a sharp two-session equity selloff driven
+    by escalation in the Iran war or tariff headlines could still push the index below
+    6,475, but no formal challenge path exists because settlement is mechanical; Sources
+    -- https://za.investing.com/news/economy-news/wall-st-futures-subdued-as-investors-eye-crude-prices-inflation-report-4158008
+    ; https://www.spglobal.com/spdji/en/documents/methodologies/methodology-sp-us-indices.pdf.'
+- market_ticker: KXLOWTCHI-26MAR11-B28.5
+  side: 'NO'
+  contracts: 2
+  entry_price: 0.95
+  exit_price: 1.0
+  pnl: 0.1
+  opportunity_id: opp_b4c06bad
+  closed_at: '2026-03-12T15:39:00.631879Z'
+  entry_rationale: 'FORCED_FALLBACK — STRONGLY FAVORED: among this prefetched universe,
+    the lower-tier alternatives are pre-event price or polling markets with greater
+    swing risk, so the least-risky available setup is BUY NO here; Chicago is currently
+    36°F and the latest forecast low for Wednesday, March 11 is 31°F, leaving the
+    28-29°F band a few degrees below forecast with only several overnight hours remaining.
+    Supporting Evidence: the current market is priced at YES 0.05 / NO 0.96, and late-day
+    weather inputs show cooling from the mid-30s rather than conditions already near
+    the strike. Resolution Source: Kalshi weather markets settle from the National
+    Weather Service final Daily Climate Report, giving a clear official authority.
+    Risk Checklist: passed clear resolution source, no formal challenges identified,
+    recent corroboration, and stable late-day inputs. Risk Level: LOW, and this was
+    selected as the single lowest-risk available candidate. Remaining Risks: a sharper-than-forecast
+    late-night drop into the exact 28-29°F band. Sources: https://help.kalshi.com/markets/popular-markets/weather-markets
+    ; https://forecast.weather.gov/data/obhistory/KORD.html'
 seen_tickers:
-- KXWOHOCKEY-MEN26CGOLD-USA
-- KXNCAABBGAME-26FEB201400LSUIND-LSU
-- KXTRUMPSAY-26FEB23-MARI
-- KXBERNIEMENTION-26FEB21-TRUM
-- KXWOMHOCKEYMVP-26-MCEL
-- KXAAAGASW-26FEB23-2.959
-- KXAAAGASW-26FEB23-2.929
-- KXNBAMENTION-26FEB22CLEOKC-INJU
-- KXTRUMPSAY-26FEB23-WHO
-- KXBTCD-26FEB2217-T65999.99
-- KXTRUMPSAY-26FEB23-THUG
-- KXTRUMPSAY-26FEB23-MENT
-- KXTRUMPSAY-26FEB23-SOMA
-- KXNASCARRACE-AUT26-KYLA
-- KXTRUMPSAY-26FEB23-BIBI
-- KXATTENDSOTU-JHUG
-- KXTRUMPSAYMONTH-26MAR01-TURN
-- KXTRUTHSOCIAL-26FEB28-B129
-- KXNYTHEAD-26FEB-T1
-- KXAAAGASW-26MAR02-3.008
-- KXNASCARRACE-ONLGF1AS26-ADAN
-- KXNASCARRACE-ONLGF1AS26-LARI
-- KXPAYROLLS-26FEB-T-25000
-- KXWTIW-26MAR06-T73.99
-- KXMLBSTGAME-26MAR051510ATHLAA-ATH
-- KXU3-26FEB-T4.1
-- KXMLBSTGAME-26MAR051510MILCOL-MIL
-- KXNBAMENTION-26MAR05GSWHOU-INJU
-- KXNBAMENTION-26MAR06LALDEN-INJU
-- KXALBUMSALES-ROM-85000
-- KXNCAABBGAME-26MAR051600UCSDCIB-CIB
-- KXECONSTATU3-26FEB-T4.1
-- KXBTCD-26MAR0600-T70249.99
-- KXRT-HOP-92
-- KXCPI-26FEB-T0.0
-- KXHIGHMIA-26MAR09-B84.5
-- KXCPI-26FEB-T0.1
-- KXCPICORE-26FEB-T0.1
-- KXPCECORE-26JAN-T0.3
-- KXALBUMSALES-KIS-300000
-- KXHIGHPHIL-26MAR12-T73
-- KXINX-26MAR13H1600-T6475
-- KXWTIW-26MAR13-B90.5
-- KXLOWTCHI-26MAR11-B28.5
+- KXWTIW-26MAR13-B91.5
