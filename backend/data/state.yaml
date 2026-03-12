@@ -1,15 +1,22 @@
-last_updated: '2026-03-12T16:04:27.269234+00:00'
+last_updated: '2026-03-12T16:20:50.121977+00:00'
 portfolio:
-  total_value: 23.9
-  cash_balance: 20.06
-  positions_value: 3.84
+  total_value: 23.89
+  cash_balance: 18.15
+  positions_value: 5.74
 open_positions:
+- id: pos_b2c9c95a
+  market_ticker: KXWTIW-26MAR13-B91.5
+  side: 'NO'
+  contracts: 2
+  average_entry: 0.95
+  current_price: 0.93
+  opportunity_id: opp_6342b134
 - id: pos_73da3fa8
   market_ticker: KXHIGHAUS-26MAR12-B71.5
   side: 'NO'
   contracts: 2
   average_entry: 0.96
-  current_price: 0.93
+  current_price: 0.95
   opportunity_id: opp_147812bf
 - id: pos_26f34014
   market_ticker: KXHIGHPHIL-26MAR12-T73
@@ -17,7 +24,7 @@ open_positions:
   contracts: 2
   average_entry: 0.96
   current_price: 0.99
-  opportunity_id: sync_59ee8574
+  opportunity_id: opp_1460bf58
 closed_positions:
 - market_ticker: KXNBAMENTION-26MAR06LALDEN-INJU
   side: 'YES'
@@ -286,3 +293,4 @@ closed_positions:
     ; https://forecast.weather.gov/data/obhistory/KORD.html'
 seen_tickers:
 - KXWTIW-26MAR13-B91.5
+- KXPCECORE-26JAN-T0.3
