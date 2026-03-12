@@ -8,7 +8,7 @@
  * are intentional hierarchy markers and are not governed by this enum.
  */
 export const FontSize = {
-  small: "text-[10px]",
+  small: "text-[11px]",
   medium: "text-[12px]",
 } as const;
 
