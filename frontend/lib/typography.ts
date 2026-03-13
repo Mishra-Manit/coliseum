@@ -10,6 +10,7 @@
 export const FontSize = {
   small: "text-[11px]",
   medium: "text-[12px]",
+  large: "text-[13px]",
 } as const;
 
 export type FontSizeKey = keyof typeof FontSize;

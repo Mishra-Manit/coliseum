@@ -1,23 +1,23 @@
-last_updated: '2026-03-12T21:11:42.196472+00:00'
+last_updated: '2026-03-13T20:27:49.505256+00:00'
 portfolio:
-  total_value: 7.76
-  cash_balance: 16.26
-  positions_value: 7.74
+  total_value: 8.66
+  cash_balance: 15.67
+  positions_value: 8.43
 open_positions:
-- id: pos_d13f45d9
-  market_ticker: KXHIGHAUS-26MAR12-B69.5
+- id: pos_b9ba6c88
+  market_ticker: KXHIGHLAX-26MAR14-T72
   side: 'NO'
-  contracts: 2
-  average_entry: 0.94
+  contracts: 5
+  average_entry: 0.9399999999999998
   current_price: 0.93
-  opportunity_id: opp_f6370cfe
-- id: pos_73da3fa8
-  market_ticker: KXHIGHAUS-26MAR12-B71.5
+  opportunity_id: opp_2b665156
+- id: pos_5145fa5f
+  market_ticker: KXWTIW-26MAR13-T85.00
   side: 'NO'
   contracts: 2
-  average_entry: 0.96
-  current_price: 0.98
-  opportunity_id: opp_147812bf
+  average_entry: 0.93
+  current_price: 0.92
+  opportunity_id: opp_8ec6503c
 - id: pos_b2c9c95a
   market_ticker: KXWTIW-26MAR13-B91.5
   side: 'NO'
@@ -25,13 +25,6 @@ open_positions:
   average_entry: 0.95
   current_price: 0.97
   opportunity_id: opp_6342b134
-- id: pos_26f34014
-  market_ticker: KXHIGHPHIL-26MAR12-T73
-  side: 'NO'
-  contracts: 2
-  average_entry: 0.96
-  current_price: 0.99
-  opportunity_id: opp_1460bf58
 closed_positions:
 - market_ticker: KXNBAMENTION-26MAR06LALDEN-INJU
   side: 'YES'
@@ -298,7 +291,81 @@ closed_positions:
     selected as the single lowest-risk available candidate. Remaining Risks: a sharper-than-forecast
     late-night drop into the exact 28-29°F band. Sources: https://help.kalshi.com/markets/popular-markets/weather-markets
     ; https://forecast.weather.gov/data/obhistory/KORD.html'
+- market_ticker: KXHIGHAUS-26MAR12-B69.5
+  side: 'NO'
+  contracts: 2
+  entry_price: 0.94
+  exit_price: 1.0
+  pnl: 0.12
+  opportunity_id: opp_f6370cfe
+  closed_at: '2026-03-13T20:11:03.291502Z'
+  entry_rationale: 'Outcome Status — STRONGLY FAVORED (FORCED_FALLBACK): Austin is
+    63°F now and the latest hourly forecast only reaches 67°F before cooling, so the
+    69°-70° band sits above the projected peak. citeturn4forecast0turn6view0 Supporting
+    Evidence — NWS Austin/San Antonio’s afternoon discussion said highs would be in
+    the mid 60s to low 70s, and its point forecast listed Austin Bergstrom at 67 for
+    today; Resolution Source — the National Weather Service Austin Bergstrom daily
+    climatological report (CLI). citeturn6view0turn5search3 Risk Checklist — passed
+    clear resolution source, no formal challenge path on an objective airport temperature
+    print, recent corroboration, and stable late-day inputs; Risk Level — LOW, and
+    this was selected as the single lowest-risk available candidate after excluding
+    Tier 1 crypto and Tier 2 speaking markets and rejecting the remaining Tier 4 markets
+    as more unresolved or volatile, so this is a FORCED_FALLBACK. citeturn4forecast0turn6view0
+    Remaining Risks — a small late-day warm overshoot or station-specific observation
+    variance could still touch 69°F, but no larger discretionary risk is identified;
+    Sources — https://www.weather.gov/ewx/forecasts ; https://forecast.weather.gov/product.php?format=CI&glossary=1&issuedby=AUS&product=CLI&site=NWS&version=17.'
+- market_ticker: KXHIGHAUS-26MAR12-B71.5
+  side: 'NO'
+  contracts: 2
+  entry_price: 0.96
+  exit_price: 1.0
+  pnl: 0.08
+  opportunity_id: opp_147812bf
+  closed_at: '2026-03-13T20:11:03.468648Z'
+  entry_rationale: 'FORCED_FALLBACK — STRONGLY FAVORED: NO on 71°-72° for Austin is
+    priced at 96¢, and the current Austin-Bergstrom observation is 53°F late morning
+    while the latest NWS forecast only calls for a high around 67°F, leaving roughly
+    4-5°F of cushion below the band. Supporting Evidence: the contract only loses
+    if the official daily high lands exactly 71° or 72°; with the station still in
+    the low 50s and forecast high in the upper 60s, that exact-band outcome requires
+    a material upside forecast miss. Resolution Source: the National Weather Service
+    climate record for Austin-Bergstrom / official airport observations provide the
+    determining temperature, and the Risk Checklist passes because the resolution
+    source is clear, there are no formal appeals for a weather observation market,
+    and inputs are relatively stable. Risk Level: LOW; selected as the single lowest-risk
+    available candidate and labeled FORCED_FALLBACK because remaining non-excluded
+    markets are more exposed to intraday price swings before resolution. Remaining
+    Risks: a warmer-than-forecast afternoon could still push the station into the
+    target band, but no other specific settlement risk is identified. Sources: https://www.weather.gov/data/obhistory/KAUS.html
+    ; https://forecast.weather.gov/MapClick.php?FcstType=digital&lat=30.20990&lg=english&lon=-97.68060'
+- market_ticker: KXHIGHPHIL-26MAR12-T73
+  side: 'NO'
+  contracts: 2
+  entry_price: 0.96
+  exit_price: 1.0
+  pnl: 0.08
+  opportunity_id: opp_1460bf58
+  closed_at: '2026-03-13T20:11:03.708927Z'
+  entry_rationale: 'STRONGLY FAVORED: The National Weather Service point forecast
+    for Philadelphia currently calls for a Thursday, March 12 high near 58°F, which
+    is 16°F below the 74°F threshold required for YES, so NO at 96¢ is the favored
+    side. citeturn8search0 Supporting evidence: the latest NWS forecast page lists
+    highs of 53°F Wednesday and 58°F Thursday, indicating a wide cushion versus the
+    strike rather than a marginal setup. citeturn8search0 Resolution source: Kalshi
+    states that weather markets settle from the final National Weather Service Daily
+    Climate Report, which provides a clear official determination source. citeturn1search0
+    Risk checklist: clear resolution source, recent corroboration within the last
+    72 hours, and stable inputs all pass, with no formal appeals or review process
+    attached to a routine temperature print; Risk Level: LOW, and this was selected
+    as the single lowest-risk available candidate, marked FORCED_FALLBACK because
+    the remaining Tier 4+ candidates in this universe were materially more volatile
+    or pre-event. Remaining risks: forecast error or station-specific variance until
+    the final climate report posts, but no other risks were identified; Sources: https://forecast.weather.gov/MapClick.php?lat=39.9496&lon=-75.1503,
+    https://help.kalshi.com/markets/popular-markets/weather-markets. citeturn8search0turn1search0'
 seen_tickers:
 - KXWTIW-26MAR13-B91.5
 - KXPCECORE-26JAN-T0.3
 - KXHIGHAUS-26MAR12-B69.5
+- KXWTIW-26MAR13-T85.00
+- KXHIGHTBOS-26MAR13-B44.5
+- KXHIGHLAX-26MAR14-T72
