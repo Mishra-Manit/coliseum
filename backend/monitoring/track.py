@@ -4,8 +4,7 @@ Builds a CSV dataset to identify which event types consistently resolve
 to 100 once they reach the 92-96% probability range.
 
 Commands:
-  collect  - fetch all pre-filtered markets and add new entries to CSV
-  update   - check unresolved markets in CSV and record close prices
+  run  - collect new markets from Kalshi, then update resolution status
 """
 
 import argparse
@@ -185,15 +184,19 @@ async def update() -> None:
     print(f"Updated {updated} markets. Total resolved: {total_resolved}/{len(rows)}.")
 
 
+async def run() -> None:
+    """Collect new markets then update resolution status."""
+    await collect()
+    await update()
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Kalshi market monitoring")
-    parser.add_argument("command", choices=["collect", "update"])
+    parser.add_argument("command", choices=["run"])
     args = parser.parse_args()
 
-    if args.command == "collect":
-        asyncio.run(collect())
-    else:
-        asyncio.run(update())
+    if args.command == "run":
+        asyncio.run(run())
 
 
 if __name__ == "__main__":
