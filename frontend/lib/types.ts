@@ -61,10 +61,39 @@ export interface OpportunitySummary {
   date_folder: string;
 }
 
+export interface ScoutSection {
+  outcome_status: string;
+  risk_level: string;
+  summary: string;
+  evidence: string[];
+  resolution_source: string;
+  remaining_risks: string[];
+  sources: string[];
+  is_structured: boolean;
+}
+
+export interface ResearchSection {
+  flip_risk: "YES" | "NO" | "UNCERTAIN";
+  confidence: "HIGH" | "MEDIUM" | "LOW" | null;
+  event_status: string;
+  evidence_for: string[];
+  evidence_against: string[];
+  resolution_mechanics: string;
+  conclusion: string;
+  unconfirmed: string[];
+  sources: string[];
+}
+
+export interface ParsedSections {
+  scout: ScoutSection;
+  research: ResearchSection | null;
+}
+
 export interface OpportunityDetail {
   summary: OpportunitySummary;
   markdown_body: string;
   raw_frontmatter: Record<string, unknown>;
+  parsed_sections: ParsedSections | null;
 }
 
 export interface ColiseumConfig {

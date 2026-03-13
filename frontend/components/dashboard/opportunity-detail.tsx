@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState, useRef } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { X, Clock, Target, FileText } from "lucide-react";
 import ReactMarkdown from "react-markdown";
@@ -9,6 +9,7 @@ import { useOpportunityDetail } from "@/hooks/use-api";
 import { useTimezone, formatInTz } from "@/lib/timezone-context";
 import { FontSize } from "@/lib/typography";
 import { Muted, BgTint, BorderTint } from "@/lib/styles";
+import { IntelBrief } from "./intel-brief";
 
 interface OpportunityDetailProps {
   opportunityId: string | null;
@@ -33,6 +34,18 @@ export function OpportunityDetailView({
 }: OpportunityDetailProps) {
   const { data, isLoading } = useOpportunityDetail(opportunityId);
   const { tz } = useTimezone();
+  const [copied, setCopied] = useState(false);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function handleCopyTicker(ticker: string) {
+    navigator.clipboard.writeText(ticker)
+      .then(() => {
+        setCopied(true);
+        if (timeoutRef.current) clearTimeout(timeoutRef.current);
+        timeoutRef.current = setTimeout(() => setCopied(false), 1500);
+      })
+      .catch(() => {});
+  }
 
   if (!opportunityId) {
     return (
@@ -73,7 +86,8 @@ export function OpportunityDetailView({
     );
   }
 
-  const { summary, markdown_body } = data;
+  const { summary, markdown_body, parsed_sections } = data;
+  const useStructured = parsed_sections?.scout.is_structured === true;
 
   const strippedMarkdown = markdown_body
     .replace(/^#\s+.+\n?/, "")
@@ -104,6 +118,18 @@ export function OpportunityDetailView({
               <span className={`${FontSize.small} font-mono ${Muted.amberLabel} uppercase tracking-wider border ${BorderTint.amberSelected} ${BgTint.amberBadge} px-1.5 py-0.5 rounded`}>
                 {summary.status}
               </span>
+              {summary.market_ticker && (
+                <button
+                  onClick={() => handleCopyTicker(summary.market_ticker)}
+                  className={`${FontSize.small} font-mono uppercase tracking-wider px-1.5 py-0.5 rounded border transition-all duration-150 cursor-pointer ${
+                    copied
+                      ? `${Muted.emeraldLabel} ${BorderTint.yesBadge} ${BgTint.winBg}`
+                      : `${Muted.mutedText} ${BorderTint.amberSelected} ${BgTint.amberBadge} hover:text-muted-foreground ${BorderTint.amberSelectedHover}`
+                  }`}
+                >
+                  {copied ? "COPIED" : summary.market_ticker}
+                </button>
+              )}
               {summary.action && (
                 <span
                   className={`${FontSize.small} font-mono font-bold uppercase tracking-wider ${
@@ -195,42 +221,46 @@ export function OpportunityDetailView({
         </div>
       </div>
 
-      {/* Markdown body */}
+      {/* Intel body */}
       <div className="flex-1 overflow-y-auto min-h-0 min-w-0">
-        <div className="px-5 py-4 markdown-body min-w-0">
-          <ReactMarkdown
-            remarkPlugins={[remarkGfm]}
-            components={{
-              a: ({ href, children }) => (
-                <a href={href} target="_blank" rel="noopener noreferrer">
-                  {children}
-                </a>
-              ),
-              tr: ({ children, ...props }) => {
-                // Intercept the "Closes" row and replace its value with a
-                // timezone-aware formatted time derived from summary.close_time
-                const cells = React.Children.toArray(children);
-                if (cells.length >= 2 && React.isValidElement(cells[0])) {
-                  const label = childText(
-                    (cells[0] as React.ReactElement<{ children?: React.ReactNode }>).props.children
-                  ).trim();
-                  if (label === "Closes" && closeDate) {
-                    return (
-                      <tr {...props}>
-                        {cells[0]}
-                        <td className="font-mono tabular-nums">
-                          {closeFormatted}
-                        </td>
-                      </tr>
-                    );
-                  }
-                }
-                return <tr {...props}>{children}</tr>;
-              },
-            }}
-          >
-            {strippedMarkdown}
-          </ReactMarkdown>
+        <div className="px-5 py-4 min-w-0">
+          {useStructured && parsed_sections ? (
+            <IntelBrief parsed={parsed_sections} />
+          ) : (
+            <div className="markdown-body">
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                components={{
+                  a: ({ href, children }) => (
+                    <a href={href} target="_blank" rel="noopener noreferrer">
+                      {children}
+                    </a>
+                  ),
+                  tr: ({ children, ...props }) => {
+                    const cells = React.Children.toArray(children);
+                    if (cells.length >= 2 && React.isValidElement(cells[0])) {
+                      const label = childText(
+                        (cells[0] as React.ReactElement<{ children?: React.ReactNode }>).props.children
+                      ).trim();
+                      if (label === "Closes" && closeDate) {
+                        return (
+                          <tr {...props}>
+                            {cells[0]}
+                            <td className="font-mono tabular-nums">
+                              {closeFormatted}
+                            </td>
+                          </tr>
+                        );
+                      }
+                    }
+                    return <tr {...props}>{children}</tr>;
+                  },
+                }}
+              >
+                {strippedMarkdown}
+              </ReactMarkdown>
+            </div>
+          )}
         </div>
       </div>
     </div>

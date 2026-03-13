@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { DashboardNavbar } from "@/components/dashboard/dashboard-navbar";
-import { useChartData, usePortfolioState } from "@/hooks/use-api";
+import { useChartData } from "@/hooks/use-api";
+import { usePortfolioStream } from "@/hooks/use-portfolio-stream";
 import { LWPortfolioChart } from "@/components/chart/lw-portfolio-chart";
 import { WinRatePanel } from "@/components/chart/win-rate-panel";
 import type { Interval } from "@/lib/chart-utils";
@@ -47,15 +48,16 @@ function StatRow({ label, value, sub, trend = "neutral" }: StatRowProps) {
 
 function ChartSidebar() {
   const { data: chartData } = useChartData();
-  const { data: state } = usePortfolioState();
+  const { data: stream } = usePortfolioStream();
 
   const stats = chartData?.stats;
-  const currentNav = state?.portfolio?.total_value ?? stats?.current_nav ?? 0;
+  const currentNav = stream?.portfolio?.total_value ?? stats?.current_nav ?? 0;
   const totalPnl = stats?.total_pnl ?? 0;
   const isPositive = totalPnl >= 0;
+  const startingNav = currentNav - totalPnl;
   const returnPct =
-    stats && stats.initial_nav !== 0
-      ? ((totalPnl / Math.abs(stats.initial_nav)) * 100).toFixed(1)
+    startingNav !== 0
+      ? ((totalPnl / Math.abs(startingNav)) * 100).toFixed(1)
       : "0.0";
 
   return (

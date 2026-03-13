@@ -61,6 +61,13 @@ class OpportunitySignal(BaseModel):
         default="pending",
         description="Lifecycle status for the opportunity."
     )
+    # Structured Scout output (populated by new prompt format)
+    outcome_status: str = Field(default="", description="CONFIRMED | NEAR-DECIDED | STRONGLY FAVORED")
+    risk_level: str = Field(default="", description="NEGLIGIBLE | LOW | MODERATE | HIGH")
+    resolution_source: str = Field(default="", description="One sentence on resolution mechanism")
+    evidence_bullets: list[str] = Field(default_factory=list, description="2-4 specific quantitative facts")
+    remaining_risks: list[str] = Field(default_factory=list, description="1-3 brief risk items")
+    scout_sources: list[str] = Field(default_factory=list, description="Real https:// URLs from Scout research")
     # Research fields
     research_completed_at: datetime | None = None
     research_duration_seconds: int | None = None
@@ -170,25 +177,64 @@ def _generate_id(prefix: str) -> str:
 
 def save_opportunity(opportunity: OpportunitySignal, paper: bool = False) -> Path:
     """Save opportunity to markdown file."""
+    from coliseum.agents.shared_tools import _strip_cite_tokens
+
     opps_dir = _get_opps_dir(paper)
     date_dir = _ensure_date_dir(opps_dir, opportunity.discovered_at)
 
     filename = f"{opportunity.market_ticker}.md"
     file_path = date_dir / filename
 
-    frontmatter = opportunity.model_dump(
-        mode="json", exclude={"title", "subtitle", "rationale"}
-    )
+    # Strip cite tokens from all text fields before writing
+    clean_rationale = _strip_cite_tokens(opportunity.rationale)
+    clean_resolution = _strip_cite_tokens(opportunity.resolution_source)
+    clean_evidence = [_strip_cite_tokens(b) for b in opportunity.evidence_bullets]
+    clean_risks = [_strip_cite_tokens(r) for r in opportunity.remaining_risks]
+
+    # Build a clean copy for frontmatter — rationale goes to frontmatter as short summary
+    clean_opp = opportunity.model_copy(update={
+        "rationale": clean_rationale,
+        "resolution_source": clean_resolution,
+        "evidence_bullets": clean_evidence,
+        "remaining_risks": clean_risks,
+    })
+    frontmatter = clean_opp.model_dump(mode="json", exclude={"title", "subtitle"})
 
     event_line = f"**Event**: {opportunity.event_title}\n" if opportunity.event_title else ""
     subtitle_section = f"\n**Outcome**: {opportunity.subtitle}\n" if opportunity.subtitle else ""
 
+    # Build structured Scout Assessment section
+    evidence_lines = "\n".join(f"- {b}" for b in clean_evidence) if clean_evidence else "- See rationale"
+    risks_lines = "\n".join(f"- {r}" for r in clean_risks) if clean_risks else "- None identified"
+    sources_lines = "\n".join(f"- {s}" for s in opportunity.scout_sources) if opportunity.scout_sources else ""
+
+    verdict_line = (
+        f"**{opportunity.outcome_status}**  ·  **{opportunity.risk_level} RISK**"
+        if opportunity.outcome_status
+        else f"**Rationale**: {clean_rationale}"
+    )
+
+    scout_section = f"""## Scout Assessment
+
+{verdict_line}
+
+{clean_rationale}
+
+**Evidence**
+{evidence_lines}
+
+**Resolution**
+{clean_resolution}
+
+**Risks**
+{risks_lines}
+"""
+    if sources_lines:
+        scout_section += f"\n**Sources**\n{sources_lines}\n"
+
     body = f"""# {opportunity.title}
 {event_line}{subtitle_section}
-## Scout Assessment
-
-**Rationale**: {opportunity.rationale}
-
+{scout_section}
 ## Market Snapshot
 
 | Metric | Value |
@@ -281,7 +327,8 @@ def _parse_opportunity_from_parts(frontmatter: dict, body: str) -> OpportunitySi
         **frontmatter,
         "title": title,
         "subtitle": subtitle or "",
-        "rationale": rationale,
+        # New files have rationale in frontmatter; old files have it in the body
+        "rationale": rationale or frontmatter.get("rationale", ""),
     }
 
     return OpportunitySignal(**data)

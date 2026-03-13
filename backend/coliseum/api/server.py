@@ -19,6 +19,7 @@ from coliseum.config import get_settings
 from coliseum.daemon import ColiseumDaemon
 from coliseum.pipeline import run_pipeline
 from coliseum.services.kalshi.client import KalshiClient
+from coliseum.api.parsing import parse_opportunity_sections
 from coliseum.storage.files import (
     find_opportunity_file_by_id,
     get_opportunity_markdown_body,
@@ -212,6 +213,7 @@ async def get_opportunity(opportunity_id: str):
             status_code=404, detail=f"Opportunity {opportunity_id} not found"
         )
     opp = load_opportunity_from_file(file_path)
+    markdown_body = get_opportunity_markdown_body(file_path)
     return {
         "summary": {
             "id": opp.id,
@@ -228,8 +230,9 @@ async def get_opportunity(opportunity_id: str):
             "action": opp.action,
             "date_folder": file_path.parent.name,
         },
-        "markdown_body": get_opportunity_markdown_body(file_path),
+        "markdown_body": markdown_body,
         "raw_frontmatter": opp.model_dump(mode="json"),
+        "parsed_sections": parse_opportunity_sections(opp, markdown_body),
     }
 
 

@@ -42,7 +42,8 @@ Critical field rules:
 - markets_scanned is NOT self-reported; do not estimate from researched/evaluated/selected subsets
 - opportunities_found: must exactly match the length of the opportunities array
 - filtered_out: must equal markets_scanned - opportunities_found
-- rationale: must contain at least one real https:// source URL
+- rationale: 1-2 sentence prose summary -- no URLs, no risk labels
+- scout_sources: must contain at least one real https:// URL
 - status: always "pending"
 - Invalid JSON or any missing required field = complete failure"""
 
@@ -210,7 +211,9 @@ Accomplish ALL of the following in whatever internal order is most efficient:
    - Call generate_opportunity_id_tool() once for the selected opportunity
    - Call get_current_time() once for discovered_at
    - Calculate prices: yes_price = yes_ask / 100, no_price = no_ask / 100
-   - Write the complete 7-component rationale with source URLs
+   - Populate all structured fields: outcome_status, risk_level, resolution_source,
+     evidence_bullets (2-4 items with numbers), remaining_risks, scout_sources (min 1 URL)
+   - Write rationale as a 1-2 sentence prose summary (no URLs)
 6. Run all checks from pre_output_validation. If the selection fails, replace with the next
    least-risky fallback and re-validate.
 7. Return ONLY the validated ScoutOutput JSON.
@@ -224,35 +227,52 @@ Return ONLY a valid ScoutOutput JSON object.
 </output_requirements>
 
 <rationale_format>
-Each rationale must include all 7 components in order:
-1. Outcome Status -- state CONFIRMED, NEAR-DECIDED, or STRONGLY FAVORED with key supporting facts
-2. Supporting Evidence -- specific quantitative facts locking in the outcome
-3. Resolution Source -- official body or authority that finalizes the result
-4. Risk Checklist -- which checklist items passed
-5. Risk Level -- state actual level (NEGLIGIBLE/LOW/MODERATE/HIGH); this market was selected as the single lowest-risk available candidate
-6. Remaining Risks -- "None identified" OR brief acknowledgment of minor residual risk
-7. Sources -- at least one real URL (never fabricated or placeholder)
+Populate these fields separately for each opportunity. Do NOT pack everything into rationale.
 
-Example: "NEAR-DECIDED: Candidate X leads by 120k votes with 3k ballots remaining -- structurally
-locked. Resolution source: state election commission. Risk checklist: margin > remaining ballots,
-no pending challenges, official updates current. Reversal risk: NEGLIGIBLE. Remaining risks:
-None. Sources: https://example.com/..."
+rationale (required):
+  1-2 sentences MAX. Format: "{{OUTCOME_STATUS}}: {{core reason}}. {{key price fact}}."
+  No URLs. No risk level labels. No resolution details. Those live in their own fields.
+  Example: "STRONGLY FAVORED: NO -- WTI futures at $94.42, band $91-$91.99 sits $2.4-$3.4 below current pricing. Contract only loses if Friday's official front-month settlement lands inside that exact $1 window."
 
-4-6 sentences. No speculative claims. No placeholder URLs.
+outcome_status (required):
+  Exactly one of: CONFIRMED | NEAR-DECIDED | STRONGLY FAVORED
+
+risk_level (required):
+  Exactly one of: NEGLIGIBLE | LOW | MODERATE | HIGH
+  (HIGH only with FORCED_FALLBACK)
+
+resolution_source (required):
+  One sentence. Name the exact authority and mechanism.
+  Example: "ICE front-month WTI settle -- mechanical, objective, revisions after expiry ignored."
+
+evidence_bullets (required, 2-4 items):
+  Each item: one concise fact with a specific number and source domain in brackets.
+  Example: "WTI same-day range $88.89-$95.96 confirms cushion [investing.com]"
+  Do NOT include bare URLs here. No vague statements.
+
+remaining_risks (required):
+  ["None identified"] if none.
+  Otherwise 1-3 short strings, one risk each.
+  Example: ["Oil is headline-sensitive; settlement could still move into 91.xx"]
+
+scout_sources (required, min 1):
+  Real https:// URLs only. One URL per list item. No duplicates. No fabricated URLs.
+  Example: ["https://www.investing.com/commodities/crude-oil"]
 </rationale_format>
 
 <pre_output_validation>
 Field-Level:
 - [ ] id: non-empty string starting with "opp_"
 - [ ] yes_price and no_price: decimal between 0.0 and 1.0
-- [ ] rationale: contains at least one https:// URL
+- [ ] rationale: 1-2 sentences, no URLs
 - [ ] status: exactly "pending"
 
 Content:
-- [ ] All 7 rationale components present (outcome status, evidence, resolution source,
-  risk checklist, risk level, remaining risks, sources)
-- [ ] Outcome status is CONFIRMED, NEAR-DECIDED, or STRONGLY FAVORED
-- [ ] Risk level is NEGLIGIBLE, LOW, MODERATE, or HIGH (HIGH only with FORCED_FALLBACK)
+- [ ] outcome_status is one of CONFIRMED | NEAR-DECIDED | STRONGLY FAVORED
+- [ ] risk_level is one of NEGLIGIBLE | LOW | MODERATE | HIGH (HIGH only with FORCED_FALLBACK)
+- [ ] evidence_bullets has 2-4 items, each with a specific number
+- [ ] scout_sources has at least 1 real https:// URL
+- [ ] rationale is 1-2 sentences with no URLs
 
 Forbidden Checks:
 - [ ] NOT Tier 1 (crypto) or Tier 2 (speaking markets) unless FORCED_FALLBACK

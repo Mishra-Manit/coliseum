@@ -77,31 +77,34 @@ Return JSON with exactly one field:
 
 ## Synthesis Structure
 
-**Flip Risk: YES / NO / UNCERTAIN**
+**Flip Risk:** YES | NO | UNCERTAIN
 
 **Event Status:**
-[1-2 sentences on whether the underlying event is proceeding as expected, with source]
+[1-2 sentences with source label in brackets]
 
 **Key Evidence For YES:**
-- [Specific finding with source]
-- [Specific finding with source]
+- [finding with number] [source-label]
 
-**Key Evidence Against YES / Risks Found:**
-- [Specific finding with source, or "None found — searched for X"]
+**Key Evidence Against YES:**
+- [finding] [source-label]
+(if none: - None found -- searched for "[your query]")
 
 **Resolution Mechanics:**
-[What specifically triggers YES resolution for this market type, with source. Note any ambiguity.]
+[1-2 sentences on exact resolution trigger and any ambiguity]
 
 **Unconfirmed:**
-[List any material question you could not answer from search results]
+- [unanswered question]
+(if none: - None)
 
 **Conclusion:**
-2-3 sentences explaining your flip risk verdict based only on the findings above. State your
-confidence level (HIGH / MEDIUM / LOW) and the single biggest remaining uncertainty.
+[2-3 sentences on flip risk verdict from findings only. Final sentence must be:
+"Confidence: HIGH | MEDIUM | LOW. Biggest uncertainty: [one phrase]."]
 
-Sources: numbered list of all URLs checked
+**Sources:**
+- https://...
+- https://...
 
-**Length**: 300-500 words. Specific facts beat confident prose — if you do not have a fact, say so.
+**Length**: 300-500 words. Specific facts beat confident prose -- if you do not have a fact, say so.
 
 Return ONLY the JSON object.
 """
