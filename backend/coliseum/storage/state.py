@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Literal
 
 import yaml
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from coliseum.config import get_settings
 
@@ -22,6 +22,11 @@ class PortfolioStats(BaseModel):
     cash_balance: float
     positions_value: float
 
+    @field_validator("total_value", "cash_balance", "positions_value")
+    @classmethod
+    def round_usd(cls, v: float) -> float:
+        return round(v, 2)
+
 
 class Position(BaseModel):
     """Open position details."""
@@ -33,6 +38,11 @@ class Position(BaseModel):
     average_entry: float
     current_price: float
     opportunity_id: str | None = None
+
+    @field_validator("average_entry", "current_price")
+    @classmethod
+    def round_price(cls, v: float) -> float:
+        return round(v, 4)
 
 
 class ClosedPosition(BaseModel):
@@ -47,6 +57,16 @@ class ClosedPosition(BaseModel):
     opportunity_id: str | None = None
     closed_at: datetime | None = None
     entry_rationale: str | None = None
+
+    @field_validator("entry_price", "exit_price")
+    @classmethod
+    def round_price(cls, v: float) -> float:
+        return round(v, 4)
+
+    @field_validator("pnl")
+    @classmethod
+    def round_usd(cls, v: float) -> float:
+        return round(v, 2)
 
 
 class PortfolioState(BaseModel):

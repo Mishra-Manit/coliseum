@@ -94,6 +94,7 @@ export function OpportunityDetailView({
     .replace(/^\*\*Event\*\*:.*\n?/m, "")
     .replace(/^\*\*Outcome\*\*:.*\n?/m, "")
     .replace(/^Outcome:.*\n?/m, "")
+    .replace(/\W{0,4}(?:file)?cite\W{0,4}(?:turn\d+\w+\W{0,4})+/g, "")
     .replace(/^\n+/, "")
     .replace(/\n{3,}/g, "\n\n")
     .trimStart();

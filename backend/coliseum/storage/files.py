@@ -9,7 +9,7 @@ from typing import Literal
 from uuid import uuid4
 
 import yaml
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from coliseum.storage.state import get_data_dir
 
@@ -92,6 +92,16 @@ class TradeExecution(BaseModel):
     paper: bool
     executed_at: datetime
 
+    @field_validator("price")
+    @classmethod
+    def round_price(cls, v: float) -> float:
+        return round(v, 4)
+
+    @field_validator("total")
+    @classmethod
+    def round_total(cls, v: float) -> float:
+        return round(v, 2)
+
 
 class TradeClose(BaseModel):
     """Position closure record written by Guardian when a market resolves."""
@@ -106,6 +116,16 @@ class TradeClose(BaseModel):
     pnl: float
     entry_rationale: str | None
     closed_at: datetime
+
+    @field_validator("entry_price", "exit_price")
+    @classmethod
+    def round_price(cls, v: float) -> float:
+        return round(v, 4)
+
+    @field_validator("pnl")
+    @classmethod
+    def round_usd(cls, v: float) -> float:
+        return round(v, 2)
 
 
 def _ensure_date_dir(base_dir: Path, date: datetime) -> Path:

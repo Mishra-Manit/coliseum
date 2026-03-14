@@ -7,6 +7,32 @@ import { Muted, Base, Strong, Faint } from "@/lib/styles";
 import type { ParsedSections, ScoutSection, ResearchSection } from "@/lib/types";
 
 // ---------------------------------------------------------------------------
+// Inline markdown helpers
+// ---------------------------------------------------------------------------
+
+function stripCitations(text: string): string {
+  return text.replace(/\W{0,4}(?:file)?cite\W{0,4}(?:turn\d+\w+\W{0,4})+/g, "").trim();
+}
+
+function InlineMarkdown({ text }: { text: string }) {
+  const clean = stripCitations(text);
+  const parts = clean.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g);
+  return (
+    <>
+      {parts.map((part, i) => {
+        if (part.startsWith("**") && part.endsWith("**") && part.length > 4) {
+          return <strong key={i}>{part.slice(2, -2)}</strong>;
+        }
+        if (part.startsWith("*") && part.endsWith("*") && part.length > 2) {
+          return <em key={i}>{part.slice(1, -1)}</em>;
+        }
+        return part || null;
+      })}
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Color helpers
 // ---------------------------------------------------------------------------
 
@@ -122,10 +148,10 @@ function EvidenceCard({
   return (
     <div className={`flex-1 border-l-2 ${borderColor} pl-3 space-y-1`}>
       <SectionLabel>{title}</SectionLabel>
-      <ul className="space-y-1">
+      <ul className="list-disc list-inside space-y-1">
         {items.map((item, i) => (
           <li key={i} className={`${FontSize.medium} ${Strong.foreground} leading-relaxed`}>
-            {item}
+            <InlineMarkdown text={item} />
           </li>
         ))}
       </ul>
@@ -166,17 +192,17 @@ function ScoutPanel({ scout }: { scout: ScoutSection }) {
 
       {scout.summary && (
         <p className={`${FontSize.large} ${Strong.foreground} leading-relaxed`}>
-          {scout.summary}
+          <InlineMarkdown text={scout.summary} />
         </p>
       )}
 
       {scout.evidence.length > 0 && (
         <div>
           <SectionLabel>Evidence</SectionLabel>
-          <ul className="space-y-1">
+          <ul className="list-disc list-inside space-y-1">
             {scout.evidence.map((item, i) => (
               <li key={i} className={`${FontSize.medium} ${Strong.foreground} leading-relaxed`}>
-                {item}
+                <InlineMarkdown text={item} />
               </li>
             ))}
           </ul>
@@ -186,17 +212,17 @@ function ScoutPanel({ scout }: { scout: ScoutSection }) {
       {scout.resolution_source && (
         <p className={`${FontSize.medium} ${Muted.foreground} leading-relaxed`}>
           <span className="font-mono uppercase tracking-wider">Resolution:</span>{" "}
-          {scout.resolution_source}
+          <InlineMarkdown text={scout.resolution_source} />
         </p>
       )}
 
       {scout.remaining_risks.length > 0 && (
         <div>
           <SectionLabel>Risks</SectionLabel>
-          <ul className="space-y-1">
+          <ul className="list-disc list-inside space-y-1">
             {scout.remaining_risks.map((r, i) => (
               <li key={i} className={`${FontSize.medium} ${Muted.amberLabel} leading-relaxed`}>
-                {r}
+                <InlineMarkdown text={r} />
               </li>
             ))}
           </ul>
@@ -236,7 +262,7 @@ function ResearchPanel({ research }: { research: ResearchSection }) {
 
       {research.event_status && (
         <p className={`${FontSize.medium} ${Strong.foreground} leading-relaxed`}>
-          {research.event_status}
+          <InlineMarkdown text={research.event_status} />
         </p>
       )}
 
@@ -256,23 +282,23 @@ function ResearchPanel({ research }: { research: ResearchSection }) {
       {research.resolution_mechanics && (
         <p className={`${FontSize.medium} ${Muted.foreground} leading-relaxed`}>
           <span className="font-mono uppercase tracking-wider">Resolution:</span>{" "}
-          {research.resolution_mechanics}
+          <InlineMarkdown text={research.resolution_mechanics} />
         </p>
       )}
 
       {research.conclusion && (
         <p className={`${FontSize.medium} ${Strong.foreground} leading-relaxed`}>
-          {research.conclusion}
+          <InlineMarkdown text={research.conclusion} />
         </p>
       )}
 
       {research.unconfirmed.length > 0 && (
         <div>
           <SectionLabel>Unconfirmed</SectionLabel>
-          <ul className="space-y-1">
+          <ul className="list-disc list-inside space-y-1">
             {research.unconfirmed.map((u, i) => (
               <li key={i} className={`${FontSize.medium} ${Muted.amberLabel} leading-relaxed`}>
-                {u}
+                <InlineMarkdown text={u} />
               </li>
             ))}
           </ul>
