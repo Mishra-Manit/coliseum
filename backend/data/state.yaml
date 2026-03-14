@@ -1,15 +1,36 @@
-last_updated: '2026-03-13T20:41:12.767176+00:00'
+last_updated: '2026-03-14T06:33:06.503356+00:00'
 portfolio:
-  total_value: 8.61
-  cash_balance: 15.67
-  positions_value: 8.38
+  total_value: 24.46
+  cash_balance: 1.48
+  positions_value: 22.98
 open_positions:
+- id: pos_25960c96
+  market_ticker: KXLOWTDEN-26MAR13-T44
+  side: 'YES'
+  contracts: 5
+  average_entry: 0.95
+  current_price: 0.92
+  opportunity_id: opp_3b86ff43
+- id: pos_c7e19b43
+  market_ticker: KXAAAGASW-26MAR16TH-3.870
+  side: 'NO'
+  contracts: 5
+  average_entry: 0.9399999999999998
+  current_price: 0.95
+  opportunity_id: opp_16d31698
+- id: pos_258f6381
+  market_ticker: KXHIGHTSFO-26MAR13-T71
+  side: 'NO'
+  contracts: 5
+  average_entry: 0.9399999999999998
+  current_price: 0.99
+  opportunity_id: opp_9dee2b8b
 - id: pos_b9ba6c88
   market_ticker: KXHIGHLAX-26MAR14-T72
   side: 'NO'
   contracts: 5
   average_entry: 0.9399999999999998
-  current_price: 0.92
+  current_price: 0.98
   opportunity_id: opp_2b665156
 - id: pos_5145fa5f
   market_ticker: KXWTIW-26MAR13-T85.00
@@ -370,3 +391,6 @@ seen_tickers:
 - KXHIGHTBOS-26MAR13-B44.5
 - KXHIGHLAX-26MAR14-T72
 - KXHIGHAUS-26MAR13-T82
+- KXHIGHTSFO-26MAR13-T71
+- KXLOWTDEN-26MAR13-T44
+- KXAAAGASW-26MAR16TH-3.870

@@ -284,7 +284,7 @@ async def sync_portfolio_from_kalshi(client: KalshiClient) -> PortfolioState:
         position.contracts * position.current_price for position in open_positions
     )
     cash_balance = balance.balance_usd
-    total_value = balance.portfolio_value_usd or (cash_balance + positions_value)
+    total_value = cash_balance + positions_value
 
     new_state = PortfolioState(
         last_updated=None,
