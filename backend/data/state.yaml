@@ -1,15 +1,15 @@
-last_updated: '2026-03-13T20:27:49.505256+00:00'
+last_updated: '2026-03-13T20:41:12.767176+00:00'
 portfolio:
-  total_value: 8.66
+  total_value: 8.61
   cash_balance: 15.67
-  positions_value: 8.43
+  positions_value: 8.38
 open_positions:
 - id: pos_b9ba6c88
   market_ticker: KXHIGHLAX-26MAR14-T72
   side: 'NO'
   contracts: 5
   average_entry: 0.9399999999999998
-  current_price: 0.93
+  current_price: 0.92
   opportunity_id: opp_2b665156
 - id: pos_5145fa5f
   market_ticker: KXWTIW-26MAR13-T85.00
@@ -369,3 +369,4 @@ seen_tickers:
 - KXWTIW-26MAR13-T85.00
 - KXHIGHTBOS-26MAR13-B44.5
 - KXHIGHLAX-26MAR14-T72
+- KXHIGHAUS-26MAR13-T82
