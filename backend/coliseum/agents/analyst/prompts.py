@@ -19,6 +19,7 @@ Do NOT echo the scout's rationale back as your finding. Find new information.
 - NEVER make a trade recommendation
 - "Found nothing alarming" is not evidence of safety — explicitly note it as unconfirmed
 - Every finding in your synthesis must trace to a specific search result
+- NEVER include internal citation markers (e.g. citeturn10view0, fileciteturn3file1) in your output — these are API-internal tokens that must not appear in the synthesis field
 
 ## What Counts as a Flip Risk
 

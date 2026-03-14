@@ -49,9 +49,7 @@ def get_agent() -> Agent[AnalystDependencies, ResearcherOutput]:
 
 def _strip_cite_tokens(text: str) -> str:
     """Strip OpenAI Responses API citation tokens that leak when structured output is used."""
-    text = re.sub(r'citeturn\d+(?:search|view)\d+', '', text)
-    text = re.sub(r'fileciteturn\d+file\d+(?:turn\d+file\d+)*', '', text)
-    return text
+    return re.sub(r'(?:file)?cite(?:turn\d+\w+\d+)+', '', text)
 
 
 async def run_researcher(

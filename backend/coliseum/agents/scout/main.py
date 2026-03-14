@@ -8,7 +8,7 @@ import logfire
 from pydantic_ai import Agent, RunContext, WebSearchTool
 from pydantic_ai.models.openai import OpenAIResponsesModelSettings
 
-from coliseum.agents.shared_tools import register_get_current_time
+from coliseum.agents.shared_tools import register_get_current_time, _strip_cite_tokens
 from coliseum.config import Settings, get_settings
 from coliseum.llm_providers import OpenAIModel, get_model_string
 from coliseum.memory.context import build_scout_context
@@ -212,6 +212,13 @@ async def run_scout(
                 result = await agent.run(prompt, deps=deps)
 
             output: ScoutOutput = result.output
+
+            # Strip citation tokens leaked by the OpenAI Responses API structured output
+            for opp in output.opportunities:
+                opp.rationale = _strip_cite_tokens(opp.rationale)
+                opp.resolution_source = _strip_cite_tokens(opp.resolution_source)
+                opp.evidence_bullets = [_strip_cite_tokens(b) for b in opp.evidence_bullets]
+                opp.remaining_risks = [_strip_cite_tokens(r) for r in opp.remaining_risks]
 
             added_count = 0
             for opp in output.opportunities:
