@@ -7,15 +7,6 @@ import {
   CircleDot,
   Receipt,
 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { useLedger, usePortfolioState } from "@/hooks/use-api";
 import { usePortfolioStream } from "@/hooks/use-portfolio-stream";
 import type { EnrichedPosition, LedgerEntry, Position } from "@/lib/types";
@@ -119,12 +110,11 @@ function PositionsContent({
   isLoading: boolean;
   onSelectOpportunity?: (id: string) => void;
 }) {
-
   if (isLoading) {
     return (
       <div className="p-4 space-y-2">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="shimmer h-10 rounded" />
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="shimmer h-12 rounded" />
         ))}
       </div>
     );
@@ -140,99 +130,82 @@ function PositionsContent({
   }
 
   return (
-    <div className="h-full overflow-y-auto min-h-0">
-      <Table>
-        <TableHeader>
-          <TableRow className="border-border hover:bg-transparent">
-            <TableHead className={`${FontSize.small} ${Muted.mutedText} font-mono h-8 uppercase tracking-wider min-w-0 w-[35%] px-4`}>
-              Market
-            </TableHead>
-            <TableHead className={`${FontSize.small} ${Muted.mutedText} font-mono h-8 uppercase tracking-wider whitespace-nowrap px-2`}>
-              Side
-            </TableHead>
-            <TableHead className={`${FontSize.small} ${Muted.mutedText} font-mono h-8 text-right uppercase tracking-wider whitespace-nowrap px-2`}>
-              Qty
-            </TableHead>
-            <TableHead className={`${FontSize.small} ${Muted.mutedText} font-mono h-8 text-right uppercase tracking-wider whitespace-nowrap px-4`}>
-              Entry
-            </TableHead>
-            <TableHead className={`${FontSize.small} ${Muted.mutedText} font-mono h-8 text-right uppercase tracking-wider whitespace-nowrap px-2`}>
-              Now
-            </TableHead>
-            <TableHead className={`${FontSize.small} ${Muted.mutedText} font-mono h-8 text-right uppercase tracking-wider whitespace-nowrap px-4`}>
-              P&amp;L
-            </TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {positions.map((pos) => {
-            const isClickable = !!pos.opportunity_id && !!onSelectOpportunity;
-            return (
-              <TableRow
-                key={pos.id}
-                onClick={
-                  isClickable
-                    ? () => onSelectOpportunity!(pos.opportunity_id!)
-                    : undefined
-                }
-                className={`${BorderTint.tableRow} transition-colors ${
-                  isClickable
-                    ? `cursor-pointer ${BgTint.amberRowHoverState}`
-                    : "hover:bg-secondary/20"
+    <div className="h-full overflow-y-auto min-h-0 px-3 py-2 space-y-1">
+      {positions.map((pos) => {
+        const isClickable = !!pos.opportunity_id && !!onSelectOpportunity;
+        const enriched = isEnriched(pos);
+        const entryC = Math.round(pos.average_entry * 100);
+        const nowC = enriched && pos.current_price > 0
+          ? Math.round(pos.current_price * 100)
+          : null;
+
+        return (
+          <button
+            key={pos.id}
+            onClick={
+              isClickable
+                ? () => onSelectOpportunity!(pos.opportunity_id!)
+                : undefined
+            }
+            disabled={!isClickable}
+            className={`w-full text-left px-3 py-2 rounded transition-colors ${
+              isClickable
+                ? `cursor-pointer ${BgTint.amberRowHoverState}`
+                : "cursor-default hover:bg-secondary/20"
+            }`}
+          >
+            {/* Line 1: ticker + side x qty + P&L */}
+            <div className="flex items-center gap-2">
+              <span
+                className={`${FontSize.medium} font-mono ${Base.foreground} truncate flex-1 min-w-0`}
+                title={pos.market_ticker}
+              >
+                {pos.market_ticker}
+              </span>
+              <span
+                className={`${FontSize.small} font-mono font-semibold shrink-0 ${
+                  pos.side === "YES" ? "text-emerald-400"
+                    : pos.side === "NO" ? "text-red-400"
+                    : "text-muted-foreground"
                 }`}
               >
-                <TableCell className={`${FontSize.medium} ${Base.foreground} font-mono py-2 max-w-0 w-full px-4`}>
-                  <span className="block truncate" title={pos.market_ticker}>
-                    {pos.market_ticker}
-                  </span>
-                </TableCell>
-                <TableCell className="py-2 px-2">
+                {pos.side}
+              </span>
+              <span className={`${FontSize.small} ${Muted.mutedText} font-mono shrink-0`}>
+                x{pos.contracts}
+              </span>
+              <span className="shrink-0 ml-auto">
+                {enriched ? (
                   <span
-                    className={`${FontSize.small} font-mono font-semibold ${
-                      pos.side === "YES"
-                        ? "text-emerald-400"
-                        : pos.side === "NO"
-                          ? "text-red-400"
-                          : "text-muted-foreground"
+                    className={`${FontSize.medium} font-mono font-semibold tabular-nums ${
+                      pos.unrealized_pnl >= 0 ? "text-emerald-400" : "text-red-400"
                     }`}
                   >
-                    {pos.side}
+                    {pos.unrealized_pnl >= 0 ? "+" : ""}${pos.unrealized_pnl.toFixed(2)}
                   </span>
-                </TableCell>
-                <TableCell className={`${FontSize.medium} ${Muted.foreground} text-right py-2 font-mono tabular-nums px-2`}>
-                  {pos.contracts}
-                </TableCell>
-                <TableCell className={`${FontSize.medium} ${Muted.foreground} text-right py-2 font-mono tabular-nums px-4`}>
-                  {Math.round(pos.average_entry * 100)}c
-                </TableCell>
-                <TableCell className={`text-[11px] ${Muted.foreground} text-right py-2 font-mono tabular-nums px-2 whitespace-nowrap`}>
-                  {isEnriched(pos) && pos.current_price > 0
-                    ? `${Math.round(pos.current_price * 100)}c`
-                    : "--"}
-                </TableCell>
-                <TableCell className="text-[11px] text-right py-2 font-mono tabular-nums px-4 whitespace-nowrap">
-                  {isEnriched(pos) ? (
-                    <span
-                      className={
-                        pos.unrealized_pnl >= 0 ? "text-emerald-400" : "text-red-400"
-                      }
-                    >
-                      {pos.unrealized_pnl >= 0 ? "+" : ""}$
-                      {pos.unrealized_pnl.toFixed(2)}
-                      <span className={`text-[9px] ${Muted.mutedText} ml-1`}>
-                        ({pos.pct_change >= 0 ? "+" : ""}
-                        {pos.pct_change.toFixed(1)}%)
-                      </span>
-                    </span>
-                  ) : (
-                    <span className={Ghost.mutedText}>--</span>
-                  )}
-                </TableCell>
-              </TableRow>
-            );
-          })}
-        </TableBody>
-      </Table>
+                ) : (
+                  <span className={`${FontSize.medium} font-mono ${Ghost.mutedText}`}>--</span>
+                )}
+              </span>
+            </div>
+            {/* Line 2: price movement + pct change */}
+            <div className="flex items-center mt-0.5">
+              <span className={`${FontSize.small} font-mono ${Muted.mutedText} tabular-nums`}>
+                {entryC}c{nowC !== null ? ` \u2192 ${nowC}c` : ""}
+              </span>
+              {enriched && (
+                <span
+                  className={`${FontSize.small} font-mono tabular-nums ml-auto ${
+                    pos.pct_change >= 0 ? Muted.emeraldLabel : Muted.redLabel
+                  }`}
+                >
+                  {pos.pct_change >= 0 ? "+" : ""}{pos.pct_change.toFixed(1)}%
+                </span>
+              )}
+            </div>
+          </button>
+        );
+      })}
     </div>
   );
 }

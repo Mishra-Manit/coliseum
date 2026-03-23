@@ -11,6 +11,8 @@ import {
 import { useConfig } from "@/hooks/use-api";
 import type { ColiseumConfig } from "@/lib/types";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useTimezone, type Timezone } from "@/lib/timezone-context";
+import { FontSize } from "@/lib/typography";
 import { Muted, Base, Ghost } from "@/lib/styles";
 
 type SettingRow = {
@@ -167,8 +169,35 @@ function SettingsSkeleton() {
   );
 }
 
+function TzSelector({
+  tz,
+  setTz,
+}: {
+  tz: Timezone;
+  setTz: (tz: Timezone) => void;
+}) {
+  return (
+    <div className="flex items-center border border-border rounded overflow-hidden">
+      {(["EST", "PST"] as Timezone[]).map((option) => (
+        <button
+          key={option}
+          onClick={() => setTz(option)}
+          className={`px-2.5 py-1 ${FontSize.small} font-mono tracking-wider transition-colors ${
+            tz === option
+              ? "bg-primary/15 text-primary border-r border-border last:border-r-0"
+              : `${Muted.mutedText} hover:text-muted-foreground/70 border-r border-border last:border-r-0`
+          }`}
+        >
+          {option}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export function SettingsModal() {
   const { data: config, isLoading } = useConfig();
+  const { tz, setTz } = useTimezone();
 
   const sections =
     config && !isLoading
@@ -180,7 +209,7 @@ export function SettingsModal() {
       <DialogTrigger asChild>
         <button
           className={`p-1.5 rounded hover:bg-secondary ${Muted.mutedText} hover:text-muted-foreground transition-colors`}
-          title="Agent settings"
+          title="Settings"
         >
           <Settings className="h-3 w-3" />
         </button>
@@ -188,10 +217,19 @@ export function SettingsModal() {
       <DialogContent className="w-80 border border-border rounded-md p-5">
         <DialogHeader className="mb-4">
           <DialogTitle className={`text-xs font-mono font-bold tracking-[0.15em] uppercase ${Base.foreground}`}>
-            Agent time settings
+            Settings
           </DialogTitle>
         </DialogHeader>
 
+        {/* Timezone */}
+        <div className="mb-5">
+          <p className={`text-[9px] font-mono font-bold ${Ghost.mutedText} tracking-[0.2em] uppercase mb-2`}>
+            TIMEZONE
+          </p>
+          <TzSelector tz={tz} setTz={setTz} />
+        </div>
+
+        {/* Agent timings */}
         {isLoading ? (
           <SettingsSkeleton />
         ) : (
