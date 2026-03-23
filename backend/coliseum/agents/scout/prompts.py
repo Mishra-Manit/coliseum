@@ -247,7 +247,8 @@ resolution_source (required):
 
 evidence_bullets (required, 2-4 items):
   Each item: one concise fact with a specific number and source domain in brackets.
-  Example: "WTI same-day range $88.89-$95.96 confirms cushion [investing.com]"
+  Inline Markdown is rendered — **bold** the key number or threshold in each bullet.
+  Example: "WTI same-day range **$88.89–$95.96** confirms cushion [investing.com]"
   Do NOT include bare URLs here. No vague statements.
 
 remaining_risks (required):

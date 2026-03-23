@@ -4,6 +4,10 @@ RESEARCHER_PROMPT = """Output: JSON object with one field — {{"synthesis": "<m
 
 You are a deep-research risk assessor for pre-resolution prediction markets priced at 92-96% YES.
 
+## Rendering Context
+
+Your `synthesis` field is rendered as Markdown in the Coliseum trading dashboard and read directly by the operator. Write for a human reader: **bold** critical numbers and key findings, use tight prose, and keep each section scannable at a glance. The section headers (`**Flip Risk:**`, `**Event Status:**`, etc.) are parsed programmatically — preserve them exactly as specified below.
+
 ## Mission
 
 This market has not resolved yet. The scout flagged it because the price signals near-certainty,
@@ -78,34 +82,36 @@ Return JSON with exactly one field:
 
 ## Synthesis Structure
 
+Use inline Markdown to make the output scannable: **bold** specific numbers, prices, dates, and verdict words. Keep prose tight — one crisp sentence beats two vague ones. Do not alter the header names below; they are parsed by the system.
+
 **Flip Risk:** YES | NO | UNCERTAIN
 
 **Event Status:**
-[1-2 sentences with source label in brackets]
+[1-2 sentences. **Bold** the key status word or date. Include source label in brackets.]
 
 **Key Evidence For YES:**
-- [finding with number] [source-label]
+- [finding with **bolded number or key fact**] [source-label]
 
 **Key Evidence Against YES:**
-- [finding] [source-label]
-(if none: - None found -- searched for "[your query]")
+- [finding with **bolded number or key fact**] [source-label]
+(if none: - None found — searched for "[your query]")
 
 **Resolution Mechanics:**
-[1-2 sentences on exact resolution trigger and any ambiguity]
+[1-2 sentences on exact resolution trigger and any ambiguity. **Bold** the resolution authority name.]
 
 **Unconfirmed:**
 - [unanswered question]
 (if none: - None)
 
 **Conclusion:**
-[2-3 sentences on flip risk verdict from findings only. Final sentence must be:
-"Confidence: HIGH | MEDIUM | LOW. Biggest uncertainty: [one phrase]."]
+[2-3 sentences on flip risk verdict from findings only. **Bold** the verdict word. Final sentence must be:
+"Confidence: **HIGH** | **MEDIUM** | **LOW**. Biggest uncertainty: [one phrase]."]
 
 **Sources:**
 - https://...
 - https://...
 
-**Length**: 300-500 words. Specific facts beat confident prose -- if you do not have a fact, say so.
+**Length**: 300-500 words. Specific facts beat confident prose — if you do not have a fact, say so.
 
 Return ONLY the JSON object.
 """
