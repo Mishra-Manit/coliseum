@@ -1,51 +1,16 @@
-last_updated: '2026-03-14T06:33:06.503356+00:00'
+last_updated: '2026-03-22T23:00:22.897782+00:00'
 portfolio:
-  total_value: 24.46
-  cash_balance: 1.48
-  positions_value: 22.98
+  total_value: 20.41
+  cash_balance: 15.66
+  positions_value: 4.75
 open_positions:
-- id: pos_25960c96
-  market_ticker: KXLOWTDEN-26MAR13-T44
-  side: 'YES'
-  contracts: 5
-  average_entry: 0.95
-  current_price: 0.92
-  opportunity_id: opp_3b86ff43
-- id: pos_c7e19b43
-  market_ticker: KXAAAGASW-26MAR16TH-3.870
+- id: pos_10091ab0
+  market_ticker: KXAAAGASW-26MAR23-3.980
   side: 'NO'
   contracts: 5
-  average_entry: 0.9399999999999998
+  average_entry: 0.96
   current_price: 0.95
-  opportunity_id: opp_16d31698
-- id: pos_258f6381
-  market_ticker: KXHIGHTSFO-26MAR13-T71
-  side: 'NO'
-  contracts: 5
-  average_entry: 0.9399999999999998
-  current_price: 0.99
-  opportunity_id: opp_9dee2b8b
-- id: pos_b9ba6c88
-  market_ticker: KXHIGHLAX-26MAR14-T72
-  side: 'NO'
-  contracts: 5
-  average_entry: 0.9399999999999998
-  current_price: 0.98
-  opportunity_id: opp_2b665156
-- id: pos_5145fa5f
-  market_ticker: KXWTIW-26MAR13-T85.00
-  side: 'NO'
-  contracts: 2
-  average_entry: 0.93
-  current_price: 0.92
-  opportunity_id: opp_8ec6503c
-- id: pos_b2c9c95a
-  market_ticker: KXWTIW-26MAR13-B91.5
-  side: 'NO'
-  contracts: 2
-  average_entry: 0.95
-  current_price: 0.97
-  opportunity_id: opp_6342b134
+  opportunity_id: opp_2035ba6f
 closed_positions:
 - market_ticker: KXNBAMENTION-26MAR06LALDEN-INJU
   side: 'YES'
@@ -145,7 +110,7 @@ closed_positions:
 - market_ticker: KXRT-HOP-92
   side: 'YES'
   contracts: 5
-  entry_price: 0.9200000000000002
+  entry_price: 0.92
   exit_price: 1.0
   pnl: 0.4
   opportunity_id: opp_b6983a2a
@@ -243,7 +208,7 @@ closed_positions:
 - market_ticker: KXCPI-26FEB-T0.1
   side: 'YES'
   contracts: 5
-  entry_price: 0.9399999999999998
+  entry_price: 0.94
   exit_price: 1.0
   pnl: 0.3
   opportunity_id: opp_00d31eba
@@ -383,6 +348,76 @@ closed_positions:
     or pre-event. Remaining risks: forecast error or station-specific variance until
     the final climate report posts, but no other risks were identified; Sources: https://forecast.weather.gov/MapClick.php?lat=39.9496&lon=-75.1503,
     https://help.kalshi.com/markets/popular-markets/weather-markets. citeturn8search0turn1search0'
+- market_ticker: KXLOWTDEN-26MAR13-T44
+  side: 'YES'
+  contracts: 5
+  entry_price: 0.95
+  exit_price: 0.0
+  pnl: -4.75
+  opportunity_id: opp_3b86ff43
+  closed_at: '2026-03-15T05:35:39.178308Z'
+  entry_rationale: null
+- market_ticker: KXHIGHTSFO-26MAR13-T71
+  side: 'NO'
+  contracts: 5
+  entry_price: 0.94
+  exit_price: 1.0
+  pnl: 0.3
+  opportunity_id: opp_9dee2b8b
+  closed_at: '2026-03-15T05:35:39.369429Z'
+  entry_rationale: null
+- market_ticker: KXWTIW-26MAR13-T85.00
+  side: 'NO'
+  contracts: 2
+  entry_price: 0.93
+  exit_price: 1.0
+  pnl: 0.14
+  opportunity_id: opp_8ec6503c
+  closed_at: '2026-03-15T05:35:39.551348Z'
+  entry_rationale: null
+- market_ticker: KXWTIW-26MAR13-B91.5
+  side: 'NO'
+  contracts: 2
+  entry_price: 0.95
+  exit_price: 1.0
+  pnl: 0.1
+  opportunity_id: opp_6342b134
+  closed_at: '2026-03-15T05:35:39.766263Z'
+  entry_rationale: 'STRONGLY FAVORED: NO on the $91 to $91.99 band for Mar. 13, 2026
+    was the least-risk remaining Tier 4 candidate because current WTI futures were
+    about $94.42 and this contract only loses if Friday’s official front-month settlement
+    lands inside that exact $1 band. Supporting Evidence: Investing.com showed WTI
+    futures at $94.42 with a same-day range of $88.89 to $95.96, so the target band
+    sat roughly $2.4 to $3.4 below current pricing, while the provided Kalshi market
+    data already priced NO at 0.96 and YES at 0.05. Resolution Source: Coinbase’s
+    event page states that the Mar. 13, 2026 WTI event is outcome-verified by ICE,
+    providing a clear mechanical settlement source for the front-month settle price.
+    Risk Checklist: passed clear resolution source, no formal appeals or review path,
+    and strong position via narrow-band structure plus current price cushion; recent
+    corroboration is available from live WTI pricing today. Risk Level: LOW; this
+    market was selected as the single lowest-risk available candidate. Remaining Risks:
+    oil remains headline-sensitive and Friday settlement could still move into 91.xx,
+    but no formal challenge or discretionary-resolution risk was identified. Sources:
+    https://www.coinbase.com/en-in/predictions/event/KXWTIW-26MAR13 ; https://www.investing.com/commodities/crude-oil
+    . citeturn8search3turn4search1'
+- market_ticker: KXHIGHLAX-26MAR14-T72
+  side: 'NO'
+  contracts: 5
+  entry_price: 0.94
+  exit_price: 1.0
+  pnl: 0.3
+  opportunity_id: opp_2b665156
+  closed_at: '2026-03-15T18:23:42.638040Z'
+  entry_rationale: null
+- market_ticker: KXAAAGASW-26MAR16TH-3.870
+  side: 'NO'
+  contracts: 5
+  entry_price: 0.94
+  exit_price: 1.0
+  pnl: 0.3
+  opportunity_id: opp_16d31698
+  closed_at: '2026-03-16T17:46:51.416027Z'
+  entry_rationale: null
 seen_tickers:
 - KXWTIW-26MAR13-B91.5
 - KXPCECORE-26JAN-T0.3
@@ -394,3 +429,4 @@ seen_tickers:
 - KXHIGHTSFO-26MAR13-T71
 - KXLOWTDEN-26MAR13-T44
 - KXAAAGASW-26MAR16TH-3.870
+- KXAAAGASW-26MAR23-3.980
