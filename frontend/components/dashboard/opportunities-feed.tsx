@@ -1,6 +1,6 @@
 "use client";
 
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow, isValid } from "date-fns";
 import { FileText, ChevronRight } from "lucide-react";
 import { useOpportunities } from "@/hooks/use-api";
 import type { OpportunitySummary } from "@/lib/types";
@@ -82,10 +82,20 @@ function OpportunityRow({
   const yesPercent = Math.round(opportunity.yes_price * 100);
   const status = statusColors[opportunity.status] ?? statusColors.pending;
 
+  let relativeTime = "";
+  try {
+    const d = new Date(opportunity.discovered_at);
+    if (isValid(d)) {
+      relativeTime = formatDistanceToNow(d, { addSuffix: false });
+    }
+  } catch {
+    /* malformed date -- leave blank */
+  }
+
   return (
     <button
       onClick={onSelect}
-      className={`w-full text-left px-3 py-2.5 rounded transition-all duration-150 group ${
+      className={`w-full text-left px-3 py-2 rounded transition-all duration-150 group ${
         isSelected
           ? `${BgTint.amberBadge} border ${BorderTint.amberSelected}`
           : "border border-transparent hover:bg-secondary/40 hover:border-border/60"
@@ -98,13 +108,6 @@ function OpportunityRow({
         />
 
         <div className="flex-1 min-w-0">
-          {/* Event context */}
-          {opportunity.event_title && (
-            <p className={`${FontSize.small} font-mono ${Muted.mutedText} tracking-wide truncate mb-0.5`}>
-              {opportunity.event_title}
-            </p>
-          )}
-
           {/* Title */}
           <p
             className={`${FontSize.medium} font-medium leading-snug line-clamp-2 transition-colors ${
@@ -114,43 +117,31 @@ function OpportunityRow({
             {opportunity.title}
           </p>
 
-          {/* Bottom row */}
-          <div className="flex items-center gap-3 mt-1.5">
-            {/* Status label */}
+          {/* Status + price + age on one row */}
+          <div className="flex items-center gap-2 mt-1">
             <span className={`${FontSize.small} font-mono uppercase tracking-wider ${status.text}`}>
               {opportunity.status}
             </span>
 
-            {/* Action badge */}
-            {opportunity.action && (
-              <span
-                className={`${FontSize.small} font-mono font-bold uppercase ${
-                  opportunity.action.includes("YES")
-                    ? "text-emerald-400"
-                    : opportunity.action.includes("NO")
-                      ? "text-red-400"
-                      : "text-muted-foreground"
-                }`}
-              >
-                {opportunity.action}
-              </span>
-            )}
-
-            {/* Spacer */}
-            <span className="flex-1" />
-
-            {/* Yes probability bar */}
+            {/* Price bar */}
             <div className="flex items-center gap-1.5">
-              <div className="prob-bar-track w-14">
+              <div className="prob-bar-track w-10">
                 <div
                   className="prob-bar-yes"
                   style={{ width: `${yesPercent}%` }}
                 />
               </div>
-              <span className={`${FontSize.small} font-mono ${Muted.mutedText} tabular-nums w-6 text-right`}>
+              <span className={`${FontSize.small} font-mono ${Muted.mutedText} tabular-nums`}>
                 {yesPercent}c
               </span>
             </div>
+
+            <span className="flex-1" />
+
+            {/* Age */}
+            <span className={`${FontSize.small} font-mono ${Muted.mutedText} tabular-nums shrink-0`}>
+              {relativeTime}
+            </span>
           </div>
         </div>
 
@@ -162,13 +153,6 @@ function OpportunityRow({
           }`}
         />
       </div>
-
-      {/* Time */}
-      <p className={`${FontSize.small} font-mono ${Muted.mutedText} mt-1.5 ml-3.5 tracking-wide`}>
-        {formatDistanceToNow(new Date(opportunity.discovered_at), {
-          addSuffix: true,
-        })}
-      </p>
     </button>
   );
 }

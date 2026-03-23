@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { formatDistanceToNow } from "date-fns";
-import { X, Clock, Target, FileText } from "lucide-react";
+import { X, Clock, Copy, Check, FileText } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useOpportunityDetail } from "@/hooks/use-api";
@@ -36,6 +36,12 @@ export function OpportunityDetailView({
   const { tz } = useTimezone();
   const [copied, setCopied] = useState(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
+  }, []);
 
   function handleCopyTicker(ticker: string) {
     navigator.clipboard.writeText(ticker)
@@ -87,17 +93,22 @@ export function OpportunityDetailView({
   }
 
   const { summary, markdown_body, parsed_sections } = data;
-  const useStructured = parsed_sections?.scout.is_structured === true;
+  const useStructured =
+    parsed_sections !== null &&
+    parsed_sections !== undefined &&
+    parsed_sections.scout.is_structured === true;
 
-  const strippedMarkdown = markdown_body
-    .replace(/^#\s+.+\n?/, "")
-    .replace(/^\*\*Event\*\*:.*\n?/m, "")
-    .replace(/^\*\*Outcome\*\*:.*\n?/m, "")
-    .replace(/^Outcome:.*\n?/m, "")
-    .replace(/\W{0,4}(?:file)?cite\W{0,4}(?:turn\d+\w+\W{0,4})+/g, "")
-    .replace(/^\n+/, "")
-    .replace(/\n{3,}/g, "\n\n")
-    .trimStart();
+  const strippedMarkdown = useStructured
+    ? ""
+    : markdown_body
+        .replace(/^#\s+.+\n?/, "")
+        .replace(/^\*\*Event\*\*:.*\n?/m, "")
+        .replace(/^\*\*Outcome\*\*:.*\n?/m, "")
+        .replace(/^Outcome:.*\n?/m, "")
+        .replace(/\W{0,4}(?:file)?cite\W{0,4}(?:turn\d+\w+\W{0,4})+/g, "")
+        .replace(/^\n+/, "")
+        .replace(/\n{3,}/g, "\n\n")
+        .trimStart();
 
   const yesPercent = Math.round(summary.yes_price * 100);
   const noPercent = Math.round(summary.no_price * 100);
@@ -110,123 +121,70 @@ export function OpportunityDetailView({
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
+      {/* Compact header */}
       <div className="shrink-0 px-5 pt-4 pb-3 border-b border-border">
-        <div className="flex items-start justify-between gap-3 mb-2">
-          <div className="min-w-0 flex-1">
-            {/* Status + action row */}
-            <div className="flex items-center gap-2 mb-2">
-              <span className={`${FontSize.small} font-mono ${Muted.amberLabel} uppercase tracking-wider border ${BorderTint.amberSelected} ${BgTint.amberBadge} px-1.5 py-0.5 rounded`}>
-                {summary.status}
-              </span>
-              {summary.market_ticker && (
-                <button
-                  onClick={() => handleCopyTicker(summary.market_ticker)}
-                  className={`${FontSize.small} font-mono uppercase tracking-wider px-1.5 py-0.5 rounded border transition-all duration-150 cursor-pointer ${
-                    copied
-                      ? `${Muted.emeraldLabel} ${BorderTint.yesBadge} ${BgTint.winBg}`
-                      : `${Muted.mutedText} ${BorderTint.amberSelected} ${BgTint.amberBadge} hover:text-muted-foreground ${BorderTint.amberSelectedHover}`
-                  }`}
-                >
-                  {copied ? "COPIED" : summary.market_ticker}
-                </button>
-              )}
-              {summary.action && (
-                <span
-                  className={`${FontSize.small} font-mono font-bold uppercase tracking-wider ${
-                    summary.action.includes("YES")
-                      ? "text-emerald-400"
-                      : "text-red-400"
-                  }`}
-                >
-                  {summary.action}
-                </span>
-              )}
-            </div>
-
-            {summary.event_title && (
-              <p className={`${FontSize.small} font-mono ${Muted.mutedText} tracking-wider mb-1 truncate`}>
-                {summary.event_title}
-              </p>
-            )}
-
-            <h2 className="text-[14px] font-semibold text-foreground leading-snug">
-              {summary.title}
-            </h2>
-            {summary.subtitle && (
-              <p className={`${FontSize.medium} ${Muted.mutedText} mt-1 leading-relaxed`}>
-                {summary.subtitle}
-              </p>
-            )}
-          </div>
-
+        {/* Top row: status badge + close button */}
+        <div className="flex items-center justify-between mb-2">
+          <span className={`${FontSize.small} font-mono ${Muted.amberLabel} uppercase tracking-wider border ${BorderTint.amberSelected} ${BgTint.amberBadge} px-1.5 py-0.5 rounded`}>
+            {summary.status}
+          </span>
           <button
             onClick={onClose}
+            aria-label="Close detail"
             className={`p-1 rounded hover:bg-secondary ${Muted.mutedText} hover:text-muted-foreground shrink-0 transition-colors`}
           >
             <X className="h-3.5 w-3.5" />
           </button>
         </div>
 
-        {/* Price levels */}
-        <div className="grid grid-cols-2 gap-2 mt-3">
-          <div className={`px-3 py-2 rounded border ${BorderTint.yesBox} ${BgTint.yesBox}`}>
-            <div className="flex items-center justify-between">
-              <span className={`${FontSize.small} font-mono ${Muted.emeraldLabel} uppercase tracking-wider`}>
-                YES
-              </span>
-              <span className="text-[18px] font-mono font-bold text-emerald-400 tabular-nums leading-none">
-                {yesPercent}c
-              </span>
-            </div>
-            <div className="prob-bar-track mt-2">
-              <div
-                className="prob-bar-yes"
-                style={{ width: `${yesPercent}%` }}
-              />
-            </div>
-          </div>
-          <div className={`px-3 py-2 rounded border ${BorderTint.noBox} ${BgTint.noBox}`}>
-            <div className="flex items-center justify-between">
-              <span className={`${FontSize.small} font-mono ${Muted.redLabel} uppercase tracking-wider`}>
-                NO
-              </span>
-              <span className="text-[18px] font-mono font-bold text-red-400 tabular-nums leading-none">
-                {noPercent}c
-              </span>
-            </div>
-            <div className="prob-bar-track mt-2">
-              <div
-                className="prob-bar-yes"
-                style={{
-                  width: `${noPercent}%`,
-                  background: "linear-gradient(90deg, #dc2626, #f87171)",
-                }}
-              />
-            </div>
-          </div>
+        {/* Title */}
+        <h2 className="text-[14px] font-semibold text-foreground leading-snug">
+          {summary.title}
+        </h2>
+
+        {/* Inline prices + close time */}
+        <div className={`flex items-center gap-3 mt-2 ${FontSize.medium} font-mono`}>
+          <span className="text-emerald-400 font-semibold tabular-nums">
+            YES {yesPercent}c
+          </span>
+          <span className={Muted.mutedText}>/</span>
+          <span className="text-red-400 font-semibold tabular-nums">
+            NO {noPercent}c
+          </span>
+          <span className={`${Muted.mutedText} ml-auto flex items-center gap-1`}>
+            <Clock className="h-3 w-3" />
+            <span className={`${FontSize.small} tabular-nums`}>
+              {closeFormatted}
+            </span>
+            <span className={`${FontSize.small} ${Muted.mutedText}`}>
+              ({closeRelative})
+            </span>
+          </span>
         </div>
 
-        {/* Meta row */}
-        <div className={`flex items-center gap-4 mt-2.5 ${FontSize.small} font-mono ${Muted.mutedText}`}>
-          <span className="flex items-center gap-1" title={closeFormatted}>
-            <Clock className="h-3 w-3" />
-            {closeFormatted}
-          </span>
-          <span className={Muted.mutedText}>·</span>
-          <span className={Muted.mutedText}>{closeRelative}</span>
-          <span className="flex items-center gap-1 ml-auto">
-            <Target className="h-3 w-3" />
+        {/* Ticker -- shown once, copyable */}
+        <div className="mt-1.5">
+          <button
+            onClick={() => handleCopyTicker(summary.market_ticker)}
+            className={`inline-flex items-center gap-1 ${FontSize.small} font-mono tracking-wider transition-all duration-150 cursor-pointer ${
+              copied ? Muted.emeraldLabel : Muted.mutedText
+            } hover:text-muted-foreground`}
+          >
+            {copied ? (
+              <Check className="h-2.5 w-2.5" />
+            ) : (
+              <Copy className="h-2.5 w-2.5" />
+            )}
             {summary.market_ticker}
-          </span>
+          </button>
         </div>
       </div>
 
       {/* Intel body */}
       <div className="flex-1 overflow-y-auto min-h-0 min-w-0">
         <div className="px-5 py-4 min-w-0">
-          {useStructured && parsed_sections ? (
-            <IntelBrief parsed={parsed_sections} />
+          {useStructured ? (
+            <IntelBrief parsed={parsed_sections!} />
           ) : (
             <div className="markdown-body">
               <ReactMarkdown
