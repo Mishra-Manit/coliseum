@@ -14,6 +14,7 @@ from coliseum.llm_providers import OpenAIModel, get_model_string
 from coliseum.memory.context import build_scout_context
 from coliseum.services.kalshi.client import KalshiClient
 from coliseum.services.kalshi.config import KalshiConfig
+from coliseum.services.kalshi.models import Market
 from coliseum.storage.files import save_opportunity, generate_opportunity_id
 from coliseum.storage.state import add_seen_ticker, get_seen_tickers
 
@@ -47,14 +48,59 @@ def _register_tools(agent: Agent[ScoutDependencies, ScoutOutput]) -> None:
     register_get_current_time(agent)
 
 
-def _in_price_range(price: int, min_p: int, max_p: int) -> bool:
-    """Return True only when price is non-zero and within [min_p, max_p]."""
-    return price != 0 and min_p <= price <= max_p
+def _side_is_tradeable(
+    bid_cents: int,
+    ask_cents: int,
+    min_price_cents: int,
+    max_price_cents: int,
+    max_spread_cents: int,
+) -> bool:
+    """Return True when a side has a real bid, valid price, and acceptable spread."""
+    if ask_cents == 0 or bid_cents <= 0:
+        return False
+    if not min_price_cents <= ask_cents <= max_price_cents:
+        return False
+    return (ask_cents - bid_cents) <= max_spread_cents
 
 
-def _spread_ok(bid: int, ask: int, max_spread: int) -> bool:
-    """Return True only when there is a real resting bid and spread is within limit."""
-    return bid > 0 and (ask - bid) <= max_spread
+def _entry_view(
+    market: Market,
+    min_price_cents: int,
+    max_price_cents: int,
+    max_spread_cents: int,
+) -> dict | None:
+    """Return the actionable side for Scout, or None if neither side qualifies."""
+    if _side_is_tradeable(
+        market.yes_bid,
+        market.yes_ask,
+        min_price_cents,
+        max_price_cents,
+        max_spread_cents,
+    ):
+        return {
+            "entry_side": "yes",
+            "entry_bid_cents": market.yes_bid,
+            "entry_ask_cents": market.yes_ask,
+            "entry_price_cents": market.yes_ask,
+            "entry_spread_cents": market.yes_ask - market.yes_bid,
+        }
+
+    if _side_is_tradeable(
+        market.no_bid,
+        market.no_ask,
+        min_price_cents,
+        max_price_cents,
+        max_spread_cents,
+    ):
+        return {
+            "entry_side": "no",
+            "entry_bid_cents": market.no_bid,
+            "entry_ask_cents": market.no_ask,
+            "entry_price_cents": market.no_ask,
+            "entry_spread_cents": market.no_ask - market.no_bid,
+        }
+
+    return None
 
 
 async def _fetch_event_metadata(
@@ -79,27 +125,28 @@ async def _fetch_event_metadata(
     }
 
 
-def _to_market_dict(
-    m: "Market",
+def _build_prefetched_market(
+    market: Market,
     event_meta: dict[str, tuple[str, str]],
+    entry_view: dict,
 ) -> dict:
-    """Convert a Market model + event metadata into a dict for Scout."""
-    title, category = event_meta.get(m.event_ticker, ("", ""))
+    """Build the Scout candidate payload for one prefetched market."""
+    event_title, category = event_meta.get(market.event_ticker, ("", ""))
     return {
-        "ticker": m.ticker,
-        "event_ticker": m.event_ticker,
-        "title": m.title,
-        "subtitle": m.subtitle,
-        "yes_bid": m.yes_bid,
-        "yes_ask": m.yes_ask,
-        "no_bid": m.no_bid,
-        "no_ask": m.no_ask,
-        "spread_cents": (m.yes_ask - m.yes_bid) if m.yes_ask > 0 and m.yes_bid > 0 else None,
-        "volume": m.volume,
-        "open_interest": m.open_interest,
-        "close_time": m.close_time.isoformat() if m.close_time else None,
+        "ticker": market.ticker,
+        "event_ticker": market.event_ticker,
+        "title": market.title,
+        "subtitle": market.subtitle,
+        "yes_bid": market.yes_bid,
+        "yes_ask": market.yes_ask,
+        "no_bid": market.no_bid,
+        "no_ask": market.no_ask,
+        "volume": market.volume,
+        "open_interest": market.open_interest,
+        "close_time": market.close_time.isoformat() if market.close_time else None,
         "category": category,
-        "event_title": title,
+        "event_title": event_title,
+        **entry_view,
     }
 
 
@@ -110,8 +157,6 @@ async def _prefetch_markets_for_scan(
 ) -> list[dict]:
     """Fetch and pre-filter market dataset before Scout agent run."""
     cfg = settings.scout
-    min_p, max_p = cfg.min_price, cfg.max_price
-    max_spread = cfg.max_spread_cents
 
     markets = await client.get_markets_closing_in_range(
         min_hours=cfg.min_close_hours,
@@ -126,33 +171,36 @@ async def _prefetch_markets_for_scan(
 
     markets = [m for m in markets if m.volume >= cfg.min_volume]
 
-    markets = [
-        m for m in markets
-        if (
-            _in_price_range(m.yes_ask, min_p, max_p)
-            and _spread_ok(m.yes_bid, m.yes_ask, max_spread)
-        ) or (
-            _in_price_range(m.no_ask, min_p, max_p)
-            and _spread_ok(m.no_bid, m.no_ask, max_spread)
+    candidate_markets: list[tuple[Market, dict]] = []
+    for market in markets:
+        entry_view = _entry_view(
+            market,
+            min_price_cents=cfg.min_price,
+            max_price_cents=cfg.max_price,
+            max_spread_cents=cfg.max_spread_cents,
         )
-    ]
+        if entry_view is not None:
+            candidate_markets.append((market, entry_view))
 
-    logger.info("Prefetch: %d markets after price/volume/spread filters", len(markets))
+    logger.info("Prefetch: %d markets after baseline filters", len(candidate_markets))
 
-    unique_event_tickers = list({m.event_ticker for m in markets if m.event_ticker})
+    unique_event_tickers = list({market.event_ticker for market, _ in candidate_markets if market.event_ticker})
     event_meta = await _fetch_event_metadata(client, unique_event_tickers)
 
-    market_dicts = [_to_market_dict(m, event_meta) for m in markets]
+    prefetched_markets = []
+    for market, entry_view in candidate_markets:
+        _, category = event_meta.get(market.event_ticker, ("", ""))
+        if not passes_filter(category, market.event_ticker, entry_view["entry_price_cents"]):
+            continue
+        prefetched_markets.append(_build_prefetched_market(market, event_meta, entry_view))
 
-    pre_filter_count = len(market_dicts)
-    market_dicts = [md for md in market_dicts if passes_filter(md)]
     logger.info(
-        "Prefetch: %d -> %d markets after data-driven filter",
-        pre_filter_count,
-        len(market_dicts),
+        "Prefetch: %d -> %d markets after historical safety filter",
+        len(candidate_markets),
+        len(prefetched_markets),
     )
 
-    return market_dicts
+    return prefetched_markets
 
 
 def _build_market_context_prompt(prefetched_markets: list[dict]) -> str:
@@ -164,6 +212,7 @@ def _build_market_context_prompt(prefetched_markets: list[dict]) -> str:
         "\n\nPREFETCHED_MARKETS_JSON:\n"
         f"{serialized_markets}\n\n"
         "Use this dataset as the complete market universe for this scan. "
+        "Each object already includes the actionable entry side, entry pricing, and entry spread for Scout. "
         "Set markets_scanned exactly to PREFETCHED_MARKETS_COUNT (the number of objects in PREFETCHED_MARKETS_JSON). "
         "Do not self-estimate markets_scanned from researched/evaluated/selected subsets. "
         "Do not claim to have scanned markets outside this provided dataset."
@@ -208,12 +257,12 @@ async def run_scout(
                 scout_cfg = settings.scout
                 memory_context = build_scout_context()
                 prompt = (
-                    f"Scan the pre-filtered Kalshi markets for the single best "
-                    f"near-decided opportunity at {scout_cfg.min_price}-{scout_cfg.max_price}% "
-                    f"probability. All markets have already passed data-driven category "
-                    f"filters—focus on confirming outcomes via web research and selecting "
-                    f"the lowest reversal-risk candidate. If no market passes the Risk "
-                    f"Assessment Checklist, return 0 opportunities."
+                    f"Review the prefiltered Scout candidates and find the single best "
+                    f"near-decided opportunity in the {scout_cfg.min_price}-{scout_cfg.max_price}% "
+                    f"band. These markets already passed baseline liquidity checks and "
+                    f"historical safety-bucket filtering. Use entry_side and entry_*_cents "
+                    f"fields as the actionable trade context. Return 0 opportunities only "
+                    f"if every candidate has a specific disqualifying factor."
                     f"{memory_context}"
                     f"{_build_market_context_prompt(prefetched_markets)}"
                 )

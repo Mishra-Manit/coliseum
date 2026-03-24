@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 from coliseum.config import Settings
 from coliseum.storage.files import OpportunitySignal
 
+
 class ScoutDependencies(BaseModel):
     """Dependencies injected into Scout agent."""
 
@@ -12,7 +13,7 @@ class ScoutDependencies(BaseModel):
 
     settings: Settings
     prefetched_markets: list[dict] = Field(
-        description="Pre-fetched market dataset provided by Python before Scout agent run"
+        description="Pre-fetched Scout candidate dataset with actionable entry-side fields"
     )
 
 
@@ -23,10 +24,10 @@ class ScoutOutput(BaseModel):
         description="List of high-quality trading opportunities discovered during scan. Each must have all required OpportunitySignal fields."
     )
     scan_summary: str = Field(
-        description="Brief 2-3 sentence summary covering: categories found, quality assessment, notable filters applied"
+        description="Brief 2-3 sentence summary covering candidate quality and any notable rejections"
     )
     markets_scanned: int = Field(
-        description="Total number of markets provided to Scout in prefetched_markets (before Scout filtering)"
+        description="Total number of prefetched candidates provided to Scout"
     )
     opportunities_found: int = Field(
         description="Number of opportunities selected by Scout (length of opportunities list)"
