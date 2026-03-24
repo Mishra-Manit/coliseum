@@ -398,6 +398,28 @@
   margin-top: 0;
 }
 
+/* ── Radial gauge ambient pulse ── */
+@keyframes gauge-pulse {
+  0%, 100% { filter: drop-shadow(0 0 6px rgba(217, 119, 6, 0.3)); }
+  50% { filter: drop-shadow(0 0 12px rgba(217, 119, 6, 0.5)); }
+}
+
+.gauge-arc {
+  filter: drop-shadow(0 0 6px rgba(217, 119, 6, 0.4));
+}
+
+.gauge-container svg {
+  animation: gauge-pulse 3s ease-in-out infinite;
+}
+
+/* ── Stat card hover glow ── */
+.stat-card-glow {
+  transition: box-shadow 0.2s ease, background-color 0.2s ease;
+}
+.stat-card-glow:hover {
+  box-shadow: 0 0 12px rgba(217, 119, 6, 0.06);
+}
+
 /* ── Reduced motion ── */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

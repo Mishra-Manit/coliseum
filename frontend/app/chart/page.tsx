@@ -8,43 +8,7 @@ import { LWPortfolioChart } from "@/components/chart/lw-portfolio-chart";
 import { WinRatePanel } from "@/components/chart/win-rate-panel";
 import type { Interval } from "@/lib/chart-utils";
 import { FontSize } from "@/lib/typography";
-import { Muted, Base, Strong, Faint } from "@/lib/styles";
-
-// ─── Sidebar stat row ──────────────────────────────────────────────────────
-
-interface StatRowProps {
-  label: string;
-  value: string;
-  sub?: string;
-  trend?: "positive" | "negative" | "neutral";
-}
-
-function StatRow({ label, value, sub, trend = "neutral" }: StatRowProps) {
-  const valueClass =
-    trend === "positive"
-      ? "text-emerald-400"
-      : trend === "negative"
-        ? "text-red-400"
-        : Base.foreground;
-
-  return (
-    <div className="flex flex-col gap-0.5">
-      <span className={`${FontSize.small} font-mono ${Muted.mutedText} tracking-[0.13em] uppercase`}>
-        {label}
-      </span>
-      <span className={`${FontSize.medium} font-mono font-medium tabular-nums ${valueClass}`}>
-        {value}
-      </span>
-      {sub && (
-        <span className={`${FontSize.small} font-mono ${Muted.mutedText} tabular-nums`}>
-          {sub}
-        </span>
-      )}
-    </div>
-  );
-}
-
-// ─── Left sidebar ──────────────────────────────────────────────────────────
+import { Muted, Strong, Faint } from "@/lib/styles";
 
 function ChartSidebar() {
   const { data: chartData } = useChartData();
@@ -61,17 +25,21 @@ function ChartSidebar() {
       : "0.0";
 
   return (
-    <aside className="w-36 shrink-0 border-r border-border flex flex-col overflow-hidden animate-fade-up stagger-1">
+    <aside className="w-[220px] shrink-0 border-r border-border flex flex-col overflow-hidden animate-fade-up stagger-1">
       {/* NAV header */}
-      <div className="p-3 border-b border-border shrink-0">
-        <p className={`${FontSize.small} font-mono ${Muted.mutedText} tracking-[0.14em] uppercase mb-2`}>
+      <div className="p-4 border-b border-border shrink-0">
+        <p
+          className={`${FontSize.small} font-mono ${Muted.mutedText} tracking-[0.14em] uppercase mb-2`}
+        >
           Portfolio NAV
         </p>
-        <p className={`text-[22px] font-mono font-bold ${Strong.foreground} tabular-nums leading-none`}>
+        <p
+          className={`text-[26px] font-mono font-bold ${Strong.foreground} tabular-nums leading-none`}
+        >
           ${currentNav.toFixed(2)}
         </p>
         <p
-          className={`text-[12px] font-mono font-medium tabular-nums mt-1.5 ${
+          className={`text-[12px] font-mono font-medium tabular-nums mt-2 ${
             isPositive ? "text-emerald-400" : "text-red-400"
           }`}
         >
@@ -84,55 +52,15 @@ function ChartSidebar() {
         </p>
       </div>
 
-      {/* Stats grid */}
-      <div className="flex flex-col gap-3 p-3 overflow-auto flex-1">
-        <StatRow
-          label="Win Rate"
-          value={stats ? `${(stats.win_rate * 100).toFixed(1)}%` : "—"}
-          sub={
-            stats
-              ? `${stats.winning_trades}W / ${stats.losing_trades}L`
-              : undefined
-          }
-          trend={
-            stats
-              ? stats.win_rate >= 0.5
-                ? "positive"
-                : "negative"
-              : "neutral"
-          }
-        />
-        <StatRow
-          label="Total Trades"
-          value={String(stats?.total_trades ?? 0)}
-          trend="neutral"
-        />
-        <StatRow
-          label="Best Day"
-          value={
-            stats && stats.best_day > 0
-              ? `+$${stats.best_day.toFixed(2)}`
-              : "—"
-          }
-          trend={stats && stats.best_day > 0 ? "positive" : "neutral"}
-        />
-        <StatRow
-          label="Worst Day"
-          value={
-            stats && stats.worst_day < 0
-              ? `$${stats.worst_day.toFixed(2)}`
-              : "—"
-          }
-          trend={stats && stats.worst_day < 0 ? "negative" : "neutral"}
-        />
-
-        <div className="h-px bg-border shrink-0" />
-
+      {/* Radial HUD + Stats */}
+      <div className="flex flex-col gap-4 p-4 overflow-auto flex-1">
         {stats && stats.total_trades > 0 ? (
           <WinRatePanel stats={stats} />
         ) : (
-          <div className="flex items-center justify-center py-6">
-            <span className={`${FontSize.small} font-mono ${Muted.mutedText} tracking-wider`}>
+          <div className="flex items-center justify-center py-12">
+            <span
+              className={`${FontSize.small} font-mono ${Muted.mutedText} tracking-wider`}
+            >
               NO DATA
             </span>
           </div>
@@ -142,14 +70,14 @@ function ChartSidebar() {
   );
 }
 
-// ─── Main chart area ───────────────────────────────────────────────────────
-
 function ChartMain() {
   const { data: chartData } = useChartData();
+  const { data: stream } = usePortfolioStream();
   const [interval, setInterval] = useState<Interval>("1D");
 
   const daily = chartData?.daily ?? [];
-  const totalPnl = chartData?.stats?.total_pnl ?? 0;
+  const stats = chartData?.stats;
+  const currentNav = stream?.portfolio?.total_value ?? stats?.current_nav ?? 0;
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden animate-fade-up stagger-2">
@@ -157,13 +85,11 @@ function ChartMain() {
         data={daily}
         interval={interval}
         onIntervalChange={setInterval}
-        totalPnl={totalPnl}
+        currentNav={currentNav}
       />
     </div>
   );
 }
-
-// ─── Page ──────────────────────────────────────────────────────────────────
 
 export default function ChartPage() {
   return (

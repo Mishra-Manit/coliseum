@@ -66,7 +66,7 @@ export function getChartSeries(
   const points =
     interval === "1D" ? daily : aggregateByPeriod(daily, interval);
   return {
-    area: points.map((p) => ({ time: p.date, value: p.cumulative_pnl })),
+    area: points.map((p) => ({ time: p.date, value: p.nav })),
     hist: points.map((p) => ({
       time: p.date,
       value: p.pnl,

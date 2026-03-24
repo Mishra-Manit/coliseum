@@ -8,7 +8,6 @@ import { RangeSwitcher } from "./range-switcher";
 import { FontSize } from "@/lib/typography";
 import { Muted } from "@/lib/styles";
 
-// Colors matched to the Coliseum design system
 const C = {
   bg: "#07060a",
   grid: "#1a1728",
@@ -24,24 +23,23 @@ interface LWPortfolioChartProps {
   data: ChartDataPoint[];
   interval: Interval;
   onIntervalChange: (interval: Interval) => void;
-  totalPnl: number;
+  currentNav: number;
 }
 
 export function LWPortfolioChart({
   data,
   interval,
   onIntervalChange,
-  totalPnl,
+  currentNav,
 }: LWPortfolioChartProps) {
   const mainRef = useRef<HTMLDivElement>(null);
   const histRef = useRef<HTMLDivElement>(null);
   const mainChartRef = useRef<IChartApi | null>(null);
   const histChartRef = useRef<IChartApi | null>(null);
-  const baselineRef = useRef<ISeriesApi<"Baseline"> | null>(null);
+  const areaSeriesRef = useRef<ISeriesApi<"Area"> | null>(null);
   const histSeriesRef = useRef<ISeriesApi<"Histogram"> | null>(null);
   const [chartsReady, setChartsReady] = useState(false);
 
-  // Initialize charts once on mount
   useEffect(() => {
     if (!mainRef.current || !histRef.current) return;
     let cancelled = false;
@@ -49,7 +47,7 @@ export function LWPortfolioChart({
     (async () => {
       const {
         createChart,
-        BaselineSeries,
+        AreaSeries,
         HistogramSeries,
         ColorType,
         CrosshairMode,
@@ -92,10 +90,10 @@ export function LWPortfolioChart({
         handleScale: true,
       };
 
-      const priceFormatter = (price: number) =>
+      const navFormatter = (price: number) => `$${price.toFixed(2)}`;
+      const pnlFormatter = (price: number) =>
         `${price >= 0 ? "+" : "-"}$${Math.abs(price).toFixed(2)}`;
 
-      // Main chart — time scale hidden (histogram shows it below)
       const mainChart = createChart(mainRef.current, {
         ...sharedLayout,
         timeScale: {
@@ -104,10 +102,9 @@ export function LWPortfolioChart({
           fixLeftEdge: true,
           fixRightEdge: true,
         },
-        localization: { priceFormatter },
+        localization: { priceFormatter: navFormatter },
       });
 
-      // Histogram chart — shows time axis
       const histChart = createChart(histRef.current, {
         ...sharedLayout,
         crosshair: {
@@ -124,18 +121,13 @@ export function LWPortfolioChart({
           borderVisible: false,
           scaleMargins: { top: 0.2, bottom: 0.05 },
         },
-        localization: { priceFormatter },
+        localization: { priceFormatter: pnlFormatter },
       });
 
-      // Baseline series: green above 0, red below 0
-      const baselineSeries = mainChart.addSeries(BaselineSeries, {
-        baseValue: { type: "price", price: 0 },
-        topLineColor: C.positive,
-        topFillColor1: "rgba(22, 163, 74, 0.25)",
-        topFillColor2: "rgba(22, 163, 74, 0.04)",
-        bottomLineColor: C.negative,
-        bottomFillColor1: "rgba(220, 38, 38, 0.04)",
-        bottomFillColor2: "rgba(220, 38, 38, 0.25)",
+      const areaSeries = mainChart.addSeries(AreaSeries, {
+        lineColor: C.amber,
+        topColor: "rgba(217, 119, 6, 0.25)",
+        bottomColor: "rgba(217, 119, 6, 0.02)",
         lineWidth: 2,
         lastValueVisible: true,
         priceLineVisible: false,
@@ -146,7 +138,6 @@ export function LWPortfolioChart({
         crosshairMarkerBorderWidth: 2,
       });
 
-      // Histogram for daily P&L bars
       const histSeries = histChart.addSeries(HistogramSeries, {
         priceScaleId: "right",
         priceLineVisible: false,
@@ -156,10 +147,9 @@ export function LWPortfolioChart({
 
       mainChartRef.current = mainChart;
       histChartRef.current = histChart;
-      baselineRef.current = baselineSeries;
+      areaSeriesRef.current = areaSeries;
       histSeriesRef.current = histSeries;
 
-      // Bidirectional time scale sync
       let syncing = false;
       mainChart.timeScale().subscribeVisibleTimeRangeChange((range) => {
         if (syncing || !range) return;
@@ -167,7 +157,7 @@ export function LWPortfolioChart({
         try {
           histChart.timeScale().setVisibleRange(range);
         } catch {
-          // lightweight-charts throws when range contains null time values (empty chart)
+          // lightweight-charts throws when range contains null time values
         }
         syncing = false;
       });
@@ -177,7 +167,7 @@ export function LWPortfolioChart({
         try {
           mainChart.timeScale().setVisibleRange(range);
         } catch {
-          // lightweight-charts throws when range contains null time values (empty chart)
+          // lightweight-charts throws when range contains null time values
         }
         syncing = false;
       });
@@ -192,18 +182,18 @@ export function LWPortfolioChart({
       histChartRef.current?.remove();
       mainChartRef.current = null;
       histChartRef.current = null;
-      baselineRef.current = null;
+      areaSeriesRef.current = null;
       histSeriesRef.current = null;
     };
   }, []);
 
-  // Update data whenever chartsReady, data, or interval changes
   useEffect(() => {
-    if (!chartsReady || !baselineRef.current || !histSeriesRef.current) return;
+    if (!chartsReady || !areaSeriesRef.current || !histSeriesRef.current)
+      return;
 
     const { area: areaData, hist: histData } = getChartSeries(data, interval);
 
-    baselineRef.current.setData(areaData);
+    areaSeriesRef.current.setData(areaData);
     histSeriesRef.current.setData(histData);
 
     if (areaData.length > 0) {
@@ -219,28 +209,29 @@ export function LWPortfolioChart({
       {/* Chart toolbar */}
       <div className="flex items-center justify-between px-5 h-10 border-b border-border shrink-0">
         <div className="flex items-baseline gap-2.5">
-          <span className={`${FontSize.small} font-mono ${Muted.mutedText} tracking-[0.14em] uppercase`}>
-            Cumulative P&L
+          <span
+            className={`${FontSize.small} font-mono ${Muted.mutedText} tracking-[0.14em] uppercase`}
+          >
+            Portfolio Value
           </span>
           {!isEmpty && (
             <span
-              className={`${FontSize.medium} font-mono font-semibold tabular-nums ${
-                totalPnl >= 0 ? "text-emerald-400" : "text-red-400"
-              }`}
+              className={`${FontSize.medium} font-mono font-semibold tabular-nums text-amber-400`}
             >
-              {totalPnl >= 0 ? "+" : ""}
-              {totalPnl.toFixed(2)}
+              ${currentNav.toFixed(2)}
             </span>
           )}
         </div>
         <RangeSwitcher value={interval} onChange={onIntervalChange} />
       </div>
 
-      {/* Baseline chart — takes 65% of the chart area */}
+      {/* Area chart -- takes 65% of the chart area */}
       <div ref={mainRef} className="flex-[13] min-h-0 relative">
         {isEmpty && (
           <div className="absolute inset-0 flex items-center justify-center">
-            <p className={`${FontSize.medium} font-mono ${Muted.mutedText} tracking-[0.14em]`}>
+            <p
+              className={`${FontSize.medium} font-mono ${Muted.mutedText} tracking-[0.14em]`}
+            >
               NO TRADE DATA YET
             </p>
           </div>
@@ -249,12 +240,14 @@ export function LWPortfolioChart({
 
       {/* Histogram section header */}
       <div className="flex items-center px-5 h-7 border-t border-border shrink-0">
-        <span className={`${FontSize.small} font-mono ${Muted.mutedText} tracking-[0.14em] uppercase`}>
+        <span
+          className={`${FontSize.small} font-mono ${Muted.mutedText} tracking-[0.14em] uppercase`}
+        >
           Daily P&L
         </span>
       </div>
 
-      {/* Histogram — takes 35% of the chart area */}
+      {/* Histogram -- takes 35% of the chart area */}
       <div ref={histRef} className="flex-[7] min-h-0" />
     </div>
   );
