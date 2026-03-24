@@ -80,6 +80,7 @@ yarn-error.log*
 .vscode/
 .idea/
 .claude/
+.cursor/
 *.swp
 *.swo
 *~

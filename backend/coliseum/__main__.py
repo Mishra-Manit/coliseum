@@ -2,6 +2,7 @@
 
 import argparse
 import asyncio
+import functools
 import logging
 import sys
 import uvicorn
@@ -19,6 +20,8 @@ from coliseum.agents.guardian import run_guardian
 from coliseum.agents.scout import run_scout
 from coliseum.agents.trader import run_trader
 from coliseum.config import get_settings
+from coliseum.memory.learnings import LEARNINGS_SEED
+from coliseum.observability import initialize_logfire
 from coliseum.pipeline import run_pipeline
 from coliseum.storage.state import load_state
 
@@ -34,8 +37,6 @@ logger = logging.getLogger(__name__)
 
 def _cli_command(label: str):
     """Decorator that wraps CLI commands with consistent error handling."""
-    import functools
-
     def decorator(fn):
         @functools.wraps(fn)
         def wrapper(args: argparse.Namespace) -> int:
@@ -57,8 +58,6 @@ def _cli_command(label: str):
 def _init_logfire() -> None:
     """Initialize Logfire if available, without failing commands."""
     try:
-        from coliseum.observability import initialize_logfire
-
         initialize_logfire(get_settings())
     except Exception as e:
         logger.warning(f"Failed to initialize Logfire: {e}")
@@ -156,8 +155,6 @@ open_positions: []
 
     learnings_path = data_dir / "memory" / "learnings.md"
     if not learnings_path.exists():
-        from coliseum.memory.learnings import LEARNINGS_SEED
-
         learnings_path.write_text(LEARNINGS_SEED, encoding="utf-8")
         logger.info(f"Created learnings seed: {learnings_path}")
     else:

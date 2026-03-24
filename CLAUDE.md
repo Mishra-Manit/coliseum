@@ -2,7 +2,7 @@
 
 ## Spec Version
 
-- Current version: `1.5.0`
+- Current version: `1.6.0`
 - Versioning scheme: `MAJOR.MINOR.PATCH` (semantic versioning)
 
 > **CRITICAL**: Always activate the venv before running backend code:
@@ -90,6 +90,7 @@ model = get_model_string(OpenAIModel.GPT_5_MINI)  # "openai-responses:gpt-5-mini
 - One-line docstrings (no verbose Args/Returns)
 - **Never** use `# ====` section separators
 - Inline comments: only for "why", never "what"
+- **No inline imports**: All imports must be at the top of the file. Never place `import` or `from ... import` inside functions, methods, or conditionals. Always assume imports will succeed.
 
 ## Critical Rules
 
