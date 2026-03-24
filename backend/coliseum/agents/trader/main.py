@@ -10,9 +10,8 @@ from uuid import uuid4
 import logfire
 
 from pydantic_ai import Agent, RunContext
-from pydantic_ai.models.openai import OpenAIResponsesModelSettings
 
-from coliseum.agents.agent_factory import AgentFactory
+from coliseum.agents.agent_factory import AgentFactory, create_agent
 from coliseum.agents.trader.models import (
     OrderResult,
     TraderDependencies,
@@ -23,7 +22,6 @@ from coliseum.agents.trader.prompts import (
     build_trader_prompt,
 )
 from coliseum.config import Settings, get_settings
-from coliseum.llm_providers import OpenAIModel, get_model_string
 from coliseum.services.kalshi.client import KalshiClient
 from coliseum.services.kalshi.config import KalshiConfig
 from coliseum.services.telegram import create_telegram_client
@@ -50,12 +48,11 @@ logger = logging.getLogger(__name__)
 
 def _create_agent(settings: Settings) -> Agent[TraderDependencies, TraderOutput]:
     """Create the Trader agent."""
-    return Agent(
-        model=get_model_string(OpenAIModel.GPT_5_4),
+    return create_agent(
+        prompt=build_trader_system_prompt(settings),
         output_type=TraderOutput,
         deps_type=TraderDependencies,
-        system_prompt=build_trader_system_prompt(settings),
-        model_settings=OpenAIResponsesModelSettings(openai_reasoning_effort="low"),
+        prepend_mechanics=False,
     )
 
 

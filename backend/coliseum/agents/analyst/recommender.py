@@ -6,19 +6,16 @@ from datetime import datetime, timezone
 
 import logfire
 from pydantic_ai import Agent
-from pydantic_ai.models.openai import OpenAIResponsesModelSettings
 
-from coliseum.agents.agent_factory import AgentFactory
+from coliseum.agents.agent_factory import AgentFactory, create_agent
 from coliseum.agents.analyst.models import AnalystDependencies, RecommenderOutput
 from coliseum.agents.analyst.prompts import RECOMMENDER_PROMPT
-from coliseum.memory.context import load_kalshi_mechanics
 from coliseum.agents.analyst.shared import (
     format_opportunity_header,
     load_opportunity,
 )
 from coliseum.config import Settings
 from coliseum.memory.context import build_analyst_context
-from coliseum.llm_providers import OpenAIModel, get_model_string
 from coliseum.storage.files import (
     OpportunitySignal,
     get_opportunity_markdown_body,
@@ -30,14 +27,10 @@ logger = logging.getLogger(__name__)
 
 
 def _create_agent() -> Agent[AnalystDependencies, RecommenderOutput]:
-    mechanics = load_kalshi_mechanics()
-    system_prompt = f"{mechanics}\n\n{RECOMMENDER_PROMPT}"
-    return Agent(
-        model=get_model_string(OpenAIModel.GPT_5_4),
+    return create_agent(
+        prompt=RECOMMENDER_PROMPT,
         output_type=RecommenderOutput,
         deps_type=AnalystDependencies,
-        system_prompt=system_prompt,
-        model_settings=OpenAIResponsesModelSettings(openai_reasoning_effort="low"),
     )
 
 
