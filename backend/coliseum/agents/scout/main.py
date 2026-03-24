@@ -17,6 +17,7 @@ from coliseum.services.kalshi.config import KalshiConfig
 from coliseum.storage.files import save_opportunity, generate_opportunity_id
 from coliseum.storage.state import add_seen_ticker, get_seen_tickers
 
+from .filters import passes_filter
 from .models import ScoutDependencies, ScoutOutput
 from .prompts import build_scout_prompt
 
@@ -46,105 +47,112 @@ def _register_tools(agent: Agent[ScoutDependencies, ScoutOutput]) -> None:
     register_get_current_time(agent)
 
 
+def _in_price_range(price: int, min_p: int, max_p: int) -> bool:
+    """Return True only when price is non-zero and within [min_p, max_p]."""
+    return price != 0 and min_p <= price <= max_p
+
+
+def _spread_ok(bid: int, ask: int, max_spread: int) -> bool:
+    """Return True only when there is a real resting bid and spread is within limit."""
+    return bid > 0 and (ask - bid) <= max_spread
+
+
+async def _fetch_event_metadata(
+    client: KalshiClient,
+    event_tickers: list[str],
+) -> dict[str, tuple[str, str]]:
+    """Fetch title and category for each event ticker in parallel."""
+    results = await asyncio.gather(
+        *[client.get_event(et) for et in event_tickers],
+        return_exceptions=True,
+    )
+    failed = [et for et, res in zip(event_tickers, results) if isinstance(res, Exception)]
+    if failed:
+        logger.warning("Failed to fetch event metadata for %d tickers: %s", len(failed), failed[:5])
+    return {
+        et: (
+            (res.get("title") or "", res.get("category") or "")
+            if isinstance(res, dict)
+            else ("", "")
+        )
+        for et, res in zip(event_tickers, results)
+    }
+
+
+def _to_market_dict(
+    m: "Market",
+    event_meta: dict[str, tuple[str, str]],
+) -> dict:
+    """Convert a Market model + event metadata into a dict for Scout."""
+    title, category = event_meta.get(m.event_ticker, ("", ""))
+    return {
+        "ticker": m.ticker,
+        "event_ticker": m.event_ticker,
+        "title": m.title,
+        "subtitle": m.subtitle,
+        "yes_bid": m.yes_bid,
+        "yes_ask": m.yes_ask,
+        "no_bid": m.no_bid,
+        "no_ask": m.no_ask,
+        "spread_cents": (m.yes_ask - m.yes_bid) if m.yes_ask > 0 and m.yes_bid > 0 else None,
+        "volume": m.volume,
+        "open_interest": m.open_interest,
+        "close_time": m.close_time.isoformat() if m.close_time else None,
+        "category": category,
+        "event_title": title,
+    }
+
+
 async def _prefetch_markets_for_scan(
     client: KalshiClient,
     settings: Settings,
     seen_tickers: set[str] | None = None,
 ) -> list[dict]:
-    """Fetch and pre-filter market dataset once before Scout agent run."""
-    scout_settings = settings.scout
-    min_close_hours = scout_settings.min_close_hours
-    max_close_hours = scout_settings.max_close_hours
-    min_price = scout_settings.min_price
-    max_price = scout_settings.max_price
-    min_volume = scout_settings.min_volume
-    max_spread = scout_settings.max_spread_cents
+    """Fetch and pre-filter market dataset before Scout agent run."""
+    cfg = settings.scout
+    min_p, max_p = cfg.min_price, cfg.max_price
+    max_spread = cfg.max_spread_cents
 
     markets = await client.get_markets_closing_in_range(
-        min_hours=min_close_hours,
-        max_hours=max_close_hours,
-        limit=scout_settings.market_fetch_limit,
+        min_hours=cfg.min_close_hours,
+        max_hours=cfg.max_close_hours,
+        limit=cfg.market_fetch_limit,
         status="open",
     )
-    logger.info("Scout prefetch fetched %d markets closing in %d-%d hours", len(markets), min_close_hours, max_close_hours)
+    logger.info("Prefetch: %d markets in %d-%dh window", len(markets), cfg.min_close_hours, cfg.max_close_hours)
 
     if seen_tickers:
         markets = [m for m in markets if m.ticker not in seen_tickers]
-        logger.info("Scout prefetch filtered to %d markets after removing seen tickers", len(markets))
 
-    markets = [m for m in markets if m.volume >= min_volume]
-    logger.info("Scout prefetch filtered to %d markets with volume >= %d", len(markets), min_volume)
+    markets = [m for m in markets if m.volume >= cfg.min_volume]
 
     markets = [
-        m
-        for m in markets
-        if min_price <= (m.yes_ask or 50) <= max_price
-        or min_price <= (m.no_ask or 50) <= max_price
-    ]
-    logger.info("Scout prefetch filtered to %d markets with YES or NO in %d-%d%% range", len(markets), min_price, max_price)
-
-    if max_spread is not None:
-        filtered_markets = []
-        for m in markets:
-            yes_in_range = min_price <= (m.yes_ask or 50) <= max_price
-            no_in_range = min_price <= (m.no_ask or 50) <= max_price
-
-            if yes_in_range and m.yes_ask is not None and m.yes_bid is not None:
-                spread = m.yes_ask - m.yes_bid
-                if spread <= max_spread:
-                    filtered_markets.append(m)
-            elif no_in_range and m.no_ask is not None and m.no_bid is not None:
-                spread = m.no_ask - m.no_bid
-                if spread <= max_spread:
-                    filtered_markets.append(m)
-
-        markets = filtered_markets
-        logger.info("Scout prefetch filtered to %d markets with spread <= %d cents", len(markets), max_spread)
-
-    # Fetch event titles in parallel for all unique event tickers
-    unique_event_tickers = list({m.event_ticker for m in markets if m.event_ticker})
-    event_results = await asyncio.gather(
-        *[client.get_event(et) for et in unique_event_tickers],
-        return_exceptions=True,
-    )
-    event_title_map: dict[str, str] = {
-        et: (res.get("title") or "" if isinstance(res, dict) else "")
-        for et, res in zip(unique_event_tickers, event_results)
-    }
-
-    market_descriptions = [
-        (
-            f"{m.ticker} - {m.title} | {m.subtitle}"
-            if m.title and m.subtitle
-            else f"{m.ticker} - {(m.title or m.subtitle or m.event_ticker or 'Unknown event')}"
+        m for m in markets
+        if (
+            _in_price_range(m.yes_ask, min_p, max_p)
+            and _spread_ok(m.yes_bid, m.yes_ask, max_spread)
+        ) or (
+            _in_price_range(m.no_ask, min_p, max_p)
+            and _spread_ok(m.no_bid, m.no_ask, max_spread)
         )
-        for m in markets
     ]
+
+    logger.info("Prefetch: %d markets after price/volume/spread filters", len(markets))
+
+    unique_event_tickers = list({m.event_ticker for m in markets if m.event_ticker})
+    event_meta = await _fetch_event_metadata(client, unique_event_tickers)
+
+    market_dicts = [_to_market_dict(m, event_meta) for m in markets]
+
+    pre_filter_count = len(market_dicts)
+    market_dicts = [md for md in market_dicts if passes_filter(md)]
     logger.info(
-        "Scout prefetch markets available for research (%d total):\n%s",
-        len(markets),
-        "\n".join(market_descriptions) if market_descriptions else "No markets available",
+        "Prefetch: %d -> %d markets after data-driven filter",
+        pre_filter_count,
+        len(market_dicts),
     )
 
-    return [
-        {
-            "ticker": m.ticker,
-            "event_ticker": m.event_ticker,
-            "title": m.title,
-            "subtitle": m.subtitle,
-            "yes_bid": m.yes_bid,
-            "yes_ask": m.yes_ask,
-            "no_bid": m.no_bid,
-            "no_ask": m.no_ask,
-            "spread_cents": (m.yes_ask - m.yes_bid) if (m.yes_ask is not None and m.yes_bid is not None) else None,
-            "spread_pct": ((m.yes_ask - m.yes_bid) / 100) if (m.yes_ask is not None and m.yes_bid is not None) else None,
-            "volume": m.volume,
-            "open_interest": m.open_interest,
-            "close_time": m.close_time.isoformat() if m.close_time else None,
-            "event_title": event_title_map.get(m.event_ticker, ""),
-        }
-        for m in markets
-    ]
+    return market_dicts
 
 
 def _build_market_context_prompt(prefetched_markets: list[dict]) -> str:
@@ -156,7 +164,7 @@ def _build_market_context_prompt(prefetched_markets: list[dict]) -> str:
         "\n\nPREFETCHED_MARKETS_JSON:\n"
         f"{serialized_markets}\n\n"
         "Use this dataset as the complete market universe for this scan. "
-        "Set markets_scanned exactly to PREFETCHED_MARKETS_COUNT (equivalently, len(PREFETCHED_MARKETS_JSON)). "
+        "Set markets_scanned exactly to PREFETCHED_MARKETS_COUNT (the number of objects in PREFETCHED_MARKETS_JSON). "
         "Do not self-estimate markets_scanned from researched/evaluated/selected subsets. "
         "Do not claim to have scanned markets outside this provided dataset."
     )
@@ -200,12 +208,12 @@ async def run_scout(
                 scout_cfg = settings.scout
                 memory_context = build_scout_context()
                 prompt = (
-                    f"Scan Kalshi markets for near-decided opportunities—markets at "
-                    f"{scout_cfg.min_price}-{scout_cfg.max_price}% where the outcome "
-                    f"is strongly favored with negligible or low reversal risk. "
-                    f"Find exactly 1 opportunity—the single least-risky qualifying market. "
-                    f"Select markets that pass the Risk Assessment Checklist. Remember: residual uncertainty is normal for open markets—do not skip a market just because the outcome is not yet 100% official. "
-                    f"CRITICAL: You MUST return at least 1 opportunity. If no market meets the ideal risk threshold, select the single least-risky available market as a fallback and label it clearly in the rationale."
+                    f"Scan the pre-filtered Kalshi markets for the single best "
+                    f"near-decided opportunity at {scout_cfg.min_price}-{scout_cfg.max_price}% "
+                    f"probability. All markets have already passed data-driven category "
+                    f"filters—focus on confirming outcomes via web research and selecting "
+                    f"the lowest reversal-risk candidate. If no market passes the Risk "
+                    f"Assessment Checklist, return 0 opportunities."
                     f"{memory_context}"
                     f"{_build_market_context_prompt(prefetched_markets)}"
                 )
