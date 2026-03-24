@@ -9,6 +9,7 @@ import yaml
 from pydantic import BaseModel, Field, field_validator
 
 from coliseum.config import get_settings
+from coliseum.storage._io import atomic_write, yaml_dump
 
 logger = logging.getLogger(__name__)
 
@@ -139,8 +140,6 @@ def load_state() -> PortfolioState:
 
 def save_state(state: PortfolioState) -> None:
     """Atomically save portfolio state to data/state.yaml."""
-    from coliseum.storage._io import atomic_write, yaml_dump
-
     state_path = _get_state_path()
     state_dict = state.model_dump(mode="json")
     state_dict["last_updated"] = datetime.now(timezone.utc).isoformat()

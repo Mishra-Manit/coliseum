@@ -9,6 +9,7 @@ from uuid import uuid4
 import yaml
 from pydantic import BaseModel, Field, field_validator
 
+from coliseum.agents.shared_tools import _strip_cite_tokens
 from coliseum.storage._io import atomic_write, yaml_dump, append_jsonl
 from coliseum.storage.state import get_data_dir
 
@@ -179,8 +180,6 @@ def _generate_id(prefix: str) -> str:
 
 def save_opportunity(opportunity: OpportunitySignal, paper: bool = False) -> Path:
     """Save opportunity to markdown file."""
-    from coliseum.agents.shared_tools import _strip_cite_tokens
-
     opps_dir = _get_opps_dir(paper)
     date_dir = _ensure_date_dir(opps_dir, opportunity.discovered_at)
 

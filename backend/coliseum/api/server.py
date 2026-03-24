@@ -18,6 +18,7 @@ from sse_starlette.sse import EventSourceResponse
 
 from coliseum.config import get_settings
 from coliseum.daemon import ColiseumDaemon
+from coliseum.observability import initialize_logfire
 from coliseum.pipeline import run_pipeline
 from coliseum.services.kalshi.client import KalshiClient
 from coliseum.api.parsing import parse_opportunity_sections
@@ -51,7 +52,6 @@ async def _daemon_lifespan(app: FastAPI):
     """Lifespan for the daemon+API server."""
     settings = get_settings()
     try:
-        from coliseum.observability import initialize_logfire
         initialize_logfire(settings)
     except Exception as e:
         logger.warning("Failed to initialize Logfire in lifespan: %s", e)

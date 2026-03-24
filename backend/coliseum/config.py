@@ -1,6 +1,7 @@
 """Configuration management using Pydantic Settings."""
 
 import logging
+from datetime import date as date_type
 from functools import lru_cache
 from pathlib import Path
 
@@ -73,7 +74,6 @@ class DashboardDisplayConfig(BaseModel):
         """Validate that start_date is a valid YYYY-MM-DD string if provided."""
         if v is None:
             return None
-        from datetime import date as date_type
         try:
             date_type.fromisoformat(v)
         except ValueError:
