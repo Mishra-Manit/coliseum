@@ -6,8 +6,9 @@ import logging
 import time
 from collections import defaultdict
 from contextlib import asynccontextmanager
+from datetime import date
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import yaml
 from fastapi import APIRouter, FastAPI, HTTPException, Request
@@ -145,10 +146,22 @@ def _get_all_opportunities() -> list[dict[str, Any]]:
     if not opps_dir.exists():
         return []
 
+    start_date = _get_start_date()
+
     results: list[dict[str, Any]] = []
     for md_file in opps_dir.rglob("*.md"):
+        if start_date is not None:
+            try:
+                if date.fromisoformat(md_file.parent.name) < start_date:
+                    continue
+            except ValueError:
+                pass
         parsed = _parse_opportunity(md_file)
         if parsed:
+            if start_date is not None:
+                discovered = str(parsed["frontmatter"].get("discovered_at", ""))[:10]
+                if discovered < start_date.isoformat():
+                    continue
             results.append(parsed)
 
     results.sort(
@@ -298,49 +311,82 @@ def _read_jsonl(path: Path) -> list[dict[str, Any]]:
     return rows
 
 
+def _get_start_date() -> date | None:
+    """Read dashboard_display.start_date from config, or None if unset."""
+    settings = get_settings()
+    raw = settings.dashboard_display.start_date
+    if raw is None:
+        return None
+    return date.fromisoformat(raw)
+
+
+def _read_trades(
+    trade_type: Literal["buy", "close"],
+    start_date: date | None = None,
+) -> list[dict[str, Any]]:
+    """Read trade records from date-partitioned .jsonl files.
+
+    Skips entire files whose filename date is before start_date.
+    """
+    trade_dir = DATA_DIR / "trades" / trade_type
+    if not trade_dir.exists():
+        return []
+
+    rows: list[dict[str, Any]] = []
+    for f in sorted(trade_dir.glob("*.jsonl")):
+        if start_date is not None:
+            file_date_str = f.stem
+            try:
+                if date.fromisoformat(file_date_str) < start_date:
+                    continue
+            except ValueError:
+                pass
+        rows.extend(_read_jsonl(f))
+
+    if start_date is None:
+        return rows
+
+    start_iso = start_date.isoformat()
+    ts_field = "executed_at" if trade_type == "buy" else "closed_at"
+    return [r for r in rows if r.get(ts_field, "")[:10] >= start_iso]
+
+
 @router.get("/api/ledger")
 async def get_ledger(limit: int = 100):
     """Return merged buy+close trade entries sorted newest-first."""
-    trades_dir = DATA_DIR / "trades"
+    start_date = _get_start_date()
+
     entries: list[dict[str, Any]] = []
-
-    buy_dir = trades_dir / "buy"
-    if buy_dir.exists():
-        for f in sorted(buy_dir.glob("*.jsonl")):
-            for row in _read_jsonl(f):
-                entries.append(
-                    {
-                        "type": "buy",
-                        "id": row.get("id", ""),
-                        "market_ticker": row.get("market_ticker", ""),
-                        "side": (row.get("side") or "").upper(),
-                        "contracts": row.get("contracts", 0),
-                        "price": row.get("price", 0.0),
-                        "pnl": None,
-                        "opportunity_id": row.get("opportunity_id"),
-                        "paper": row.get("paper", False),
-                        "timestamp": row.get("executed_at", ""),
-                    }
-                )
-
-    close_dir = trades_dir / "close"
-    if close_dir.exists():
-        for f in sorted(close_dir.glob("*.jsonl")):
-            for row in _read_jsonl(f):
-                entries.append(
-                    {
-                        "type": "close",
-                        "id": row.get("id", ""),
-                        "market_ticker": row.get("market_ticker", ""),
-                        "side": (row.get("side") or "").upper(),
-                        "contracts": row.get("contracts", 0),
-                        "price": row.get("exit_price", 0.0),
-                        "pnl": row.get("pnl"),
-                        "opportunity_id": row.get("opportunity_id"),
-                        "paper": True,
-                        "timestamp": row.get("closed_at", ""),
-                    }
-                )
+    for row in _read_trades("buy", start_date):
+        entries.append(
+            {
+                "type": "buy",
+                "id": row.get("id", ""),
+                "market_ticker": row.get("market_ticker", ""),
+                "side": (row.get("side") or "").upper(),
+                "contracts": row.get("contracts", 0),
+                "price": row.get("price", 0.0),
+                "pnl": None,
+                "opportunity_id": row.get("opportunity_id"),
+                "paper": row.get("paper", False),
+                "timestamp": row.get("executed_at", ""),
+            }
+        )
+    for row in _read_trades("close", start_date):
+        entries.append(
+            {
+                "type": "close",
+                "id": row.get("id", ""),
+                "market_ticker": row.get("market_ticker", ""),
+                "side": (row.get("side") or "").upper(),
+                "contracts": row.get("contracts", 0),
+                "price": row.get("exit_price", 0.0),
+                "pnl": row.get("pnl"),
+                "opportunity_id": row.get("opportunity_id"),
+                "paper": True,
+                "timestamp": row.get("closed_at", ""),
+            }
+        )
 
     entries.sort(key=lambda e: e["timestamp"], reverse=True)
     return entries[:limit]
@@ -354,16 +400,14 @@ async def get_ledger(limit: int = 100):
 @router.get("/api/chart")
 async def get_chart_data():
     """Return portfolio chart data: daily P&L, cumulative NAV, and stats."""
-    close_dir = DATA_DIR / "trades" / "close"
+    start_date = _get_start_date()
 
     raw_entries: list[dict[str, Any]] = []
-    if close_dir.exists():
-        for f in sorted(close_dir.glob("*.jsonl")):
-            for row in _read_jsonl(f):
-                pnl = row.get("pnl")
-                closed_at = row.get("closed_at", "")
-                if pnl is not None and closed_at:
-                    raw_entries.append({"pnl": float(pnl), "closed_at": str(closed_at)})
+    for row in _read_trades("close", start_date):
+        pnl = row.get("pnl")
+        closed_at = row.get("closed_at", "")
+        if pnl is not None and closed_at:
+            raw_entries.append({"pnl": float(pnl), "closed_at": str(closed_at)})
 
     raw_entries.sort(key=lambda e: e["closed_at"])
 

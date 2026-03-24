@@ -36,3 +36,6 @@ daemon:
 telegram:
   send_alerts: true
   heartbeat_interval_minutes: 180 # 3 hours
+
+dashboard_display:
+  start_date: "2026-03-20"
