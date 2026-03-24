@@ -1,15 +1,15 @@
-last_updated: '2026-03-24T02:14:56.268087+00:00'
+last_updated: '2026-03-24T04:15:18.174489+00:00'
 portfolio:
-  total_value: 20.54
+  total_value: 20.39
   cash_balance: 15.89
-  positions_value: 4.65
+  positions_value: 4.5
 open_positions:
 - id: pos_e2259d4c
   market_ticker: KXWTI-26MAR24-T99.99
   side: 'NO'
   contracts: 5
   average_entry: 0.95
-  current_price: 0.93
+  current_price: 0.9
   opportunity_id: opp_de7fc9ec
 closed_positions:
 - market_ticker: KXNBAMENTION-26MAR06LALDEN-INJU
