@@ -1,8 +1,6 @@
 """Portfolio state management with atomic writes to data/state.yaml."""
 
 import logging
-import shutil
-import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Literal
@@ -141,51 +139,21 @@ def load_state() -> PortfolioState:
 
 def save_state(state: PortfolioState) -> None:
     """Atomically save portfolio state to data/state.yaml."""
+    from coliseum.storage._io import atomic_write, yaml_dump
+
     state_path = _get_state_path()
     state_dict = state.model_dump(mode="json")
     state_dict["last_updated"] = datetime.now(timezone.utc).isoformat()
 
-    # Same directory as target so rename is atomic on the same filesystem
-    temp_path: Path | None = None
-    try:
-        with tempfile.NamedTemporaryFile(
-            mode="w",
-            dir=state_path.parent,
-            delete=False,
-            suffix=".yaml",
-            encoding="utf-8",
-        ) as temp_file:
-            yaml.dump(
-                state_dict,
-                temp_file,
-                default_flow_style=False,
-                allow_unicode=True,
-                sort_keys=False,
-            )
-            temp_path = Path(temp_file.name)
-
-        shutil.move(str(temp_path), str(state_path))
-        logger.debug(f"Saved state to {state_path}")
-
-    except Exception as e:
-        if temp_path is not None:
-            temp_path.unlink(missing_ok=True)
-        logger.error(f"Failed to save state: {e}")
-        raise
+    atomic_write(state_path, yaml_dump(state_dict))
+    logger.debug("Saved state to %s", state_path)
 
 
 def add_seen_ticker(ticker: str) -> None:
     """Append a ticker to seen_tickers in state.yaml if not already present."""
     state = load_state()
     if ticker not in state.seen_tickers:
-        updated = PortfolioState(
-            last_updated=state.last_updated,
-            portfolio=state.portfolio,
-            open_positions=state.open_positions,
-            closed_positions=state.closed_positions,
-            seen_tickers=[*state.seen_tickers, ticker],
-        )
-        save_state(updated)
+        save_state(state.model_copy(update={"seen_tickers": [*state.seen_tickers, ticker]}))
 
 
 def get_seen_tickers() -> list[str]:

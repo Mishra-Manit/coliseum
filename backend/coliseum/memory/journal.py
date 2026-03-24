@@ -1,13 +1,12 @@
 """Run journal: append-only daily markdown files recording each pipeline cycle."""
 
 import logging
-import shutil
-import tempfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from pydantic import BaseModel, Field
 
+from coliseum.storage._io import atomic_write
 from coliseum.storage.state import get_data_dir
 
 logger = logging.getLogger(__name__)
@@ -63,32 +62,15 @@ def write_journal_entry(summary: JournalCycleSummary) -> Path:
 
     entry_text = _format_journal_entry(summary)
 
-    try:
-        if journal_path.exists():
-            existing = journal_path.read_text(encoding="utf-8")
-            new_content = existing + entry_text
-        else:
-            header = f"# Run Journal — {date_str}\n\n"
-            new_content = header + entry_text
+    if journal_path.exists():
+        existing = journal_path.read_text(encoding="utf-8")
+        new_content = existing + entry_text
+    else:
+        new_content = f"# Run Journal — {date_str}\n\n{entry_text}"
 
-        # Atomic write
-        with tempfile.NamedTemporaryFile(
-            mode="w",
-            delete=False,
-            suffix=".md",
-            dir=journal_dir,
-            encoding="utf-8",
-        ) as f:
-            f.write(new_content)
-            temp_path = Path(f.name)
-
-        shutil.move(str(temp_path), str(journal_path))
-        logger.info("Wrote journal entry to %s", journal_path)
-        return journal_path
-
-    except Exception as e:
-        logger.error("Failed to write journal entry: %s", e)
-        raise
+    atomic_write(journal_path, new_content)
+    logger.info("Wrote journal entry to %s", journal_path)
+    return journal_path
 
 
 def load_recent_journal(days: int = 2) -> str:

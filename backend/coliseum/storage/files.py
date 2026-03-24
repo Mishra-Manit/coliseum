@@ -1,8 +1,6 @@
 """File I/O operations for opportunities and trades."""
 
 import logging
-import shutil
-import tempfile
 from datetime import datetime
 from pathlib import Path
 from typing import Literal
@@ -11,6 +9,7 @@ from uuid import uuid4
 import yaml
 from pydantic import BaseModel, Field, field_validator
 
+from coliseum.storage._io import atomic_write, yaml_dump, append_jsonl
 from coliseum.storage.state import get_data_dir
 
 logger = logging.getLogger(__name__)
@@ -140,13 +139,7 @@ def _format_markdown_with_frontmatter(
     frontmatter_data: dict, body: str
 ) -> str:
     """Format markdown with YAML frontmatter."""
-    frontmatter = yaml.dump(
-        frontmatter_data,
-        default_flow_style=False,
-        allow_unicode=True,
-        sort_keys=False,
-    )
-    return f"---\n{frontmatter}---\n\n{body}"
+    return f"---\n{yaml_dump(frontmatter_data)}---\n\n{body}"
 
 
 def _get_opps_dir(paper: bool = False) -> Path:
@@ -155,24 +148,7 @@ def _get_opps_dir(paper: bool = False) -> Path:
     return base / "paper-mode" if paper else base
 
 
-def _atomic_write(path: Path, content: str) -> None:
-    """Write content to path atomically using a temp file + rename."""
-    temp_path: Path | None = None
-    try:
-        with tempfile.NamedTemporaryFile(
-            mode="w",
-            delete=False,
-            suffix=path.suffix or ".tmp",
-            dir=path.parent,
-            encoding="utf-8",
-        ) as f:
-            f.write(content)
-            temp_path = Path(f.name)
-        shutil.move(str(temp_path), str(path))
-    except BaseException:
-        if temp_path is not None:
-            temp_path.unlink(missing_ok=True)
-        raise
+_atomic_write = atomic_write
 
 
 def _parse_frontmatter(content: str, file_path: Path) -> tuple[dict, str]:
@@ -300,13 +276,7 @@ def append_to_opportunity(
     frontmatter.update(frontmatter_updates)
 
     new_body = body.rstrip() + "\n\n" + body_section
-    new_frontmatter_raw = yaml.dump(
-        frontmatter,
-        default_flow_style=False,
-        allow_unicode=True,
-        sort_keys=False,
-    )
-    new_content = f"---\n{new_frontmatter_raw}---{new_body}"
+    new_content = f"---\n{yaml_dump(frontmatter)}---{new_body}"
     _atomic_write(file_path, new_content)
 
     logger.info("Appended section '%s' to %s", section_header, file_path)
@@ -320,13 +290,7 @@ def update_opportunity_frontmatter(file_path: Path, frontmatter_updates: dict) -
 
     frontmatter.update(frontmatter_updates)
 
-    new_frontmatter_raw = yaml.dump(
-        frontmatter,
-        default_flow_style=False,
-        allow_unicode=True,
-        sort_keys=False,
-    )
-    new_content = f"---\n{new_frontmatter_raw}---{body}"
+    new_content = f"---\n{yaml_dump(frontmatter)}---{body}"
     _atomic_write(file_path, new_content)
 
     logger.info("Updated frontmatter in %s", file_path)
@@ -398,46 +362,18 @@ def get_opportunity_markdown_body(file_path: Path) -> str:
 
 def log_trade(trade: TradeExecution) -> None:
     """Append trade execution to JSONL ledger in data/trades/buy/{date}.jsonl."""
-    data_dir = get_data_dir()
-    buy_dir = data_dir / "trades" / "buy"
-    buy_dir.mkdir(parents=True, exist_ok=True)
-
     date_str = trade.executed_at.strftime("%Y-%m-%d")
-    ledger_path = buy_dir / f"{date_str}.jsonl"
-
-    trade_json = trade.model_dump_json() + "\n"
-
-    try:
-        with open(ledger_path, "a", encoding="utf-8") as f:
-            f.write(trade_json)
-
-        logger.info("Logged trade %s to %s", trade.id, ledger_path)
-
-    except Exception as e:
-        logger.error("Failed to log trade %s: %s", trade.id, e)
-        raise
+    ledger_path = get_data_dir() / "trades" / "buy" / f"{date_str}.jsonl"
+    append_jsonl(ledger_path, trade)
+    logger.info("Logged trade %s to %s", trade.id, ledger_path)
 
 
 def log_trade_close(close: TradeClose) -> None:
     """Append position closure record to JSONL ledger in data/trades/close/{date}.jsonl."""
-    data_dir = get_data_dir()
-    close_dir = data_dir / "trades" / "close"
-    close_dir.mkdir(parents=True, exist_ok=True)
-
     date_str = close.closed_at.strftime("%Y-%m-%d")
-    ledger_path = close_dir / f"{date_str}.jsonl"
-
-    close_json = close.model_dump_json() + "\n"
-
-    try:
-        with open(ledger_path, "a", encoding="utf-8") as f:
-            f.write(close_json)
-
-        logger.info("Logged trade close %s to %s", close.id, ledger_path)
-
-    except Exception as e:
-        logger.error("Failed to log trade close %s: %s", close.id, e)
-        raise
+    ledger_path = get_data_dir() / "trades" / "close" / f"{date_str}.jsonl"
+    append_jsonl(ledger_path, close)
+    logger.info("Logged trade close %s to %s", close.id, ledger_path)
 
 
 def generate_opportunity_id() -> str:
