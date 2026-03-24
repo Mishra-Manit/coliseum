@@ -6,9 +6,8 @@ from datetime import datetime, timezone
 
 import logfire
 from pydantic_ai import Agent, WebSearchTool
-from pydantic_ai.models.openai import OpenAIResponsesModelSettings
 
-from coliseum.agents.agent_factory import AgentFactory
+from coliseum.agents.agent_factory import AgentFactory, create_agent
 from coliseum.agents.analyst.market_type_context import get_market_type_context
 from coliseum.agents.analyst.models import AnalystDependencies, ResearcherOutput
 from coliseum.agents.analyst.prompts import RESEARCHER_PROMPT
@@ -17,9 +16,7 @@ from coliseum.agents.analyst.shared import (
     load_opportunity,
 )
 from coliseum.agents.shared_tools import _strip_cite_tokens
-from coliseum.memory.context import load_kalshi_mechanics
 from coliseum.config import Settings
-from coliseum.llm_providers import OpenAIModel, get_model_string
 from coliseum.memory.context import build_analyst_context
 from coliseum.storage.files import OpportunitySignal, append_to_opportunity
 
@@ -27,15 +24,12 @@ logger = logging.getLogger(__name__)
 
 
 def _create_agent() -> Agent[AnalystDependencies, ResearcherOutput]:
-    mechanics = load_kalshi_mechanics()
-    system_prompt = f"{mechanics}\n\n{RESEARCHER_PROMPT}"
-    return Agent(
-        model=get_model_string(OpenAIModel.GPT_5_4),
+    return create_agent(
+        prompt=RESEARCHER_PROMPT,
         output_type=ResearcherOutput,
         deps_type=AnalystDependencies,
-        system_prompt=system_prompt,
+        reasoning_effort="medium",
         builtin_tools=[WebSearchTool()],
-        model_settings=OpenAIResponsesModelSettings(openai_reasoning_effort="medium"),
     )
 
 

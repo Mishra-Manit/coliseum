@@ -3,20 +3,15 @@
 from __future__ import annotations
 
 import logging
-import shutil
-import tempfile
-from pathlib import Path
 
 import logfire
 from pydantic_ai import Agent
-from pydantic_ai.models.openai import OpenAIResponsesModelSettings
 
-from coliseum.agents.agent_factory import AgentFactory
+from coliseum.agents.agent_factory import AgentFactory, create_agent
 from coliseum.agents.guardian.models import LearningReflectionOutput
 from coliseum.agents.guardian.prompts import SCRIBE_PROMPT
-from coliseum.memory.context import load_kalshi_mechanics
-from coliseum.llm_providers import OpenAIModel, get_model_string
 from coliseum.memory.learnings import load_learnings, _get_learnings_path
+from coliseum.storage._io import atomic_write
 from coliseum.storage.files import find_opportunity_file_by_id, get_opportunity_markdown_body
 from coliseum.storage.state import ClosedPosition
 
@@ -24,13 +19,9 @@ logger = logging.getLogger(__name__)
 
 
 def _create_agent() -> Agent[None, LearningReflectionOutput]:
-    mechanics = load_kalshi_mechanics()
-    system_prompt = f"{mechanics}\n\n{SCRIBE_PROMPT}"
-    return Agent(
-        model=get_model_string(OpenAIModel.GPT_5_4),
+    return create_agent(
+        prompt=SCRIBE_PROMPT,
         output_type=LearningReflectionOutput,
-        system_prompt=system_prompt,
-        model_settings=OpenAIResponsesModelSettings(openai_reasoning_effort="low"),
     )
 
 
@@ -115,24 +106,8 @@ updated document and a one-sentence summary of what changed.
 def _write_learnings(content: str) -> None:
     """Atomically write updated content to learnings.md."""
     learnings_path = _get_learnings_path()
-    temp_path: Path | None = None
-    try:
-        with tempfile.NamedTemporaryFile(
-            mode="w",
-            dir=learnings_path.parent,
-            delete=False,
-            suffix=".md",
-            encoding="utf-8",
-        ) as tmp:
-            tmp.write(content)
-            temp_path = Path(tmp.name)
-        shutil.move(str(temp_path), str(learnings_path))
-        logger.debug("Scribe wrote updated learnings to %s", learnings_path)
-    except Exception as exc:
-        if temp_path is not None:
-            temp_path.unlink(missing_ok=True)
-        logger.error("Scribe failed to write learnings: %s", exc)
-        raise
+    atomic_write(learnings_path, content)
+    logger.debug("Scribe wrote updated learnings to %s", learnings_path)
 
 
 async def run_scribe(newly_closed: list[ClosedPosition]) -> str:
