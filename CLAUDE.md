@@ -2,7 +2,7 @@
 
 ## Spec Version
 
-- Current version: `1.4.1`
+- Current version: `1.5.0`
 - Versioning scheme: `MAJOR.MINOR.PATCH` (semantic versioning)
 
 > **CRITICAL**: Always activate the venv before running backend code:

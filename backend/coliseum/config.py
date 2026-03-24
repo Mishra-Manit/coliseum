@@ -62,6 +62,25 @@ class DaemonConfig(BaseModel):
     max_consecutive_failures: int = 5
 
 
+class DashboardDisplayConfig(BaseModel):
+    """Dashboard display filtering parameters."""
+
+    start_date: str | None = None
+
+    @field_validator("start_date", mode="after")
+    @classmethod
+    def validate_start_date(cls, v: str | None) -> str | None:
+        """Validate that start_date is a valid YYYY-MM-DD string if provided."""
+        if v is None:
+            return None
+        from datetime import date as date_type
+        try:
+            date_type.fromisoformat(v)
+        except ValueError:
+            raise ValueError(f"start_date must be YYYY-MM-DD format, got: {v}")
+        return v
+
+
 class TelegramConfig(BaseModel):
     """Telegram notification configuration."""
 
@@ -98,6 +117,7 @@ class Settings(BaseSettings):
     execution: ExecutionConfig = Field(default_factory=ExecutionConfig)
     daemon: DaemonConfig = Field(default_factory=DaemonConfig)
     telegram: TelegramConfig = Field(default_factory=TelegramConfig)
+    dashboard_display: DashboardDisplayConfig = Field(default_factory=DashboardDisplayConfig)
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -158,6 +178,7 @@ class Settings(BaseSettings):
                 "execution",
                 "daemon",
                 "telegram",
+                "dashboard_display",
             ]:
                 if section_name in yaml_config:
                     section = getattr(self, section_name)
