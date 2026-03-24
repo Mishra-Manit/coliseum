@@ -4,7 +4,7 @@ import argparse
 import asyncio
 import logging
 import sys
-from datetime import datetime
+import uvicorn
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -31,6 +31,29 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
+
+def _cli_command(label: str):
+    """Decorator that wraps CLI commands with consistent error handling."""
+    import functools
+
+    def decorator(fn):
+        @functools.wraps(fn)
+        def wrapper(args: argparse.Namespace) -> int:
+            try:
+                return fn(args)
+            except KeyboardInterrupt:
+                print(f"\n\nInterrupted.\n")
+                return 0
+            except Exception as e:
+                logger.error("%s failed: %s", label, e, exc_info=True)
+                print(f"\n❌ {label} failed: {e}\n")
+                return 1
+
+        return wrapper
+
+    return decorator
+
+
 def _init_logfire() -> None:
     """Initialize Logfire if available, without failing commands."""
     try:
@@ -41,29 +64,29 @@ def _init_logfire() -> None:
         logger.warning(f"Failed to initialize Logfire: {e}")
 
 
+@_cli_command("Initialization")
 def cmd_init(args: argparse.Namespace) -> int:
     """Initialize data directory structure and configuration files."""
     data_dir = Path("data").resolve()
 
-    try:
-        data_dir.mkdir(exist_ok=True)
-        logger.info(f"Created data directory: {data_dir}")
+    data_dir.mkdir(exist_ok=True)
+    logger.info(f"Created data directory: {data_dir}")
 
-        subdirs = [
-            "opportunities",
-            "trades/buy",
-            "trades/close",
-            "memory/journal",
-        ]
+    subdirs = [
+        "opportunities",
+        "trades/buy",
+        "trades/close",
+        "memory/journal",
+    ]
 
-        for subdir in subdirs:
-            (data_dir / subdir).mkdir(parents=True, exist_ok=True)
+    for subdir in subdirs:
+        (data_dir / subdir).mkdir(parents=True, exist_ok=True)
 
-        logger.info("Created all subdirectories")
+    logger.info("Created all subdirectories")
 
-        config_path = data_dir / "config.yaml"
-        if not config_path.exists():
-            config_template = """# Coliseum Configuration
+    config_path = data_dir / "config.yaml"
+    if not config_path.exists():
+        config_template = """# Coliseum Configuration
 # This file contains operational parameters for the autonomous trading system.
 # API keys and secrets should be stored in .env file, not here.
 
@@ -106,14 +129,14 @@ telegram:
   send_alerts: true
   heartbeat_interval_minutes: 360
 """
-            config_path.write_text(config_template)
-            logger.info(f"Created config template: {config_path}")
-        else:
-            logger.info(f"Config file already exists: {config_path}")
+        config_path.write_text(config_template)
+        logger.info(f"Created config template: {config_path}")
+    else:
+        logger.info(f"Config file already exists: {config_path}")
 
-        state_path = data_dir / "state.yaml"
-        if not state_path.exists():
-            state_template = """# Coliseum Portfolio State
+    state_path = data_dir / "state.yaml"
+    if not state_path.exists():
+        state_template = """# Coliseum Portfolio State
 # This file is the single source of truth for the current system state.
 # Updated automatically by agents - do not edit manually.
 
@@ -126,34 +149,31 @@ portfolio:
 
 open_positions: []
 """
-            state_path.write_text(state_template)
-            logger.info(f"Created state template: {state_path}")
-        else:
-            logger.info(f"State file already exists: {state_path}")
+        state_path.write_text(state_template)
+        logger.info(f"Created state template: {state_path}")
+    else:
+        logger.info(f"State file already exists: {state_path}")
 
-        learnings_path = data_dir / "memory" / "learnings.md"
-        if not learnings_path.exists():
-            from coliseum.memory.learnings import LEARNINGS_SEED
-            learnings_path.write_text(LEARNINGS_SEED, encoding="utf-8")
-            logger.info(f"Created learnings seed: {learnings_path}")
-        else:
-            logger.info(f"Learnings file already exists: {learnings_path}")
+    learnings_path = data_dir / "memory" / "learnings.md"
+    if not learnings_path.exists():
+        from coliseum.memory.learnings import LEARNINGS_SEED
 
-        print(f"\n✓ Data directory initialized at {data_dir}")
-        print("\nNext steps:")
-        print("1. Copy .env.example to .env and add your API keys")
-        print("2. Review and customize data/config.yaml if needed")
-        print("3. Run 'python -m coliseum config' to verify configuration")
-        print("4. Run 'python -m coliseum pipeline' to run the pipeline once\n")
+        learnings_path.write_text(LEARNINGS_SEED, encoding="utf-8")
+        logger.info(f"Created learnings seed: {learnings_path}")
+    else:
+        logger.info(f"Learnings file already exists: {learnings_path}")
 
-        return 0
+    print(f"\n✓ Data directory initialized at {data_dir}")
+    print("\nNext steps:")
+    print("1. Copy .env.example to .env and add your API keys")
+    print("2. Review and customize data/config.yaml if needed")
+    print("3. Run 'python -m coliseum config' to verify configuration")
+    print("4. Run 'python -m coliseum pipeline' to run the pipeline once\n")
 
-    except Exception as e:
-        logger.error(f"Failed to initialize: {e}")
-        print(f"\n❌ Initialization failed: {e}\n")
-        return 1
+    return 0
 
 
+@_cli_command("Configuration")
 def cmd_config(args: argparse.Namespace) -> int:
     """Display merged configuration."""
     try:
@@ -207,268 +227,205 @@ def cmd_config(args: argparse.Namespace) -> int:
             print(f"  • {'.'.join(str(x) for x in error['loc'])}: {error['msg']}")
         print()
         return 1
-    except Exception as e:
-        logger.error(f"Failed to load config: {e}")
-        print(f"\n❌ Failed to load configuration: {e}\n")
-        return 1
 
 
+@_cli_command("Status")
 def cmd_status(args: argparse.Namespace) -> int:
     """Display current portfolio status."""
-    try:
-        state = load_state()
+    state = load_state()
 
-        print("\n=== Coliseum Portfolio Status ===\n")
+    print("\n=== Coliseum Portfolio Status ===\n")
 
-        print("Portfolio:")
-        print(f"  Total Value: ${state.portfolio.total_value:,.2f}")
-        print(f"  Cash Balance: ${state.portfolio.cash_balance:,.2f}")
-        print(f"  Positions Value: ${state.portfolio.positions_value:,.2f}\n")
+    print("Portfolio:")
+    print(f"  Total Value: ${state.portfolio.total_value:,.2f}")
+    print(f"  Cash Balance: ${state.portfolio.cash_balance:,.2f}")
+    print(f"  Positions Value: ${state.portfolio.positions_value:,.2f}\n")
 
-        positions = state.open_positions
-        print(f"Open Positions: {len(positions)}")
-        if positions:
-            for i, pos in enumerate(positions[:5], 1):
-                print(f"  {i}. {pos.market_ticker}")
-            if len(positions) > 5:
-                print(f"  ... and {len(positions) - 5} more")
-        else:
-            print("  (None)")
-        print()
+    positions = state.open_positions
+    print(f"Open Positions: {len(positions)}")
+    if positions:
+        for i, pos in enumerate(positions[:5], 1):
+            print(f"  {i}. {pos.market_ticker}")
+        if len(positions) > 5:
+            print(f"  ... and {len(positions) - 5} more")
+    else:
+        print("  (None)")
+    print()
 
-        return 0
-
-    except Exception as e:
-        logger.error(f"Failed to read status: {e}")
-        print(f"\n❌ Failed to read status: {e}\n")
-        return 1
+    return 0
 
 
+@_cli_command("Scout scan")
 def cmd_scout(args: argparse.Namespace) -> int:
     """Run a manual Scout market scan."""
     _init_logfire()
 
-    try:
-        print(f"\n=== Scout Scan ===\n")
+    print(f"\n=== Scout Scan ===\n")
 
-        result = asyncio.run(run_scout())
+    result = asyncio.run(run_scout())
 
-        print(f"✓ Scout scan complete\n")
-        print(f"Markets scanned: {result.markets_scanned}")
-        print(f"Opportunities found: {result.opportunities_found}")
-        print(f"Filtered out: {result.filtered_out}")
-        print(f"\nSummary:\n{result.scan_summary}\n")
+    print(f"✓ Scout scan complete\n")
+    print(f"Markets scanned: {result.markets_scanned}")
+    print(f"Opportunities found: {result.opportunities_found}")
+    print(f"Filtered out: {result.filtered_out}")
+    print(f"\nSummary:\n{result.scan_summary}\n")
 
-        if result.opportunities:
-            print(f"Queued {len(result.opportunities)} opportunities for Analyst:")
-            for opp in result.opportunities[:5]:
-                print(f"  • {opp.market_ticker}")
-            if len(result.opportunities) > 5:
-                print(f"  ... and {len(result.opportunities) - 5} more")
-            print()
+    if result.opportunities:
+        print(f"Queued {len(result.opportunities)} opportunities for Analyst:")
+        for opp in result.opportunities[:5]:
+            print(f"  • {opp.market_ticker}")
+        if len(result.opportunities) > 5:
+            print(f"  ... and {len(result.opportunities) - 5} more")
+        print()
 
-        return 0
-
-    except Exception as e:
-        logger.error(f"Scout scan failed: {e}", exc_info=True)
-        print(f"\n❌ Scout scan failed: {e}\n")
-        return 1
+    return 0
 
 
+@_cli_command("Guardian")
 def cmd_guardian(args: argparse.Namespace) -> int:
     """Run Guardian reconciliation manually."""
     _init_logfire()
 
-    try:
-        print("\n=== Guardian Reconciler ===\n")
+    print("\n=== Guardian Reconciler ===\n")
 
-        result = asyncio.run(run_guardian())
+    result = asyncio.run(run_guardian())
 
-        print("✓ Guardian reconciliation complete\n")
-        print(f"Positions Synced: {result.positions_synced}")
-        print(f"Entries Inspected: {result.reconciliation.entries_inspected}")
-        print(f"Kept Open: {result.reconciliation.kept_open}")
-        print(f"Closed: {result.reconciliation.newly_closed}")
-        print(f"Stop-Loss Exits: {result.reconciliation.stop_loss_exits}")
-        print(f"Warnings: {result.reconciliation.warnings}\n")
+    print("✓ Guardian reconciliation complete\n")
+    print(f"Positions Synced: {result.positions_synced}")
+    print(f"Entries Inspected: {result.reconciliation.entries_inspected}")
+    print(f"Kept Open: {result.reconciliation.kept_open}")
+    print(f"Closed: {result.reconciliation.newly_closed}")
+    print(f"Stop-Loss Exits: {result.reconciliation.stop_loss_exits}")
+    print(f"Warnings: {result.reconciliation.warnings}\n")
 
-        if result.warnings:
-            print("Warnings:")
-            for warning in result.warnings:
-                print(f"  • Position missing opportunity_id: {warning}")
-            print()
+    if result.warnings:
+        print("Warnings:")
+        for warning in result.warnings:
+            print(f"  • Position missing opportunity_id: {warning}")
+        print()
 
-        return 0
-
-    except Exception as e:
-        logger.error(f"Guardian failed: {e}", exc_info=True)
-        print(f"\n❌ Guardian failed: {e}\n")
-        return 1
+    return 0
 
 
+@_cli_command("Analyst")
 def cmd_analyst(args: argparse.Namespace) -> int:
     """Run Analyst pipeline (Researcher + Recommender) manually."""
     _init_logfire()
 
-    try:
-        opportunity_id = args.id
-        print(f"\n=== Analyst Pipeline ===\n")
-        print(f"Opportunity ID: {opportunity_id}\n")
+    opportunity_id = args.id
+    print(f"\n=== Analyst Pipeline ===\n")
+    print(f"Opportunity ID: {opportunity_id}\n")
 
-        settings = get_settings()
-        result = asyncio.run(run_analyst(opportunity_id, settings))
+    settings = get_settings()
+    result = asyncio.run(run_analyst(opportunity_id, settings))
 
-        print(f"✓ Analyst pipeline complete\n")
-        print(f"Status: {result.status}")
-        print(f"Research Completed: {'yes' if result.research_completed_at else 'no'}")
-        print(f"Recommendation Completed: {'yes' if result.recommendation_completed_at else 'no'}\n")
-        print("Trade decision pending (no BUY/NO decision made).\n")
+    print(f"✓ Analyst pipeline complete\n")
+    print(f"Status: {result.status}")
+    print(f"Research Completed: {'yes' if result.research_completed_at else 'no'}")
+    print(f"Recommendation Completed: {'yes' if result.recommendation_completed_at else 'no'}\n")
+    print("Trade decision pending (no BUY/NO decision made).\n")
 
-        return 0
-
-    except Exception as e:
-        logger.error(f"Analyst failed: {e}", exc_info=True)
-        print(f"\n❌ Analyst failed: {e}\n")
-        return 1
+    return 0
 
 
+@_cli_command("Trader")
 def cmd_trader(args: argparse.Namespace) -> int:
     """Run Trader agent to execute or reject a trade recommendation."""
     _init_logfire()
 
-    try:
-        opportunity_id = args.id
-        print(f"\n=== Trader Agent ===\n")
-        print(f"Opportunity ID: {opportunity_id}\n")
+    opportunity_id = args.id
+    print(f"\n=== Trader Agent ===\n")
+    print(f"Opportunity ID: {opportunity_id}\n")
 
-        settings = get_settings()
-        result = asyncio.run(run_trader(opportunity_id, settings))
+    settings = get_settings()
+    result = asyncio.run(run_trader(opportunity_id, settings))
 
-        print(f"✓ Trader decision complete\n")
-        print(f"Decision: {result.decision.action}")
-        print(f"Confidence: {result.decision.confidence:.0%}")
-        print(f"Execution Status: {result.execution_status}\n")
-        
-        if result.decision.reasoning:
-            print(f"Reasoning:\n{result.decision.reasoning}\n")
-        
+    print(f"✓ Trader decision complete\n")
+    print(f"Decision: {result.decision.action}")
+    print(f"Confidence: {result.decision.confidence:.0%}")
+    print(f"Execution Status: {result.execution_status}\n")
 
-        if result.execution_status in ["filled", "partial"]:
-            print(f"Order ID: {result.order_id}")
-            print(f"Contracts Filled: {result.contracts_filled}")
-            print(f"Fill Price: {result.fill_price:.2%}")
-            print(f"Total Cost: ${result.total_cost_usd:.2f}\n")
+    if result.decision.reasoning:
+        print(f"Reasoning:\n{result.decision.reasoning}\n")
 
-        return 0
+    if result.execution_status in ["filled", "partial"]:
+        print(f"Order ID: {result.order_id}")
+        print(f"Contracts Filled: {result.contracts_filled}")
+        print(f"Fill Price: {result.fill_price:.2%}")
+        print(f"Total Cost: ${result.total_cost_usd:.2f}\n")
 
-    except Exception as e:
-        logger.error(f"Trader failed: {e}", exc_info=True)
-        print(f"\n❌ Trader failed: {e}\n")
-        return 1
+    return 0
 
 
+@_cli_command("API server")
 def cmd_api(args: argparse.Namespace) -> int:
     """Start the dashboard API server (no trading daemon)."""
-    try:
-        import uvicorn
 
-        print(f"\n=== Coliseum Dashboard API ===\n")
-        print(f"Starting server on http://{args.host}:{args.port}")
-        print(f"Auto-reload: {'enabled' if args.reload else 'disabled'}\n")
+    print(f"\n=== Coliseum Dashboard API ===\n")
+    print(f"Starting server on http://{args.host}:{args.port}")
+    print(f"Auto-reload: {'enabled' if args.reload else 'disabled'}\n")
 
-        uvicorn.run(
-            "coliseum.api.server:app",
-            host=args.host,
-            port=args.port,
-            reload=args.reload,
-        )
+    uvicorn.run(
+        "coliseum.api.server:app",
+        host=args.host,
+        port=args.port,
+        reload=args.reload,
+    )
 
-        return 0
-
-    except KeyboardInterrupt:
-        print("\n\nServer stopped.\n")
-        return 0
-    except ImportError:
-        print("\n❌ uvicorn is not installed. Install it with: pip install uvicorn\n")
-        return 1
-    except Exception as e:
-        logger.error(f"Failed to start server: {e}", exc_info=True)
-        print(f"\n❌ Failed to start server: {e}\n")
-        return 1
+    return 0
 
 
+@_cli_command("Daemon")
 def cmd_daemon(args: argparse.Namespace) -> int:
     """Start the autonomous daemon with integrated dashboard API."""
-    try:
-        import uvicorn
+    _init_logfire()
 
-        _init_logfire()
+    if args.debug:
+        logging.getLogger().setLevel(logging.DEBUG)
 
-        if args.debug:
-            logging.getLogger().setLevel(logging.DEBUG)
+    settings = get_settings()
 
-        settings = get_settings()
+    print("\n=== Coliseum Autonomous Daemon ===")
+    print(f"\nVersion: {__version__}")
+    print(f"Mode: {'PAPER TRADING' if settings.trading.paper_mode else 'LIVE TRADING'}")
+    print(f"Data Directory: {settings.data_dir}")
+    print(f"Heartbeat Interval: {settings.daemon.heartbeat_interval_minutes}m")
+    print(f"Guardian Interval: {settings.daemon.guardian_interval_minutes}m")
+    print(f"Max Consecutive Failures: {settings.daemon.max_consecutive_failures}")
+    print(f"Dashboard: http://{args.host}:{args.port}")
+    print("\nStarting daemon + dashboard... (Ctrl+C to stop)\n")
 
-        print("\n=== Coliseum Autonomous Daemon ===")
-        print(f"\nVersion: {__version__}")
-        print(f"Mode: {'PAPER TRADING' if settings.trading.paper_mode else 'LIVE TRADING'}")
-        print(f"Data Directory: {settings.data_dir}")
-        print(f"Heartbeat Interval: {settings.daemon.heartbeat_interval_minutes}m")
-        print(f"Guardian Interval: {settings.daemon.guardian_interval_minutes}m")
-        print(f"Max Consecutive Failures: {settings.daemon.max_consecutive_failures}")
-        print(f"Dashboard: http://{args.host}:{args.port}")
-        print("\nStarting daemon + dashboard... (Ctrl+C to stop)\n")
+    uvicorn.run(
+        "coliseum.api.server:daemon_app",
+        host=args.host,
+        port=args.port,
+        reload=False,
+        log_level="warning",
+    )
 
-        uvicorn.run(
-            "coliseum.api.server:daemon_app",
-            host=args.host,
-            port=args.port,
-            reload=False,
-            log_level="warning",
-        )
-
-        print("\nDaemon stopped cleanly.\n")
-        return 0
-
-    except KeyboardInterrupt:
-        print("\n\nReceived interrupt signal. Shutting down...\n")
-        return 0
-    except ImportError:
-        print("\n❌ uvicorn is not installed. Install it with: pip install uvicorn\n")
-        return 1
-    except Exception as e:
-        logger.error(f"Daemon failed: {e}", exc_info=True)
-        print(f"\n❌ Daemon failed: {e}\n")
-        return 1
+    print("\nDaemon stopped cleanly.\n")
+    return 0
 
 
+@_cli_command("Pipeline")
 def cmd_pipeline(args: argparse.Namespace) -> int:
     """Run the full pipeline once (Guardian -> Scout -> Analyst -> Trader)."""
-    try:
-        _init_logfire()
+    _init_logfire()
 
-        if args.debug:
-            logging.getLogger().setLevel(logging.DEBUG)
+    if args.debug:
+        logging.getLogger().setLevel(logging.DEBUG)
 
-        settings = get_settings()
+    settings = get_settings()
 
-        print("\n=== Coliseum Autonomous Trading System ===\n")
-        print(f"Version: {__version__}")
-        print(f"Mode: {'PAPER TRADING' if settings.trading.paper_mode else 'LIVE TRADING'}")
-        print(f"Data Directory: {settings.data_dir}\n")
+    print("\n=== Coliseum Autonomous Trading System ===\n")
+    print(f"Version: {__version__}")
+    print(f"Mode: {'PAPER TRADING' if settings.trading.paper_mode else 'LIVE TRADING'}")
+    print(f"Data Directory: {settings.data_dir}\n")
 
-        print("Running full pipeline once (Guardian -> Scout -> Analyst -> Trader)...\n")
-        asyncio.run(run_pipeline(settings))
-        print("\nPipeline run complete.\n")
-        return 0
-
-    except KeyboardInterrupt:
-        print("\n\nReceived interrupt signal. Shutting down...\n")
-        return 0
-    except Exception as e:
-        logger.error(f"Failed to start system: {e}", exc_info=True)
-        print(f"\nFailed to start: {e}\n")
-        return 1
+    print("Running full pipeline once (Guardian -> Scout -> Analyst -> Trader)...\n")
+    asyncio.run(run_pipeline(settings))
+    print("\nPipeline run complete.\n")
+    return 0
 
 
 def main() -> int:
