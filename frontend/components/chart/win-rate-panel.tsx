@@ -11,8 +11,8 @@ interface WinRatePanelProps {
 function computeAvgTrade(stats: ChartStats): string {
   if (stats.total_trades === 0) return "$0.00";
   const avg = stats.total_pnl / stats.total_trades;
-  const sign = avg >= 0 ? "+" : "";
-  return `${sign}$${avg.toFixed(2)}`;
+  if (avg >= 0) return `+$${avg.toFixed(2)}`;
+  return `-$${Math.abs(avg).toFixed(2)}`;
 }
 
 function formatBestDay(value: number): string {

@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
+import { Strong, Muted, Faint } from "@/lib/styles";
+import { FontSize } from "@/lib/typography";
 
 interface RadialGaugeProps {
   value: number;
@@ -21,7 +23,6 @@ export function RadialGauge({
   strokeWidth = 6,
 }: RadialGaugeProps) {
   const [mounted, setMounted] = useState(false);
-  const arcRef = useRef<SVGCircleElement>(null);
 
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
@@ -41,6 +42,7 @@ export function RadialGauge({
           height={size}
           viewBox={`0 0 ${size} ${size}`}
           className="transform -rotate-90"
+          aria-hidden="true"
         >
           {/* Track circle */}
           <circle
@@ -53,7 +55,6 @@ export function RadialGauge({
           />
           {/* Foreground arc */}
           <circle
-            ref={arcRef}
             cx={size / 2}
             cy={size / 2}
             r={radius}
@@ -73,16 +74,16 @@ export function RadialGauge({
         </svg>
         {/* Center text overlay */}
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-[28px] font-mono font-bold text-foreground/90 tabular-nums leading-none">
+          <span className={`text-[28px] font-mono font-bold ${Strong.foreground} tabular-nums leading-none`}>
             {clampedValue.toFixed(1)}%
           </span>
-          <span className="text-[10px] font-mono text-muted-foreground/70 tracking-[0.16em] uppercase mt-1">
+          <span className={`text-[10px] font-mono ${Muted.mutedText} tracking-[0.16em] uppercase mt-1`}>
             {label}
           </span>
         </div>
       </div>
       {sublabel && (
-        <span className="text-[11px] font-mono text-muted-foreground/60 tabular-nums tracking-wider">
+        <span className={`${FontSize.small} font-mono ${Faint.mutedText} tabular-nums tracking-wider`}>
           {sublabel}
         </span>
       )}
