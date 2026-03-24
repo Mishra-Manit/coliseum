@@ -1,33 +1,28 @@
-"""Custom exceptions for Exa AI service."""
+"""Exa AI service exceptions."""
+
+from coliseum.services.exceptions import ServiceAPIError
 
 
-class ExaAPIError(Exception):
+class ExaAPIError(ServiceAPIError):
     """Base exception for Exa API errors."""
-
-    def __init__(self, message: str, status_code: int | None = None):
-        super().__init__(message)
-        self.status_code = status_code
+    pass
 
 
 class ExaAuthError(ExaAPIError):
     """Authentication failed (401)."""
-
     pass
 
 
 class ExaRateLimitError(ExaAPIError):
     """Rate limit exceeded (429)."""
-
     pass
 
 
 class ExaBadRequestError(ExaAPIError):
     """Invalid request parameters (400)."""
-
     pass
 
 
 class ExaServerError(ExaAPIError):
     """Server-side error (5xx)."""
-
     pass
