@@ -76,7 +76,7 @@ class TraderOutput(BaseModel):
         description="Total cost in USD for the filled position",
     )
     execution_status: Literal[
-        "filled", "partial", "cancelled", "rejected", "skipped"
+        "filled", "partial", "cancelled", "rejected", "skipped", "paper"
     ] = Field(
-        description="Final execution status: filled (fully executed), partial (partially filled), cancelled (order cancelled), rejected (risk limits or verification failed), skipped (agent chose REJECT)"
+        description="Final execution status: filled (fully executed), partial (partially filled), cancelled (order cancelled), rejected (risk limits or verification failed), skipped (agent chose REJECT), paper (paper-mode simulation)"
     )

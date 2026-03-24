@@ -1,7 +1,6 @@
 """Researcher Agent: Deep research and synthesis without trading decisions."""
 
 import logging
-import re
 import time
 from datetime import datetime, timezone
 
@@ -13,11 +12,12 @@ from coliseum.agents.agent_factory import AgentFactory
 from coliseum.agents.analyst.market_type_context import get_market_type_context
 from coliseum.agents.analyst.models import AnalystDependencies, ResearcherOutput
 from coliseum.agents.analyst.prompts import RESEARCHER_PROMPT
-from coliseum.memory.context import load_kalshi_mechanics
 from coliseum.agents.analyst.shared import (
     format_opportunity_header,
     load_opportunity,
 )
+from coliseum.agents.shared_tools import _strip_cite_tokens
+from coliseum.memory.context import load_kalshi_mechanics
 from coliseum.config import Settings
 from coliseum.llm_providers import OpenAIModel, get_model_string
 from coliseum.memory.context import build_analyst_context
@@ -45,11 +45,6 @@ _agent_factory = AgentFactory(create_fn=_create_agent)
 def get_agent() -> Agent[AnalystDependencies, ResearcherOutput]:
     """Get the singleton Researcher agent instance."""
     return _agent_factory.get_agent()
-
-
-def _strip_cite_tokens(text: str) -> str:
-    """Strip OpenAI Responses API citation tokens that leak when structured output is used."""
-    return re.sub(r'(?:file)?cite(?:turn\d+\w+\d+)+', '', text)
 
 
 async def run_researcher(

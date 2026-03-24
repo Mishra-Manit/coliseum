@@ -80,7 +80,7 @@ class TelegramClient:
         message: str,
         chat_id: str | None = None,
     ) -> NotificationResult:
-        """Send a message with a single retry."""
+        """Send a message with configurable retries."""
         target_chat_id = chat_id or self.config.default_chat_id
 
         if not target_chat_id:
@@ -88,14 +88,15 @@ class TelegramClient:
                 "chat_id is required. Provide via config or method argument."
             )
 
+        max_attempts = self.config.max_retries + 1
         retry_count = 0
         last_error: str | None = None
 
-        for attempt in range(2):
+        for attempt in range(max_attempts):
             try:
                 logger.info(
                     f"Sending Telegram message to {target_chat_id} "
-                    f"(attempt {attempt + 1}/2)"
+                    f"(attempt {attempt + 1}/{max_attempts})"
                 )
 
                 telegram_message = await self.bot.send_message(
@@ -119,19 +120,19 @@ class TelegramClient:
             except TelegramError as e:
                 last_error = e.message or "Telegram error"
                 logger.warning(
-                    f"Telegram send failed (attempt {attempt + 1}/2): "
+                    f"Telegram send failed (attempt {attempt + 1}/{max_attempts}): "
                     f"{last_error}"
                 )
             except Exception as e:
                 last_error = str(e) or "Unexpected error"
                 logger.warning(
                     f"Unexpected error sending to {target_chat_id} "
-                    f"(attempt {attempt + 1}/2): {last_error}"
+                    f"(attempt {attempt + 1}/{max_attempts}): {last_error}"
                 )
 
-            if attempt == 0:
-                await asyncio.sleep(2)
-                retry_count = 1
+            if attempt < max_attempts - 1:
+                await asyncio.sleep(2 ** attempt)
+                retry_count += 1
 
         return NotificationResult(
             success=False,

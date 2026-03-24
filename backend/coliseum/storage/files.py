@@ -157,16 +157,22 @@ def _get_opps_dir(paper: bool = False) -> Path:
 
 def _atomic_write(path: Path, content: str) -> None:
     """Write content to path atomically using a temp file + rename."""
-    with tempfile.NamedTemporaryFile(
-        mode="w",
-        delete=False,
-        suffix=".md",
-        dir=path.parent,
-        encoding="utf-8",
-    ) as f:
-        f.write(content)
-        temp_path = Path(f.name)
-    shutil.move(str(temp_path), str(path))
+    temp_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            delete=False,
+            suffix=path.suffix or ".tmp",
+            dir=path.parent,
+            encoding="utf-8",
+        ) as f:
+            f.write(content)
+            temp_path = Path(f.name)
+        shutil.move(str(temp_path), str(path))
+    except BaseException:
+        if temp_path is not None:
+            temp_path.unlink(missing_ok=True)
+        raise
 
 
 def _parse_frontmatter(content: str, file_path: Path) -> tuple[dict, str]:

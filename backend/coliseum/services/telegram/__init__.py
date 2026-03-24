@@ -5,9 +5,9 @@ from .config import TelegramConfig
 from .exceptions import (
     TelegramAuthError,
     TelegramConfigError,
-    TelegramError,
     TelegramNetworkError,
     TelegramRateLimitError,
+    TelegramServiceError,
 )
 from .models import NotificationResult
 
@@ -16,7 +16,7 @@ __all__ = [
     "create_telegram_client",
     "TelegramConfig",
     "NotificationResult",
-    "TelegramError",
+    "TelegramServiceError",
     "TelegramAuthError",
     "TelegramRateLimitError",
     "TelegramNetworkError",

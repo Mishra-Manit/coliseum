@@ -1,33 +1,33 @@
 """Telegram service exceptions."""
 
 
-class TelegramError(Exception):
-    """Base Telegram exception."""
+class TelegramServiceError(Exception):
+    """Base Telegram service exception (named to avoid collision with python-telegram-bot SDK's TelegramError)."""
 
     def __init__(self, message: str, status_code: int | None = None):
         super().__init__(message)
         self.status_code = status_code
 
 
-class TelegramAuthError(TelegramError):
+class TelegramAuthError(TelegramServiceError):
     """Authentication error."""
 
     pass
 
 
-class TelegramRateLimitError(TelegramError):
+class TelegramRateLimitError(TelegramServiceError):
     """Rate limit error."""
 
     pass
 
 
-class TelegramNetworkError(TelegramError):
+class TelegramNetworkError(TelegramServiceError):
     """Network error."""
 
     pass
 
 
-class TelegramConfigError(TelegramError):
+class TelegramConfigError(TelegramServiceError):
     """Config error."""
 
     pass
