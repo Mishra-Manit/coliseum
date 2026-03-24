@@ -1,16 +1,16 @@
-last_updated: '2026-03-22T23:00:22.897782+00:00'
+last_updated: '2026-03-24T02:14:56.268087+00:00'
 portfolio:
-  total_value: 20.41
-  cash_balance: 15.66
-  positions_value: 4.75
+  total_value: 20.54
+  cash_balance: 15.89
+  positions_value: 4.65
 open_positions:
-- id: pos_10091ab0
-  market_ticker: KXAAAGASW-26MAR23-3.980
+- id: pos_e2259d4c
+  market_ticker: KXWTI-26MAR24-T99.99
   side: 'NO'
   contracts: 5
-  average_entry: 0.96
-  current_price: 0.95
-  opportunity_id: opp_2035ba6f
+  average_entry: 0.95
+  current_price: 0.93
+  opportunity_id: opp_de7fc9ec
 closed_positions:
 - market_ticker: KXNBAMENTION-26MAR06LALDEN-INJU
   side: 'YES'
@@ -418,6 +418,15 @@ closed_positions:
   opportunity_id: opp_16d31698
   closed_at: '2026-03-16T17:46:51.416027Z'
   entry_rationale: null
+- market_ticker: KXAAAGASW-26MAR23-3.980
+  side: 'NO'
+  contracts: 5
+  entry_price: 0.96
+  exit_price: 1.0
+  pnl: 0.2
+  opportunity_id: opp_2035ba6f
+  closed_at: '2026-03-23T22:19:55.669571Z'
+  entry_rationale: null
 seen_tickers:
 - KXWTIW-26MAR13-B91.5
 - KXPCECORE-26JAN-T0.3
@@ -430,3 +439,5 @@ seen_tickers:
 - KXLOWTDEN-26MAR13-T44
 - KXAAAGASW-26MAR16TH-3.870
 - KXAAAGASW-26MAR23-3.980
+- KXLOWTDEN-26MAR23-B40.5
+- KXWTI-26MAR24-T99.99

@@ -19,6 +19,7 @@
 - WTI daily-settlement NO entries are favorable when the losing outcome is a narrow **$1** band or a far-away downside threshold and the latest confirmed settlement is still several dollars outside the losing range.
 - S&P 500 downside-threshold NO entries remain vulnerable to overnight macro shocks even with roughly **4%** spot-to-strike cushion over a two-session holding window.
 - **AAAGAS** weekly gas-price threshold NO entries are favorable when the named **AAA** regular-gas print sits at least **20¢** below the strike with only a few days remaining and the contract fallback still uses the last available **AAA** value.
+- **AAAGAS** overnight threshold **NO** entries at **96¢** are acceptable when the latest **AAA** regular-gas print is still below the strike, the strike requires a next-day move larger than the latest one-day increase, and the contract resolves mechanically from **AAA** or its last available print.
 
 ## Execution Patterns
 - Orders placed within 2h of close fill faster
