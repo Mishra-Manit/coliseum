@@ -1,14 +1,41 @@
 """Generic agent factory for managing singleton agent instances."""
 
 import logging
-from typing import Callable, Generic, TypeVar
+from typing import Any, Callable, Generic, TypeVar
 
 from pydantic_ai import Agent
+from pydantic_ai.models.openai import OpenAIResponsesModelSettings
+
+from coliseum.llm_providers import OpenAIModel, get_model_string
+from coliseum.memory.context import load_kalshi_mechanics
 
 logger = logging.getLogger(__name__)
 
 DepsT = TypeVar("DepsT")
 OutputT = TypeVar("OutputT")
+
+
+def create_agent(
+    prompt: str,
+    output_type: type[OutputT],
+    deps_type: type[DepsT] | None = None,
+    reasoning_effort: str = "medium",
+    builtin_tools: list[Any] | None = None,
+    prepend_mechanics: bool = True,
+) -> Agent[DepsT, OutputT]:
+    """Create a PydanticAI agent with standard Coliseum configuration."""
+    system_prompt = f"{load_kalshi_mechanics()}\n\n{prompt}" if prepend_mechanics else prompt
+    kwargs: dict[str, Any] = {
+        "model": get_model_string(OpenAIModel.GPT_5_4),
+        "output_type": output_type,
+        "system_prompt": system_prompt,
+        "model_settings": OpenAIResponsesModelSettings(openai_reasoning_effort=reasoning_effort),
+    }
+    if deps_type is not None:
+        kwargs["deps_type"] = deps_type
+    if builtin_tools:
+        kwargs["builtin_tools"] = builtin_tools
+    return Agent(**kwargs)
 
 
 class AgentFactory(Generic[DepsT, OutputT]):
@@ -19,12 +46,7 @@ class AgentFactory(Generic[DepsT, OutputT]):
         create_fn: Callable[[], Agent[DepsT, OutputT]],
         register_tools_fn: Callable[[Agent[DepsT, OutputT]], None] | None = None,
     ):
-        """Initialize the agent factory.
-
-        Args:
-            create_fn: Function that creates a new agent instance
-            register_tools_fn: Optional function to register tools on the agent
-        """
+        """Wire creation and optional tool registration for the singleton agent."""
         self._create_fn = create_fn
         self._register_tools_fn = register_tools_fn
         self._agent: Agent[DepsT, OutputT] | None = None
