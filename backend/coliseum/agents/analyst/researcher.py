@@ -110,9 +110,6 @@ def _build_research_prompt(opportunity: OpportunitySignal, settings: Settings) -
 
 ## Research Task
 
-Follow the 6-step workflow in your instructions exactly. Do not skip steps because earlier
-results look clean. Run all 6 searches targeting distinct questions.
-
-Do NOT echo the scout's rationale as your finding. Find new information from primary sources.
-Report what each search returned — including null results.
+Follow the 3-search workflow in your instructions. Use the market-type context above to skip
+searches you can already answer. Report what each search returned — including null results.
 """

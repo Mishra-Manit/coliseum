@@ -546,7 +546,7 @@ def _format_context(config: MarketTypeConfig, slug: str) -> str:
     """Render a MarketTypeConfig into the prompt text injected for the Researcher."""
     desc = config.resolution_desc.format(slug=slug)
     questions = "\n".join(f"- {q.format(slug=slug)}" for q in config.risk_questions)
-    return f"**{config.label}** — {desc}\n\nSpecific risks to investigate:\n{questions}"
+    return f"**{config.label}** — {desc}\n\nKnown risk factors (use as context, not as separate search tasks):\n{questions}"
 
 
 def get_market_type_context(opportunity: OpportunitySignal) -> str:
