@@ -53,6 +53,7 @@ def _create_agent(settings: Settings) -> Agent[TraderDependencies, TraderOutput]
         output_type=TraderOutput,
         deps_type=TraderDependencies,
         prepend_mechanics=False,
+        use_responses_api=False,
     )
 
 

@@ -22,6 +22,7 @@ def _create_agent() -> Agent[None, LearningReflectionOutput]:
     return create_agent(
         prompt=SCRIBE_PROMPT,
         output_type=LearningReflectionOutput,
+        use_responses_api=False,
     )
 
 

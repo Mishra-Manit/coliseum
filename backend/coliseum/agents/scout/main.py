@@ -30,7 +30,7 @@ def _create_scout_agent(prompt: str) -> Agent[ScoutDependencies, ScoutOutput]:
         prompt=prompt,
         output_type=ScoutOutput,
         deps_type=ScoutDependencies,
-        reasoning_effort="high",
+        reasoning_effort="medium",
         builtin_tools=[WebSearchTool()],
         prepend_mechanics=False,
     )
