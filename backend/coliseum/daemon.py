@@ -85,50 +85,49 @@ class ColiseumDaemon:
     async def _run_full_cycle(self) -> None:
         """Execute one full pipeline cycle with error tracking."""
         self._cycle_count += 1
-        with logfire.span("daemon cycle", cycle=self._cycle_count):
-            try:
-                await run_pipeline(self.settings)
-                self._consecutive_failures = 0
-                self._last_cycle_at = datetime.now(timezone.utc)
-                logfire.info("pipeline cycle complete", cycle=self._cycle_count)
-            except Exception as e:
-                self._consecutive_failures += 1
-                logfire.error(
-                    "pipeline cycle failed",
-                    cycle=self._cycle_count,
-                    failure=self._consecutive_failures,
-                    max_failures=self.settings.daemon.max_consecutive_failures,
-                    error=str(e),
+        try:
+            await run_pipeline(self.settings)
+            self._consecutive_failures = 0
+            self._last_cycle_at = datetime.now(timezone.utc)
+            logfire.info("pipeline cycle complete", cycle=self._cycle_count)
+        except Exception as e:
+            self._consecutive_failures += 1
+            logfire.error(
+                "pipeline cycle failed",
+                cycle=self._cycle_count,
+                failure=self._consecutive_failures,
+                max_failures=self.settings.daemon.max_consecutive_failures,
+                error=str(e),
+            )
+            logger.error(
+                "Full pipeline cycle #%d failed (%d/%d): %s",
+                self._cycle_count,
+                self._consecutive_failures,
+                self.settings.daemon.max_consecutive_failures,
+                e,
+                exc_info=True,
+            )
+            self._log_error(
+                component="pipeline",
+                error=str(e),
+                resolution="auto_retry"
+                if self._consecutive_failures
+                < self.settings.daemon.max_consecutive_failures
+                else "paused",
+                attempts=self._consecutive_failures,
+            )
+            if (
+                self._consecutive_failures
+                >= self.settings.daemon.max_consecutive_failures
+            ):
+                logfire.critical(
+                    "max consecutive failures reached, pausing daemon",
+                    failures=self._consecutive_failures,
                 )
-                logger.error(
-                    "Full pipeline cycle #%d failed (%d/%d): %s",
-                    self._cycle_count,
-                    self._consecutive_failures,
-                    self.settings.daemon.max_consecutive_failures,
-                    e,
-                    exc_info=True,
-                )
-                self._log_error(
-                    component="pipeline",
-                    error=str(e),
-                    resolution="auto_retry"
-                    if self._consecutive_failures
-                    < self.settings.daemon.max_consecutive_failures
-                    else "paused",
-                    attempts=self._consecutive_failures,
-                )
-                if (
-                    self._consecutive_failures
-                    >= self.settings.daemon.max_consecutive_failures
-                ):
-                    logfire.critical(
-                        "max consecutive failures reached, pausing daemon",
-                        failures=self._consecutive_failures,
-                    )
-                    self._paused = True
-                    await self._send_escalation_alert(str(e))
+                self._paused = True
+                await self._send_escalation_alert(str(e))
 
-            await self._maybe_send_heartbeat()
+        await self._maybe_send_heartbeat()
 
     async def _run_guardian_intercycles(self, remaining_seconds: float) -> None:
         """Run guardian-only checks in the gap between full pipeline cycles."""

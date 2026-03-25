@@ -10,6 +10,7 @@ from datetime import date
 from pathlib import Path
 from typing import Any, Literal
 
+import logfire
 import yaml
 from fastapi import APIRouter, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -262,7 +263,8 @@ async def stream_portfolio(request: Request) -> EventSourceResponse:
                     state = await asyncio.to_thread(load_state)
                     positions = state.open_positions
                     if positions:
-                        prices = await _fetch_prices_for_positions(client, positions)
+                        with logfire.suppress_instrumentation():
+                            prices = await _fetch_prices_for_positions(client, positions)
                         enriched = [
                             _enrich_position(p, prices.get(p.market_ticker, p.current_price))
                             for p in positions

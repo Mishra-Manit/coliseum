@@ -54,6 +54,8 @@ def initialize_logfire(settings: Settings) -> None:
         logfire_handler = logfire.LogfireLoggingHandler()
         root_logger.addHandler(logfire_handler)
 
+        logging.getLogger("httpx").setLevel(logging.WARNING)
+
         # 6. Collect system metrics (CPU, memory, disk) - optional
         try:
             logfire.instrument_system_metrics()
