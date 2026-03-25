@@ -1,9 +1,16 @@
-last_updated: '2026-03-25T20:22:18.314813+00:00'
+last_updated: '2026-03-25T20:57:25.548036+00:00'
 portfolio:
-  total_value: 20.73
-  cash_balance: 5.69
-  positions_value: 15.04
+  total_value: 21.06
+  cash_balance: 4.75
+  positions_value: 16.31
 open_positions:
+- id: pos_6a7a6f60
+  market_ticker: KXTRUMPMENTION-26MAR25-TRUM
+  side: 'YES'
+  contracts: 1
+  average_entry: 0.93
+  current_price: 0.92
+  opportunity_id: opp_61247e66
 - id: pos_78afbfe0
   market_ticker: KXBTCD-26MAR2517-T67899.99
   side: 'YES'
@@ -16,7 +23,7 @@ open_positions:
   side: 'YES'
   contracts: 5
   average_entry: 0.96
-  current_price: 0.91
+  current_price: 0.98
   opportunity_id: opp_282d41b4
 - id: pos_fc4765e2
   market_ticker: KXSURVIVORMENTION-26MAR25-SIT
@@ -489,3 +496,4 @@ seen_tickers:
 - KXJOBLESSCLAIMS-26MAR26-200000
 - KXBTCD-26MAR2500-T70099.99
 - KXBTCD-26MAR2517-T67899.99
+- KXTRUMPMENTION-26MAR25-TRUM
