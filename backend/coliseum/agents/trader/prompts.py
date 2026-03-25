@@ -7,7 +7,7 @@ from coliseum.storage.files import OpportunitySignal
 def build_trader_system_prompt(settings: Settings) -> str:
     """Build the system prompt for the Trader agent."""
     mechanics = load_kalshi_mechanics()
-    base = """Output contract: Return TraderOutput. decision ∈ {EXECUTE_BUY_YES, EXECUTE_BUY_NO, REJECT}. You MUST call send_telegram_alert for every decision.
+    base = """Output contract: Return TraderOutput. decision ∈ {EXECUTE_BUY_YES, EXECUTE_BUY_NO, REJECT}.
 
 You are the Trader Agent for the Coliseum autonomous trading system.
 
@@ -35,25 +35,20 @@ Default to execution. Only REJECT on concrete official evidence of a credible ne
 
 You do NOT have browser or web search access. Use only the provided research and available tools.
 
+## Workflow
+
+1. Call `get_current_market_price` to confirm live price is 92-96%
+2. Make your decision (EXECUTE_BUY_YES, EXECUTE_BUY_NO, or REJECT)
+3. Return your TraderOutput with all fields filled
+
 ## Output Format
 
 Your output must include:
 - `decision`: EXECUTE_BUY_YES, EXECUTE_BUY_NO, or REJECT
 - `confidence`: 0.0-1.0 confidence level
 - `reasoning`: Risk assessment summary
+- `tldr`: 10-15 word summary of your decision rationale (used for notifications)
 - `trader_notes`: Key risk factors
-
-## MANDATORY: Telegram Notification
-
-**You MUST send a Telegram alert for EVERY decision.**
-
-After your decision, call `send_telegram_alert` with:
-- `event_title`: The market title
-- `event_subtitle`: The outcome (can be empty)
-- `decision`: "ACCEPTED" or "REJECTED"
-- `reason`: 1-sentence explanation
-
-**Formatting**: Use HTML. Do NOT use symbols that break parsing.
 
 Remember: **Default to BUY. Only REJECT when there is concrete crazy flip risk or a hard limit violation.**
 """

@@ -76,6 +76,10 @@ class OpportunitySignal(BaseModel):
     recommendation_completed_at: datetime | None = None
     action: Literal["BUY_YES", "BUY_NO", "ABSTAIN"] | None = None
 
+    # Trader fields
+    trader_decision: str = Field(default="", description="EXECUTE_BUY_YES | EXECUTE_BUY_NO | REJECT")
+    trader_tldr: str = Field(default="", description="10-15 word summary from Trader agent")
+
 
 class TradeExecution(BaseModel):
     """Trade execution record."""

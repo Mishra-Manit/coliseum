@@ -121,17 +121,43 @@ function deduplicateStrings(items: string[]): string[] {
   });
 }
 
+function TldrBanner({ decision, tldr }: { decision: string; tldr: string }) {
+  const isExecute = decision.startsWith("EXECUTE");
+  const accentBorder = isExecute ? "border-emerald-500" : "border-red-500";
+  const accentText = isExecute ? "text-emerald-400" : "text-red-400";
+
+  const DECISION_LABELS: Record<string, string> = {
+    REJECT: "REJECTED",
+    EXECUTE_BUY_YES: "EXECUTED \u00B7 BUY YES",
+    EXECUTE_BUY_NO: "EXECUTED \u00B7 BUY NO",
+  };
+  const decisionLabel = DECISION_LABELS[decision] ?? "UNKNOWN";
+
+  return (
+    <div>
+      <SectionDivider label="TLDR" />
+      <div className={`mt-2 border-l-2 ${accentBorder} bg-white/[0.02] rounded-r px-3 py-2.5`}>
+        <span className={`${FontSize.small} font-mono font-bold uppercase tracking-wider ${accentText}`}>
+          {decisionLabel}
+        </span>
+        <p className={`${FontSize.medium} ${Strong.foreground} leading-relaxed mt-1`}>
+          {tldr}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+
 export function IntelBrief({ parsed }: { parsed: ParsedSections }) {
-  const { scout, research } = parsed;
+  const { scout, research, trader } = parsed;
 
   const supportingEvidence = deduplicateStrings([
     ...scout.evidence,
     ...(research?.evidence_for ?? []),
   ]);
 
-  const contraryEvidence = deduplicateStrings([
-    ...(research?.evidence_against ?? []),
-  ]);
+  const contraryEvidence = deduplicateStrings(research?.evidence_against ?? []);
 
   const mergedRisks = deduplicateStrings([
     ...scout.remaining_risks,
@@ -148,6 +174,9 @@ export function IntelBrief({ parsed }: { parsed: ParsedSections }) {
 
   return (
     <div className="space-y-4">
+      {/* TLDR verdict banner */}
+      {trader && <TldrBanner decision={trader.decision} tldr={trader.tldr} />}
+
       {/* Verdict line */}
       <div className="flex items-center gap-2 flex-wrap">
         {scout.outcome_status && (

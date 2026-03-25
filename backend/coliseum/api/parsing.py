@@ -13,6 +13,7 @@ def parse_opportunity_sections(opp: OpportunitySignal, markdown_body: str) -> di
         return {
             "scout": _parse_scout(opp),
             "research": _parse_research(markdown_body),
+            "trader": _parse_trader(opp),
         }
     except Exception:
         return None
@@ -79,3 +80,13 @@ def _bullets(text: str, header: str) -> list[str]:
         for line in m.group(1).splitlines()
         if line.strip()
     ]
+
+
+def _parse_trader(opp: OpportunitySignal) -> dict | None:
+    """Extract trader verdict if available."""
+    if not opp.trader_decision:
+        return None
+    return {
+        "decision": opp.trader_decision,
+        "tldr": opp.trader_tldr or "",
+    }

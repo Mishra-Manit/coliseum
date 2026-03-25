@@ -84,9 +84,15 @@ export interface ResearchSection {
   sources: string[];
 }
 
+export interface TraderSection {
+  decision: "EXECUTE_BUY_YES" | "EXECUTE_BUY_NO" | "REJECT";
+  tldr: string;
+}
+
 export interface ParsedSections {
   scout: ScoutSection;
   research: ResearchSection | null;
+  trader: TraderSection | null;
 }
 
 export interface OpportunityDetail {
@@ -100,7 +106,6 @@ export interface ColiseumConfig {
   trading: Record<string, unknown>;
   risk: Record<string, unknown>;
   scout: Record<string, unknown>;
-  analyst: Record<string, unknown>;
   guardian: Record<string, unknown>;
   execution: Record<string, unknown>;
   daemon: Record<string, unknown>;

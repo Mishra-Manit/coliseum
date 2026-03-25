@@ -6,7 +6,6 @@ from pydantic import BaseModel, Field
 
 from coliseum.config import Settings
 from coliseum.services.kalshi.client import KalshiClient
-from coliseum.services.telegram import TelegramClient
 
 
 class TraderDependencies(BaseModel):
@@ -15,8 +14,6 @@ class TraderDependencies(BaseModel):
     model_config = {"arbitrary_types_allowed": True}
 
     kalshi_client: KalshiClient
-    telegram_client: TelegramClient | None
-    opportunity_id: str
     config: Settings
 
 
@@ -55,6 +52,9 @@ class TraderOutput(BaseModel):
     decision: TraderDecision = Field(
         description="The final trading decision made by the agent"
     )
+    tldr: str = Field(
+        description="10-15 word summary of your decision rationale. Written as a concise notification headline."
+    )
     trader_notes: str | None = Field(
         default=None,
         description="Key observations about this trade: critical factors influencing the decision and potential risks to watch.",
@@ -76,7 +76,8 @@ class TraderOutput(BaseModel):
         description="Total cost in USD for the filled position",
     )
     execution_status: Literal[
-        "filled", "partial", "cancelled", "rejected", "skipped", "paper"
+        "pending", "filled", "partial", "cancelled", "rejected", "skipped", "paper"
     ] = Field(
-        description="Final execution status: filled (fully executed), partial (partially filled), cancelled (order cancelled), rejected (risk limits or verification failed), skipped (agent chose REJECT), paper (paper-mode simulation)"
+        default="pending",
+        description="Set by execution logic, not the agent.",
     )

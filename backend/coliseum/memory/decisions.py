@@ -23,6 +23,7 @@ class DecisionEntry(BaseModel):
     contracts: int = 0
     confidence: float = 0.0
     reasoning: str = ""
+    tldr: str = ""
     execution_status: str = ""
     outcome: str | None = None
 
