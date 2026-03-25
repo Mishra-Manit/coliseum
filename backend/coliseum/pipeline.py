@@ -11,6 +11,7 @@ from coliseum.agents.scout import run_scout
 from coliseum.agents.trader import run_trader
 from coliseum.config import Settings
 from coliseum.memory.journal import JournalCycleSummary, write_journal_entry
+from coliseum.storage.files import find_opportunity_file_by_id, update_opportunity_frontmatter
 from coliseum.storage.state import load_state
 
 logger = logging.getLogger("coliseum.pipeline")
@@ -101,6 +102,7 @@ async def run_pipeline(settings: Settings) -> JournalCycleSummary:
                         errors.append(f"Analyst({opp.market_ticker}): {e}")
                         logfire.error("Analyst failed", error=str(e))
                         logger.error("Analyst failed for %s: %s", opp.market_ticker, e)
+                        _mark_opportunity_failed(opp.id, settings.trading.paper_mode)
                         continue
 
                 with logfire.span("trader", opportunity_id=opp.id):
@@ -121,6 +123,7 @@ async def run_pipeline(settings: Settings) -> JournalCycleSummary:
                     except Exception as e:
                         errors.append(f"Trader({opp.market_ticker}): {e}")
                         logfire.error("Trader failed", error=str(e))
+                        _mark_opportunity_failed(opp.id, settings.trading.paper_mode)
 
         summary.analyst_summary = "; ".join(analyst_summaries) if analyst_summaries else "N/A"
         summary.trader_summary = "; ".join(trader_summaries) if trader_summaries else "N/A"
@@ -146,6 +149,17 @@ async def run_pipeline(settings: Settings) -> JournalCycleSummary:
 
     _finalize_summary(summary, cycle_start, errors)
     return summary
+
+
+def _mark_opportunity_failed(opportunity_id: str, paper: bool) -> None:
+    """Set opportunity status to 'failed' after an agent exception."""
+    try:
+        opp_file = find_opportunity_file_by_id(opportunity_id, paper=paper)
+        if opp_file:
+            update_opportunity_frontmatter(opp_file, {"status": "failed"})
+            logfire.info("Opportunity marked failed", opportunity_id=opportunity_id)
+    except Exception as e:
+        logger.error("Could not mark opportunity failed: %s", e)
 
 
 def _finalize_summary(
