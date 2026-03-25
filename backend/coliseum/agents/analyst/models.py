@@ -2,13 +2,10 @@
 
 from pydantic import BaseModel
 
-from coliseum.config import AnalystConfig
-
 
 class AnalystDependencies(BaseModel):
     """Shared dependencies injected into both Researcher and Recommender agents."""
     opportunity_id: str
-    config: AnalystConfig
 
 
 class ResearcherOutput(BaseModel):

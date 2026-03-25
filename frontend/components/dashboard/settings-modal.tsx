@@ -41,7 +41,6 @@ function formatSeconds(seconds: number): string {
 
 function buildSections(config: ColiseumConfig): AgentSection[] {
   const daemon = config.daemon ?? {};
-  const analyst = config.analyst ?? {};
   const execution = config.execution ?? {};
   const guardian = config.guardian ?? {};
 
@@ -68,18 +67,6 @@ function buildSections(config: ColiseumConfig): AgentSection[] {
           value:
             typeof daemon.max_consecutive_failures === "number"
               ? String(daemon.max_consecutive_failures)
-              : "—",
-        },
-      ],
-    },
-    {
-      agent: "ANALYST",
-      rows: [
-        {
-          label: "Max research time",
-          value:
-            typeof analyst.max_research_time_seconds === "number"
-              ? formatSeconds(analyst.max_research_time_seconds)
               : "—",
         },
       ],

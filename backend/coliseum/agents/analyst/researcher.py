@@ -51,7 +51,6 @@ async def run_researcher(
 
     deps = AnalystDependencies(
         opportunity_id=opportunity_id,
-        config=settings.analyst,
     )
     prompt = _build_research_prompt(opportunity, settings)
 

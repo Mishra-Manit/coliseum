@@ -59,7 +59,6 @@ async def run_recommender(
 
     deps = AnalystDependencies(
         opportunity_id=opportunity_id,
-        config=settings.analyst,
     )
     prompt = _build_decision_prompt(opportunity, markdown_body)
 

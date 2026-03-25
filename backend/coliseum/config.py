@@ -31,12 +31,6 @@ class ScoutConfig(BaseModel):
     market_fetch_limit: int = 10000
 
 
-class AnalystConfig(BaseModel):
-    """Analyst agent research parameters."""
-
-    max_research_time_seconds: int = 300
-
-
 class GuardianConfig(BaseModel):
     """Guardian agent monitoring parameters."""
 
@@ -112,7 +106,6 @@ class Settings(BaseSettings):
     # Nested configuration sections
     trading: TradingConfig = Field(default_factory=TradingConfig)
     scout: ScoutConfig = Field(default_factory=ScoutConfig)
-    analyst: AnalystConfig = Field(default_factory=AnalystConfig)
     guardian: GuardianConfig = Field(default_factory=GuardianConfig)
     execution: ExecutionConfig = Field(default_factory=ExecutionConfig)
     daemon: DaemonConfig = Field(default_factory=DaemonConfig)
@@ -173,7 +166,6 @@ class Settings(BaseSettings):
             for section_name in [
                 "trading",
                 "scout",
-                "analyst",
                 "guardian",
                 "execution",
                 "daemon",

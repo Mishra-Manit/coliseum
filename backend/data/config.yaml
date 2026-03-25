@@ -2,7 +2,7 @@
 
 trading:
   paper_mode: false
-  contracts: 5
+  contracts: 1
 
 scout:
   market_fetch_limit: 20000
@@ -12,9 +12,6 @@ scout:
   max_price: 96
   max_spread_cents: 3
   min_volume: 1000
-
-analyst:
-  max_research_time_seconds: 300
 
 guardian:
   stop_loss_price: 0.80 # Sell any open position with current_price below this
@@ -29,7 +26,7 @@ execution:
   max_order_age_minutes: 60 # Cancel order if open > 1 hour
 
 daemon:
-  heartbeat_interval_minutes: 180 # Full pipeline cycle interval (3 hours)
+  heartbeat_interval_minutes: 30 # Full pipeline cycle interval (3 hours)
   guardian_interval_minutes: 5 # Guardian-only checks between full cycles (5 minutes)
   max_consecutive_failures: 5 # Failures before pausing
 

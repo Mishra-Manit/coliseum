@@ -102,9 +102,6 @@ scout:
   max_spread_cents: 3
   min_volume: 1000
 
-analyst:
-  max_research_time_seconds: 300
-
 guardian:
   profit_target_pct: 0.70
   stop_loss_pct: 0.10
@@ -190,9 +187,6 @@ def cmd_config(args: argparse.Namespace) -> int:
         )
         print(f"  Max Spread: {settings.scout.max_spread_cents}¢")
         print(f"  Min Volume: {settings.scout.min_volume:,} contracts\n")
-
-        print("Analyst:")
-        print(f"  Max Research Time: {settings.analyst.max_research_time_seconds}s\n")
 
         print("Guardian:")
         print(f"  Stop Loss Price: {settings.guardian.stop_loss_price:.2f}\n")
