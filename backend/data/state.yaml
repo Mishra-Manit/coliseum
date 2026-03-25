@@ -1,9 +1,16 @@
-last_updated: '2026-03-25T20:57:25.548036+00:00'
+last_updated: '2026-03-25T21:11:12.880349+00:00'
 portfolio:
-  total_value: 21.06
-  cash_balance: 4.75
-  positions_value: 16.31
+  total_value: 21.1
+  cash_balance: 7.86
+  positions_value: 13.24
 open_positions:
+- id: pos_26c593a4
+  market_ticker: KXBTCD-26MAR2717-T65899.99
+  side: 'YES'
+  contracts: 3
+  average_entry: 0.96
+  current_price: 0.94
+  opportunity_id: opp_0b30b23c
 - id: pos_6a7a6f60
   market_ticker: KXTRUMPMENTION-26MAR25-TRUM
   side: 'YES'
@@ -11,20 +18,6 @@ open_positions:
   average_entry: 0.93
   current_price: 0.92
   opportunity_id: opp_61247e66
-- id: pos_78afbfe0
-  market_ticker: KXBTCD-26MAR2517-T67899.99
-  side: 'YES'
-  contracts: 1
-  average_entry: 0.96
-  current_price: 0.99
-  opportunity_id: opp_f1003322
-- id: pos_3945d7f7
-  market_ticker: KXSOLD-26MAR2517-T82.9999
-  side: 'YES'
-  contracts: 5
-  average_entry: 0.96
-  current_price: 0.98
-  opportunity_id: opp_282d41b4
 - id: pos_fc4765e2
   market_ticker: KXSURVIVORMENTION-26MAR25-SIT
   side: 'YES'
@@ -473,6 +466,24 @@ closed_positions:
   opportunity_id: opp_de7fc9ec
   closed_at: '2026-03-25T03:44:08.453479Z'
   entry_rationale: null
+- market_ticker: KXBTCD-26MAR2517-T67899.99
+  side: 'YES'
+  contracts: 1
+  entry_price: 0.96
+  exit_price: 1.0
+  pnl: 0.04
+  opportunity_id: opp_f1003322
+  closed_at: '2026-03-25T21:04:18.993608Z'
+  entry_rationale: null
+- market_ticker: KXSOLD-26MAR2517-T82.9999
+  side: 'YES'
+  contracts: 5
+  entry_price: 0.96
+  exit_price: 1.0
+  pnl: 0.2
+  opportunity_id: opp_282d41b4
+  closed_at: '2026-03-25T21:04:19.124059Z'
+  entry_rationale: null
 seen_tickers:
 - KXWTIW-26MAR13-B91.5
 - KXPCECORE-26JAN-T0.3
@@ -497,3 +508,4 @@ seen_tickers:
 - KXBTCD-26MAR2500-T70099.99
 - KXBTCD-26MAR2517-T67899.99
 - KXTRUMPMENTION-26MAR25-TRUM
+- KXBTCD-26MAR2717-T65899.99

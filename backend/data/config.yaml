@@ -2,7 +2,7 @@
 
 trading:
   paper_mode: false
-  contracts: 1
+  contracts: 3
 
 scout:
   market_fetch_limit: 20000

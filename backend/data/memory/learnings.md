@@ -22,6 +22,8 @@
 - **AAAGAS** weekly gas-price threshold NO entries are favorable when the named **AAA** regular-gas print sits at least **20¢** below the strike with only a few days remaining and the contract fallback still uses the last available **AAA** value.
 - **AAAGAS** overnight threshold **NO** entries at **96¢** are acceptable when the latest **AAA** regular-gas print is still below the strike, the strike requires a next-day move larger than the latest one-day increase, and the contract resolves mechanically from **AAA** or its last available print.
 - **KXBTCD** same-day downside-threshold **YES** entries at **96¢** are favorable when spot is already several percent above the strike, the same-day intraday low has also stayed above the strike, and the contract resolves from the final **60-second** **CF Benchmarks** average.
+- **KXSOLD** same-day downside-threshold **YES** entries at **96¢** are favorable when spot and the **24H** low both sit comfortably above the strike, the cushion is roughly **8%+**, and the contract resolves from the final **60-second** **CF Benchmarks** average.
+- Same-day crypto timestamp **YES** entries are favorable only in lower-volatility setups where the strike remains below both the current spot and the session low by a meaningful cushion rather than merely by a small percentage.
 
 ## Execution Patterns
 - Orders placed within 2h of close fill faster
@@ -37,6 +39,7 @@
 - In mechanical threshold markets, high-price **NO** entries are acceptable when the source is explicitly named, revisions after expiration are ignored, and the remaining move needed to lose is materially larger than the latest observed multi-day change.
 - In same-day **WTI** threshold markets, paying **95¢** for **NO** is acceptable only after confirming the exact exchange source, any front-month rollover rule, and a settlement-to-strike cushion large enough that only an outlier one-session move can flip the market.
 - In crypto timestamp markets, paying **96¢** for **YES** is acceptable only after confirming the exact benchmark source and verifying both spot and the current-day low remain above the strike.
+- In same-day crypto timestamp markets, pay **96¢** for **YES** only when the spread is **1¢** and the strike is still clearly below both spot and the current session low.
 
 ## Error Patterns
 - Kalshi API may return 429 during maintenance windows — skip scout cycles then
@@ -45,3 +48,4 @@
 - Do not enter same-day weather trades until the exact Kalshi market page or product certification confirms the station mapping and resolution source.
 - In crypto markets, do not rely on exchange-app prints alone because Kalshi resolves from the named benchmark composite and the final **60-second** average can differ from a single venue snapshot.
 - In **WTI** markets, do not rely on generic “front-month” or **CME** references when Kalshi’s contract spec names **ICE** and may roll to the following month before expiry.
+- In crypto timestamp markets, do not treat a recent historical flip at the same strike as disqualifying when current spot and the session low both remain well above the threshold at entry.
