@@ -17,6 +17,7 @@
 - Coastal-airport weather NO entries remain favorable when the latest official reading is materially below the strike and the NWS forecast discussion cites marine-layer or onshore-flow caps that keep heating below the threshold.
 - Same-day coastal-airport weather NO entries are favorable when the official station forecast shows multiple midday hours at or above the losing threshold and the market still prices NO inside the **93–94¢** range.
 - WTI daily-settlement NO entries are favorable when the losing outcome is a narrow **$1** band or a far-away downside threshold and the latest confirmed settlement is still several dollars outside the losing range.
+- WTI daily-settlement **NO** entries near **95¢** are favorable when the latest confirmed settlement still sits roughly **$10+** away from the strike, the contract resolves mechanically from the named exchange settlement, and no schedule disruption is present.
 - S&P 500 downside-threshold NO entries remain vulnerable to overnight macro shocks even with roughly **4%** spot-to-strike cushion over a two-session holding window.
 - **AAAGAS** weekly gas-price threshold NO entries are favorable when the named **AAA** regular-gas print sits at least **20¢** below the strike with only a few days remaining and the contract fallback still uses the last available **AAA** value.
 - **AAAGAS** overnight threshold **NO** entries at **96¢** are acceptable when the latest **AAA** regular-gas print is still below the strike, the strike requires a next-day move larger than the latest one-day increase, and the contract resolves mechanically from **AAA** or its last available print.
@@ -34,6 +35,7 @@
 - Do not buy same-day weather YES above **94¢** if the remaining DST-adjusted climate window still includes post-midnight local-standard-time hours that can reset the daily minimum or maximum.
 - Do not force fallback entries into **92–96¢** NO positions when the remaining risk window still includes overnight weather movement or multiple cash-equity sessions.
 - In mechanical threshold markets, high-price **NO** entries are acceptable when the source is explicitly named, revisions after expiration are ignored, and the remaining move needed to lose is materially larger than the latest observed multi-day change.
+- In same-day **WTI** threshold markets, paying **95¢** for **NO** is acceptable only after confirming the exact exchange source, any front-month rollover rule, and a settlement-to-strike cushion large enough that only an outlier one-session move can flip the market.
 - In crypto timestamp markets, paying **96¢** for **YES** is acceptable only after confirming the exact benchmark source and verifying both spot and the current-day low remain above the strike.
 
 ## Error Patterns
@@ -42,3 +44,4 @@
 - Government shutdowns can postpone scheduled BLS releases and break “deterministic publication” assumptions for macro-stat markets.
 - Do not enter same-day weather trades until the exact Kalshi market page or product certification confirms the station mapping and resolution source.
 - In crypto markets, do not rely on exchange-app prints alone because Kalshi resolves from the named benchmark composite and the final **60-second** average can differ from a single venue snapshot.
+- In **WTI** markets, do not rely on generic “front-month” or **CME** references when Kalshi’s contract spec names **ICE** and may roll to the following month before expiry.
