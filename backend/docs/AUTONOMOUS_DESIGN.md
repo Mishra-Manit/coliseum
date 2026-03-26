@@ -120,9 +120,9 @@ class ColiseumDaemon:
 daemon:
   heartbeat_interval_minutes: 60     # How often to run a full pipeline cycle
   guardian_interval_minutes: 15      # Guardian-only checks between full cycles
-  health_port: 8081                  # Health check endpoint port
   max_consecutive_failures: 5        # Failures before escalation
-  telegram_heartbeat_every_n: 6      # Send heartbeat Telegram every N cycles (~6h)
+
+telegram_send_alerts: true           # Heartbeat sent after every pipeline cycle
 ```
 
 ---
@@ -239,7 +239,7 @@ Three tiers, implemented directly in `daemon.py`, `pipeline.py`, and `memory/err
 - **Status**: Done. `daemon._send_escalation_alert()` is called when `_paused` flips to True.
 - **What it sends**: Error message, recurring-error pattern detection result (same error 3x in 1h), uptime, cycle count, last success timestamp.
 - **Pattern detection**: `memory/errors.py:detect_recurring_error()` reads `errors.jsonl`, groups by error signature (first 120 chars), flags if any signature hits the threshold.
-- **Gate**: Only fires if `settings.telegram.send_alerts = true` AND `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID` are set in `.env`.
+- **Gate**: Only fires if `settings.telegram_send_alerts = true` AND `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID` are set in `.env`.
 
 ```
 COLISEUM ALERT

@@ -1,2 +1,3 @@
 {"id":"trade_b80fb7ed","position_id":"pos_a49ea0d8","opportunity_id":"opp_f1003322","market_ticker":"KXBTCD-26MAR2517-T67899.99","side":"YES","action":"BUY","contracts":1,"price":0.96,"total":0.96,"paper":false,"executed_at":"2026-03-25T04:01:50.883952Z"}
 {"id":"trade_c1f263f7","position_id":"pos_db42d52e","opportunity_id":"opp_61247e66","market_ticker":"KXTRUMPMENTION-26MAR25-TRUM","side":"YES","action":"BUY","contracts":1,"price":0.93,"total":0.93,"paper":false,"executed_at":"2026-03-25T20:57:24.712884Z"}
+{"id":"trade_be09f4a9","position_id":"pos_7e8a5e82","opportunity_id":"opp_0b30b23c","market_ticker":"KXBTCD-26MAR2717-T65899.99","side":"YES","action":"BUY","contracts":3,"price":0.96,"total":2.88,"paper":false,"executed_at":"2026-03-25T21:11:12.126966Z"}

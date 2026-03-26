@@ -175,7 +175,7 @@ async def execute_stop_loss_exits(
                 threshold=threshold,
                 sell_price_cents=sell_price,
             )
-            if settings.telegram.send_alerts and settings.telegram_bot_token:
+            if settings.telegram_send_alerts and settings.telegram_bot_token:
                 try:
                     msg = (
                         f"STOP-LOSS TRIGGERED\n\n"

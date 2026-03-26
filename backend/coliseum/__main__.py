@@ -121,9 +121,7 @@ daemon:
   guardian_interval_minutes: 15
   max_consecutive_failures: 5
 
-telegram:
-  send_alerts: true
-  heartbeat_interval_minutes: 360
+telegram_send_alerts: true
 """
         config_path.write_text(config_template)
         logger.info(f"Created config template: {config_path}")

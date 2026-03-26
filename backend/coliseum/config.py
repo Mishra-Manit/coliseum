@@ -75,13 +75,6 @@ class DashboardDisplayConfig(BaseModel):
         return v
 
 
-class TelegramConfig(BaseModel):
-    """Telegram notification configuration."""
-
-    send_alerts: bool = True
-    heartbeat_interval_minutes: int = 360  # 6 hours
-
-
 class Settings(BaseSettings):
     """Main configuration class."""
 
@@ -102,6 +95,7 @@ class Settings(BaseSettings):
     # Telegram
     telegram_bot_token: str = ""
     telegram_chat_id: str = ""
+    telegram_send_alerts: bool = True
 
     # Nested configuration sections
     trading: TradingConfig = Field(default_factory=TradingConfig)
@@ -109,7 +103,6 @@ class Settings(BaseSettings):
     guardian: GuardianConfig = Field(default_factory=GuardianConfig)
     execution: ExecutionConfig = Field(default_factory=ExecutionConfig)
     daemon: DaemonConfig = Field(default_factory=DaemonConfig)
-    telegram: TelegramConfig = Field(default_factory=TelegramConfig)
     dashboard_display: DashboardDisplayConfig = Field(default_factory=DashboardDisplayConfig)
 
     model_config = SettingsConfigDict(
@@ -163,13 +156,15 @@ class Settings(BaseSettings):
                 logger.warning(f"Empty config file: {config_path}")
                 return
 
+            if "telegram_send_alerts" in yaml_config:
+                self.telegram_send_alerts = yaml_config["telegram_send_alerts"]
+
             for section_name in [
                 "trading",
                 "scout",
                 "guardian",
                 "execution",
                 "daemon",
-                "telegram",
                 "dashboard_display",
             ]:
                 if section_name in yaml_config:

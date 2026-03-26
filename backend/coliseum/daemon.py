@@ -27,7 +27,6 @@ class ColiseumDaemon:
         self._consecutive_failures = 0
         self._started_at: datetime | None = None
         self._last_cycle_at: datetime | None = None
-        self._last_heartbeat_at: datetime | None = None
         self._paused = False
 
     @property
@@ -127,7 +126,7 @@ class ColiseumDaemon:
                 self._paused = True
                 await self._send_escalation_alert(str(e))
 
-        await self._maybe_send_heartbeat()
+        await self._send_heartbeat()
 
     async def _run_guardian_intercycles(self, remaining_seconds: float) -> None:
         """Run guardian-only checks in the gap between full pipeline cycles."""
@@ -183,21 +182,10 @@ class ColiseumDaemon:
         logger.info("Received %s — initiating graceful shutdown", sig.name)
         self._shutdown_event.set()
 
-    async def _maybe_send_heartbeat(self) -> None:
-        """Send a Telegram heartbeat if the configured interval has elapsed."""
-        if not self.settings.telegram.send_alerts:
-            return
-        interval_seconds = self.settings.telegram.heartbeat_interval_minutes * 60
-        now = datetime.now(timezone.utc)
-        if (
-            self._last_heartbeat_at is None
-            or (now - self._last_heartbeat_at).total_seconds() >= interval_seconds
-        ):
-            await self._send_heartbeat()
-            self._last_heartbeat_at = now
-
     async def _send_heartbeat(self) -> None:
-        """Send a periodic Telegram status summary."""
+        """Send a Telegram status summary after each pipeline cycle."""
+        if not self.settings.telegram_send_alerts:
+            return
         if not self.settings.telegram_bot_token or not self.settings.telegram_chat_id:
             logfire.warn("telegram heartbeat skipped: bot_token or chat_id not configured")
             return
@@ -238,7 +226,7 @@ class ColiseumDaemon:
 
     async def _send_escalation_alert(self, error: str) -> None:
         """Send a Telegram alert when the daemon pauses due to repeated failures."""
-        if not self.settings.telegram.send_alerts:
+        if not self.settings.telegram_send_alerts:
             return
         if not self.settings.telegram_bot_token or not self.settings.telegram_chat_id:
             logger.warning(

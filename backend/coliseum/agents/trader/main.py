@@ -275,7 +275,7 @@ async def run_trader(
                 )
             )
             telegram_client = None
-            if settings.telegram.send_alerts:
+            if settings.telegram_send_alerts:
                 telegram_client = await stack.enter_async_context(
                     create_telegram_client(
                         bot_token=settings.telegram_bot_token,
