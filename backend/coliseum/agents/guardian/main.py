@@ -6,6 +6,7 @@ import logging
 from datetime import datetime, timezone
 
 import logfire
+import yaml
 
 from coliseum.config import Settings, get_settings
 from coliseum.services.kalshi import KalshiClient
@@ -15,7 +16,6 @@ from coliseum.storage.files import (
     TradeClose,
     find_opportunity_file_by_id,
     generate_close_id,
-    get_opportunity_markdown_body,
     log_trade_close,
 )
 from coliseum.storage.state import ClosedPosition, PortfolioState, Position, load_state, save_state
@@ -119,7 +119,14 @@ def _extract_entry_rationale(opportunity_id: str | None) -> str | None:
         opp_file = find_opportunity_file_by_id(opportunity_id)
         if not opp_file:
             return None
-        body = get_opportunity_markdown_body(opp_file)
+        content = opp_file.read_text(encoding="utf-8")
+        parts = content.split("---", 2)
+        if len(parts) >= 3:
+            frontmatter = yaml.safe_load(parts[1]) or {}
+            if frontmatter.get("rationale"):
+                return str(frontmatter["rationale"])
+        # fallback: old format stored rationale in markdown body
+        body = parts[2] if len(parts) >= 3 else content
         for line in body.splitlines():
             if line.startswith("**Rationale**:"):
                 return line.removeprefix("**Rationale**:").strip()

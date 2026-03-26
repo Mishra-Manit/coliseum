@@ -5,14 +5,10 @@ import asyncio
 import functools
 import logging
 import sys
-import uvicorn
 from pathlib import Path
+import uvicorn
 
-from dotenv import load_dotenv
 from pydantic import ValidationError
-
-env_file = Path(__file__).parent.parent / ".env"
-load_dotenv(env_file)
 
 from coliseum import __version__
 from coliseum.agents.analyst import run_analyst
@@ -23,6 +19,7 @@ from coliseum.config import get_settings
 from coliseum.memory.learnings import LEARNINGS_SEED
 from coliseum.observability import initialize_logfire
 from coliseum.pipeline import run_pipeline
+from coliseum.runtime import bootstrap_runtime
 from coliseum.storage.state import load_state
 
 # Configure logging
@@ -33,6 +30,8 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger(__name__)
+
+bootstrap_runtime()
 
 
 def _cli_command(label: str):
