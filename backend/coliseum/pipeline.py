@@ -11,7 +11,7 @@ from coliseum.agents.scout import run_scout
 from coliseum.agents.trader import run_trader
 from coliseum.config import Settings
 from coliseum.memory.journal import JournalCycleSummary, write_journal_entry
-from coliseum.storage.files import find_opportunity_file_by_id, update_opportunity_frontmatter
+from coliseum.storage.files import find_opportunity_file_by_id, mark_opportunity_failed
 from coliseum.storage.state import load_state
 
 logger = logging.getLogger("coliseum.pipeline")
@@ -102,7 +102,12 @@ async def run_pipeline(settings: Settings) -> JournalCycleSummary:
                         errors.append(f"Analyst({opp.market_ticker}): {e}")
                         logfire.error("Analyst failed", error=str(e))
                         logger.error("Analyst failed for %s: %s", opp.market_ticker, e)
-                        _mark_opportunity_failed(opp.id, settings.trading.paper_mode)
+                        _mark_opportunity_failed(
+                            opp.id,
+                            settings.trading.paper_mode,
+                            failed_stage="analyst",
+                            error_message=str(e),
+                        )
                         continue
 
                 with logfire.span("trader", opportunity_id=opp.id):
@@ -123,7 +128,12 @@ async def run_pipeline(settings: Settings) -> JournalCycleSummary:
                     except Exception as e:
                         errors.append(f"Trader({opp.market_ticker}): {e}")
                         logfire.error("Trader failed", error=str(e))
-                        _mark_opportunity_failed(opp.id, settings.trading.paper_mode)
+                        _mark_opportunity_failed(
+                            opp.id,
+                            settings.trading.paper_mode,
+                            failed_stage="trader",
+                            error_message=str(e),
+                        )
 
         summary.analyst_summary = "; ".join(analyst_summaries) if analyst_summaries else "N/A"
         summary.trader_summary = "; ".join(trader_summaries) if trader_summaries else "N/A"
@@ -151,13 +161,27 @@ async def run_pipeline(settings: Settings) -> JournalCycleSummary:
     return summary
 
 
-def _mark_opportunity_failed(opportunity_id: str, paper: bool) -> None:
-    """Set opportunity status to 'failed' after an agent exception."""
+def _mark_opportunity_failed(
+    opportunity_id: str,
+    paper: bool,
+    *,
+    failed_stage: str,
+    error_message: str,
+) -> None:
+    """Set explicit failure metadata after an agent exception without changing body content."""
     try:
         opp_file = find_opportunity_file_by_id(opportunity_id, paper=paper)
         if opp_file:
-            update_opportunity_frontmatter(opp_file, {"status": "failed"})
-            logfire.info("Opportunity marked failed", opportunity_id=opportunity_id)
+            mark_opportunity_failed(
+                opp_file,
+                failed_stage=failed_stage,
+                error_message=error_message,
+            )
+            logfire.info(
+                "Opportunity marked failed",
+                opportunity_id=opportunity_id,
+                failed_stage=failed_stage,
+            )
     except Exception as e:
         logger.error("Could not mark opportunity failed: %s", e)
 

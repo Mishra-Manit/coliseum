@@ -299,6 +299,31 @@ def update_opportunity_frontmatter(file_path: Path, frontmatter_updates: dict) -
     logger.info("Updated frontmatter in %s", file_path)
 
 
+def mark_opportunity_failed(
+    file_path: Path,
+    *,
+    failed_stage: str,
+    error_message: str,
+) -> None:
+    """Persist failed status metadata without altering existing markdown body."""
+    content = file_path.read_text(encoding="utf-8")
+    frontmatter, body = _parse_frontmatter(content, file_path)
+
+    frontmatter.update(
+        {
+            "status": "failed",
+            "failed_stage": failed_stage,
+            "failure_error": error_message,
+            "failed_at": datetime.utcnow().isoformat() + "Z",
+        }
+    )
+
+    new_content = f"---\n{yaml_dump(frontmatter)}---{body}"
+    _atomic_write(file_path, new_content)
+
+    logger.info("Marked opportunity failed in %s", file_path)
+
+
 def _parse_opportunity_from_parts(frontmatter: dict, body: str) -> OpportunitySignal:
     """Build OpportunitySignal from frontmatter and body content."""
     lines = body.strip().split("\n")

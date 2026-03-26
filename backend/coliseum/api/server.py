@@ -32,8 +32,15 @@ from coliseum.storage.state import Position, load_state
 from coliseum.storage.sync import resolve_market_price
 
 logger = logging.getLogger(__name__)
-
-DATA_DIR = Path(__file__).resolve().parent.parent.parent / "data"
+_DAEMON_OFFLINE: dict[str, Any] = {
+    "available": False,
+    "running": False,
+    "paused": False,
+    "uptime_seconds": 0,
+    "cycles_completed": 0,
+    "consecutive_failures": 0,
+    "last_cycle": None,
+}
 
 
 # ---------------------------------------------------------------------------
@@ -45,6 +52,8 @@ DATA_DIR = Path(__file__).resolve().parent.parent.parent / "data"
 async def _api_lifespan(app: FastAPI):
     """Lifespan for the API-only server (no daemon)."""
     app.state.daemon = None
+    app.state.pipeline_task = None
+    app.state.pipeline_running = False
     yield
 
 
@@ -59,6 +68,8 @@ async def _daemon_lifespan(app: FastAPI):
     daemon = ColiseumDaemon(settings)
     task = asyncio.create_task(daemon.start(install_signal_handlers=False))
     app.state.daemon = daemon
+    app.state.pipeline_task = None
+    app.state.pipeline_running = False
     logger.info("Daemon started as background task alongside API server")
     yield
     daemon._shutdown_event.set()
@@ -108,6 +119,11 @@ def _load_yaml(path: Path) -> dict[str, Any]:
         return yaml.safe_load(f) or {}
 
 
+def _get_data_dir() -> Path:
+    """Return the configured data directory used by CLI and storage helpers."""
+    return get_settings().data_dir
+
+
 def _parse_opportunity(file_path: Path) -> dict[str, Any] | None:
     """Parse a markdown opportunity file into frontmatter + body."""
     try:
@@ -143,7 +159,7 @@ def _parse_opportunity(file_path: Path) -> dict[str, Any] | None:
 
 def _get_all_opportunities() -> list[dict[str, Any]]:
     """Scan all opportunity markdown files, sorted by discovered_at descending."""
-    opps_dir = DATA_DIR / "opportunities"
+    opps_dir = _get_data_dir() / "opportunities"
     if not opps_dir.exists():
         return []
 
@@ -180,13 +196,13 @@ def _get_all_opportunities() -> list[dict[str, Any]]:
 @router.get("/api/config")
 async def get_config():
     """Return the full config.yaml contents."""
-    return _load_yaml(DATA_DIR / "config.yaml")
+    return _load_yaml(_get_data_dir() / "config.yaml")
 
 
 @router.get("/api/state")
 async def get_state():
     """Return the full state.yaml contents."""
-    return _load_yaml(DATA_DIR / "state.yaml")
+    return _load_yaml(_get_data_dir() / "state.yaml")
 
 
 @router.get("/api/opportunities")
@@ -330,7 +346,7 @@ def _read_trades(
 
     Skips entire files whose filename date is before start_date.
     """
-    trade_dir = DATA_DIR / "trades" / trade_type
+    trade_dir = _get_data_dir() / "trades" / trade_type
     if not trade_dir.exists():
         return []
 
@@ -426,7 +442,7 @@ async def get_chart_data():
         else:
             daily_map[date]["losses"] += 1
 
-    state = _load_yaml(DATA_DIR / "state.yaml")
+    state = _load_yaml(_get_data_dir() / "state.yaml")
     current_nav = float(state.get("portfolio", {}).get("total_value", 1000.0))
 
     total_pnl = sum(e["pnl"] for e in raw_entries)
@@ -473,9 +489,6 @@ async def get_chart_data():
 # ---------------------------------------------------------------------------
 # Pipeline trigger
 # ---------------------------------------------------------------------------
-
-_pipeline_running = False
-_pipeline_task: asyncio.Task[None] | None = None
 
 # In-memory price cache for SSE stream: ticker -> (price, fetched_at_epoch)
 _price_cache: dict[str, tuple[float, float]] = {}
@@ -564,49 +577,38 @@ async def _fetch_prices_for_positions(
         return result
 
 
-async def _execute_pipeline() -> None:
+def _pipeline_running(request: Request) -> bool:
+    """Return current in-process pipeline status for this app instance."""
+    return bool(getattr(request.app.state, "pipeline_running", False))
+
+
+async def _execute_pipeline(request: Request) -> None:
     """Wrapper that flips the running flag on completion."""
-    global _pipeline_running
     try:
         settings = get_settings()
         await run_pipeline(settings)
     except Exception:
         logger.exception("Pipeline run failed")
     finally:
-        _pipeline_running = False
+        request.app.state.pipeline_running = False
+        request.app.state.pipeline_task = None
 
 
 @router.post("/api/pipeline/run", status_code=202)
-async def trigger_pipeline():
+async def trigger_pipeline(request: Request):
     """Kick off a full pipeline cycle. Returns 409 if one is already running."""
-    global _pipeline_running, _pipeline_task
-    if _pipeline_running:
+    if _pipeline_running(request):
         raise HTTPException(status_code=409, detail="Pipeline already running")
 
-    _pipeline_running = True
-    _pipeline_task = asyncio.create_task(_execute_pipeline())
+    request.app.state.pipeline_running = True
+    request.app.state.pipeline_task = asyncio.create_task(_execute_pipeline(request))
     return {"status": "started"}
 
 
 @router.get("/api/pipeline/status")
-async def pipeline_status():
+async def pipeline_status(request: Request):
     """Check whether a pipeline cycle is currently in progress."""
-    return {"running": _pipeline_running}
-
-
-# ---------------------------------------------------------------------------
-# Daemon status
-# ---------------------------------------------------------------------------
-
-_DAEMON_OFFLINE: dict = {
-    "available": False,
-    "running": False,
-    "paused": False,
-    "uptime_seconds": 0,
-    "cycles_completed": 0,
-    "consecutive_failures": 0,
-    "last_cycle": None,
-}
+    return {"running": _pipeline_running(request)}
 
 
 @router.get("/api/daemon/status")

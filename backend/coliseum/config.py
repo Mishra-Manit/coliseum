@@ -9,6 +9,8 @@ import yaml
 from pydantic import BaseModel, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from coliseum.runtime import bootstrap_runtime
+
 logger = logging.getLogger(__name__)
 
 
@@ -190,6 +192,9 @@ class Settings(BaseSettings):
 @lru_cache()
 def get_settings() -> Settings:
     """Get singleton Settings instance."""
+    bootstrap_runtime()
     settings = Settings()
     settings.load_yaml_config()
     return settings
+
+
