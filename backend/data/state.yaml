@@ -1,37 +1,16 @@
-last_updated: '2026-03-25T21:11:12.880349+00:00'
+last_updated: '2026-03-26T20:17:24.595878+00:00'
 portfolio:
-  total_value: 21.1
-  cash_balance: 7.86
-  positions_value: 13.24
+  total_value: 21.62
+  cash_balance: 18.86
+  positions_value: 2.76
 open_positions:
 - id: pos_26c593a4
   market_ticker: KXBTCD-26MAR2717-T65899.99
   side: 'YES'
   contracts: 3
   average_entry: 0.96
-  current_price: 0.94
-  opportunity_id: opp_0b30b23c
-- id: pos_6a7a6f60
-  market_ticker: KXTRUMPMENTION-26MAR25-TRUM
-  side: 'YES'
-  contracts: 1
-  average_entry: 0.93
   current_price: 0.92
-  opportunity_id: opp_61247e66
-- id: pos_fc4765e2
-  market_ticker: KXSURVIVORMENTION-26MAR25-SIT
-  side: 'YES'
-  contracts: 5
-  average_entry: 0.95
-  current_price: 0.95
-  opportunity_id: opp_814434f2
-- id: pos_e6e55e1e
-  market_ticker: KXJOBLESSCLAIMS-26MAR26-195000
-  side: 'YES'
-  contracts: 5
-  average_entry: 0.96
-  current_price: 0.95
-  opportunity_id: opp_952d7776
+  opportunity_id: opp_0b30b23c
 closed_positions:
 - market_ticker: KXNBAMENTION-26MAR06LALDEN-INJU
   side: 'YES'
@@ -377,7 +356,9 @@ closed_positions:
   pnl: -4.75
   opportunity_id: opp_3b86ff43
   closed_at: '2026-03-15T05:35:39.178308Z'
-  entry_rationale: null
+  entry_rationale: 'NEAR-DECIDED: YES — KXLOWTDEN-26MAR13-T44 is priced at 94¢ into
+    a 06:00 UTC close, and the market only loses if the official Denver low slips
+    below 45°F in the final hours. The remaining payout is 6¢ to resolution.'
 - market_ticker: KXHIGHTSFO-26MAR13-T71
   side: 'NO'
   contracts: 5
@@ -386,7 +367,10 @@ closed_positions:
   pnl: 0.3
   opportunity_id: opp_9dee2b8b
   closed_at: '2026-03-15T05:35:39.369429Z'
-  entry_rationale: null
+  entry_rationale: 'FORCED_FALLBACK — STRONGLY FAVORED: BUY NO because KSFO is 62.1°F
+    at 1:56 PM PDT and the NWS point forecast still only calls for a high near 66°F,
+    leaving about 6°F of cushion below the 72°F YES threshold. NO is 0.96, inside
+    the target band. citeturn7view0turn8view0'
 - market_ticker: KXWTIW-26MAR13-T85.00
   side: 'NO'
   contracts: 2
@@ -395,7 +379,10 @@ closed_positions:
   pnl: 0.14
   opportunity_id: opp_8ec6503c
   closed_at: '2026-03-15T05:35:39.551348Z'
-  entry_rationale: null
+  entry_rationale: 'STRONGLY FAVORED: NO — the market only loses if front-month WTI
+    settles below $85.00 on March 13, and Kalshi still prices NO at 93¢ with a 1¢
+    spread. The combination of deep liquidity and an objective exchange-based settlement
+    makes this the cleanest remaining non-crypto, non-speaking setup in the scan.'
 - market_ticker: KXWTIW-26MAR13-B91.5
   side: 'NO'
   contracts: 2
@@ -429,7 +416,9 @@ closed_positions:
   pnl: 0.3
   opportunity_id: opp_2b665156
   closed_at: '2026-03-15T18:23:42.638040Z'
-  entry_rationale: null
+  entry_rationale: 'STRONGLY FAVORED: BUY NO — the latest official LAX forecast peaks
+    around 74°F on March 14, leaving the <72°F YES band a few degrees below the projected
+    high. The market still offers NO at 93¢ versus YES at 8¢ with a 1¢ spread.'
 - market_ticker: KXAAAGASW-26MAR16TH-3.870
   side: 'NO'
   contracts: 5
@@ -438,7 +427,9 @@ closed_positions:
   pnl: 0.3
   opportunity_id: opp_16d31698
   closed_at: '2026-03-16T17:46:51.416027Z'
-  entry_rationale: null
+  entry_rationale: 'STRONGLY FAVORED: NO — AAA’s published U.S. regular-gas average
+    remains well below the $3.870 strike, and the contract resolves from a mechanical
+    source rather than discretionary review. NO is offered at 94¢ with a 1¢ spread.'
 - market_ticker: KXAAAGASW-26MAR23-3.980
   side: 'NO'
   contracts: 5
@@ -447,7 +438,10 @@ closed_positions:
   pnl: 0.2
   opportunity_id: opp_2035ba6f
   closed_at: '2026-03-23T22:19:55.669571Z'
-  entry_rationale: null
+  entry_rationale: 'STRONGLY FAVORED: BUY NO — the market prices NO at 96¢ against
+    a 5¢ YES, and AAA’s current national average remains below the $3.980 strike.
+    With a 1¢ spread and very high volume, this is the cleanest low-reversal setup
+    in the scanned universe.'
 - market_ticker: KXBTCD-26MAR2417-T67299.99
   side: 'YES'
   contracts: 5
@@ -456,7 +450,9 @@ closed_positions:
   pnl: 0.2
   opportunity_id: opp_ad11db42
   closed_at: '2026-03-24T21:03:32.266850Z'
-  entry_rationale: null
+  entry_rationale: 'NEAR-DECIDED: Bitcoin is already trading materially above the
+    $67,300 strike and today’s intraday low has also stayed above that threshold.
+    The tradable YES entry remains inside the target band at 96¢ with a 1¢ spread.'
 - market_ticker: KXWTI-26MAR24-T99.99
   side: 'NO'
   contracts: 5
@@ -465,7 +461,9 @@ closed_positions:
   pnl: 0.25
   opportunity_id: opp_de7fc9ec
   closed_at: '2026-03-25T03:44:08.453479Z'
-  entry_rationale: null
+  entry_rationale: 'STRONGLY FAVORED: NO — front-month WTI settled at $88.13 on March
+    23, leaving an $11.87 cushion below the $100 threshold with one settlement remaining.
+    NO is offered at 0.95 while YES costs 0.06.'
 - market_ticker: KXBTCD-26MAR2517-T67899.99
   side: 'YES'
   contracts: 1
@@ -474,7 +472,9 @@ closed_positions:
   pnl: 0.04
   opportunity_id: opp_f1003322
   closed_at: '2026-03-25T21:04:18.993608Z'
-  entry_rationale: null
+  entry_rationale: 'STRONGLY FAVORED: Bitcoin is already above the $67,900 threshold
+    and this same-day contract resolves from a defined benchmark process rather than
+    discretionary review. The tradable side is YES at 96¢ with a 1¢ spread.'
 - market_ticker: KXSOLD-26MAR2517-T82.9999
   side: 'YES'
   contracts: 5
@@ -483,7 +483,42 @@ closed_positions:
   pnl: 0.2
   opportunity_id: opp_282d41b4
   closed_at: '2026-03-25T21:04:19.124059Z'
-  entry_rationale: null
+  entry_rationale: 'NEAR-DECIDED: YES is offered at 96¢ with a 1¢ spread, 3,225 contracts
+    of volume, and 3,215 open interest, making it the strongest priced candidate in
+    the scan. At a 96¢ entry, only 4¢ of payout remains before the Mar 25 close.'
+- market_ticker: KXTRUMPMENTION-26MAR25-TRUM
+  side: 'YES'
+  contracts: 1
+  entry_price: 0.93
+  exit_price: 1.0
+  pnl: 0.07
+  opportunity_id: opp_61247e66
+  closed_at: '2026-03-26T16:05:59.460307Z'
+  entry_rationale: 'STRONGLY FAVORED: YES is offered at 93¢ with a 1¢ spread in a
+    liquid, high-open-interest market. That leaves 7¢ gross to resolution while staying
+    inside the 92–96¢ target band.'
+- market_ticker: KXSURVIVORMENTION-26MAR25-SIT
+  side: 'YES'
+  contracts: 5
+  entry_price: 0.95
+  exit_price: 1.0
+  pnl: 0.25
+  opportunity_id: opp_814434f2
+  closed_at: '2026-03-26T16:05:59.537757Z'
+  entry_rationale: 'STRONGLY FAVORED: YES is offered at 95¢ with 1,965 volume and
+    1,813 open interest, the strongest market-data profile in this scan. The trade
+    remains inside the target band despite a wider 2¢ spread.'
+- market_ticker: KXJOBLESSCLAIMS-26MAR26-195000
+  side: 'YES'
+  contracts: 5
+  entry_price: 0.96
+  exit_price: 1.0
+  pnl: 0.2
+  opportunity_id: opp_952d7776
+  closed_at: '2026-03-26T16:05:59.629179Z'
+  entry_rationale: 'NEAR-DECIDED: YES is offered at 96¢ with a 1¢ spread, 1,797 volume,
+    and 1,587 open interest, making it the cleanest tight-spread candidate in this
+    scan. The entry captures the final 4¢ to payout inside the target band.'
 seen_tickers:
 - KXWTIW-26MAR13-B91.5
 - KXPCECORE-26JAN-T0.3
