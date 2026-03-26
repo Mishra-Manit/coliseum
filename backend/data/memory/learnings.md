@@ -24,6 +24,9 @@
 - **KXBTCD** same-day downside-threshold **YES** entries at **96¢** are favorable when spot is already several percent above the strike, the same-day intraday low has also stayed above the strike, and the contract resolves from the final **60-second** **CF Benchmarks** average.
 - **KXSOLD** same-day downside-threshold **YES** entries at **96¢** are favorable when spot and the **24H** low both sit comfortably above the strike, the cushion is roughly **8%+**, and the contract resolves from the final **60-second** **CF Benchmarks** average.
 - Same-day crypto timestamp **YES** entries are favorable only in lower-volatility setups where the strike remains below both the current spot and the session low by a meaningful cushion rather than merely by a small percentage.
+- **KXJOBLESSCLAIMS** high-price **YES** entries are favorable when the latest official print and the **4-week average** both clear the strike by at least **10,000** and the contract resolves from the scheduled **DOL** weekly release.
+- Mention-market **YES** entries can be favorable at **93–95¢** when the event is scheduled from an official source, the speaker regularly uses the exact word in the same recurring format, and the market has tight spreads with solid liquidity.
+- Recurring-format speech and TV mention markets are more reliable when the exact phrase is part of the host or speaker’s standard on-air cadence rather than a one-off topical inference.
 
 ## Execution Patterns
 - Orders placed within 2h of close fill faster
@@ -40,6 +43,8 @@
 - In same-day **WTI** threshold markets, paying **95¢** for **NO** is acceptable only after confirming the exact exchange source, any front-month rollover rule, and a settlement-to-strike cushion large enough that only an outlier one-session move can flip the market.
 - In crypto timestamp markets, paying **96¢** for **YES** is acceptable only after confirming the exact benchmark source and verifying both spot and the current-day low remain above the strike.
 - In same-day crypto timestamp markets, pay **96¢** for **YES** only when the spread is **1¢** and the strike is still clearly below both spot and the current session low.
+- In mention markets, a **1–2¢** spread with strong volume/open interest is enough to pay **93–95¢** only after confirming the exact phrase has repeated historical usage in the same show or event format.
+- In scheduled macro releases, paying **96¢** for **YES** is acceptable when the market closes just before publication and the latest official level still leaves a **10,000+** cushion over the strike.
 
 ## Error Patterns
 - Kalshi API may return 429 during maintenance windows — skip scout cycles then
@@ -49,3 +54,4 @@
 - In crypto markets, do not rely on exchange-app prints alone because Kalshi resolves from the named benchmark composite and the final **60-second** average can differ from a single venue snapshot.
 - In **WTI** markets, do not rely on generic “front-month” or **CME** references when Kalshi’s contract spec names **ICE** and may roll to the following month before expiry.
 - In crypto timestamp markets, do not treat a recent historical flip at the same strike as disqualifying when current spot and the session low both remain well above the threshold at entry.
+- Mention-market research must verify the exact resolution source and exact-word rule because a plausible theme match is not enough to support a high-price **YES** entry.
