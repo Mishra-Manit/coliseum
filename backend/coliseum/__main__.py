@@ -107,7 +107,6 @@ guardian:
   max_hold_days: 5
 
 execution:
-  use_limit_orders_only: true
   max_slippage_pct: 0.05
   order_check_interval_seconds: 120
   max_reprice_attempts: 3
@@ -189,7 +188,6 @@ def cmd_config(args: argparse.Namespace) -> int:
         print(f"  Stop Loss Price: {settings.guardian.stop_loss_price:.2f}\n")
 
         print("Execution:")
-        print(f"  Use Limit Orders Only: {settings.execution.use_limit_orders_only}")
         print(f"  Max Slippage: {settings.execution.max_slippage_pct:.0%}")
         print(f"  Order Check Interval: {settings.execution.order_check_interval_seconds}s")
         print(f"  Max Reprice Attempts: {settings.execution.max_reprice_attempts}")

@@ -42,7 +42,6 @@ class GuardianConfig(BaseModel):
 class ExecutionConfig(BaseModel):
     """Order execution and slippage parameters."""
 
-    use_limit_orders_only: bool = True
     max_slippage_pct: float = 0.05
     order_check_interval_seconds: int = 120
     max_reprice_attempts: int = 3
