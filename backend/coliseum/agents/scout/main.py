@@ -5,7 +5,7 @@ import json
 import logging
 
 import logfire
-from pydantic_ai import Agent, RunContext, WebSearchTool
+from pydantic_ai import Agent, RunContext
 
 from coliseum.agents.agent_factory import create_agent
 from coliseum.agents.shared_tools import register_get_current_time, _strip_cite_tokens
@@ -20,6 +20,7 @@ from coliseum.storage.state import add_seen_ticker, get_seen_tickers
 from .filters import passes_filter
 from .models import ScoutDependencies, ScoutOutput
 from .prompts import build_scout_prompt
+from .researcher import get_web_researcher
 
 logger = logging.getLogger(__name__)
 
@@ -31,9 +32,19 @@ def _create_scout_agent(prompt: str) -> Agent[ScoutDependencies, ScoutOutput]:
         output_type=ScoutOutput,
         deps_type=ScoutDependencies,
         reasoning_effort="medium",
-        builtin_tools=[WebSearchTool()],
         prepend_mechanics=False,
     )
+
+
+def _register_research_tool(agent: Agent[ScoutDependencies, ScoutOutput]) -> None:
+    """Register the web research delegation tool on the Scout agent."""
+
+    @agent.tool
+    async def research_market(ctx: RunContext[ScoutDependencies], query: str) -> str:
+        """Search the web for a specific query and return a comprehensive research synthesis."""
+        researcher = get_web_researcher()
+        result = await researcher.run(query, usage=ctx.usage)
+        return result.output
 
 
 def _register_tools(agent: Agent[ScoutDependencies, ScoutOutput]) -> None:
@@ -45,6 +56,7 @@ def _register_tools(agent: Agent[ScoutDependencies, ScoutOutput]) -> None:
         return generate_opportunity_id()
 
     register_get_current_time(agent)
+    _register_research_tool(agent)
 
 
 def _side_is_tradeable(
