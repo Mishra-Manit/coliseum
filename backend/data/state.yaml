@@ -1,15 +1,15 @@
-last_updated: '2026-03-27T11:25:41.894228+00:00'
+last_updated: '2026-03-27T15:49:42.766947+00:00'
 portfolio:
-  total_value: 20.31
+  total_value: 20.66
   cash_balance: 6.36
-  positions_value: 13.95
+  positions_value: 14.3
 open_positions:
 - id: pos_8e2c16c4
   market_ticker: KXBTCD-26MAR2717-T63399.99
   side: 'YES'
   contracts: 5
   average_entry: 0.96
-  current_price: 0.95
+  current_price: 0.98
   opportunity_id: opp_9e3dd775
 - id: pos_d098edb9
   market_ticker: KXETHD-26MAR2717-T2189.99
@@ -23,7 +23,7 @@ open_positions:
   side: 'NO'
   contracts: 5
   average_entry: 0.96
-  current_price: 0.85
+  current_price: 0.89
   opportunity_id: opp_5977ccae
 closed_positions:
 - market_ticker: KXNBAMENTION-26MAR06LALDEN-INJU
