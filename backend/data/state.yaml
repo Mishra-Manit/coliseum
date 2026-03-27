@@ -1,16 +1,30 @@
-last_updated: '2026-03-26T20:41:12.470716+00:00'
+last_updated: '2026-03-27T11:25:41.894228+00:00'
 portfolio:
-  total_value: 21.62
-  cash_balance: 18.86
-  positions_value: 2.76
+  total_value: 20.31
+  cash_balance: 6.36
+  positions_value: 13.95
 open_positions:
-- id: pos_26c593a4
-  market_ticker: KXBTCD-26MAR2717-T65899.99
+- id: pos_8e2c16c4
+  market_ticker: KXBTCD-26MAR2717-T63399.99
   side: 'YES'
-  contracts: 3
+  contracts: 5
   average_entry: 0.96
-  current_price: 0.92
-  opportunity_id: opp_0b30b23c
+  current_price: 0.95
+  opportunity_id: opp_9e3dd775
+- id: pos_d098edb9
+  market_ticker: KXETHD-26MAR2717-T2189.99
+  side: 'NO'
+  contracts: 5
+  average_entry: 0.96
+  current_price: 0.99
+  opportunity_id: opp_7b87a336
+- id: pos_ba94a602
+  market_ticker: KXETH-26MAR2717-B1930
+  side: 'NO'
+  contracts: 5
+  average_entry: 0.96
+  current_price: 0.85
+  opportunity_id: opp_5977ccae
 closed_positions:
 - market_ticker: KXNBAMENTION-26MAR06LALDEN-INJU
   side: 'YES'
@@ -519,6 +533,18 @@ closed_positions:
   entry_rationale: 'NEAR-DECIDED: YES is offered at 96¢ with a 1¢ spread, 1,797 volume,
     and 1,587 open interest, making it the cleanest tight-spread candidate in this
     scan. The entry captures the final 4¢ to payout inside the target band.'
+- market_ticker: KXBTCD-26MAR2717-T65899.99
+  side: 'YES'
+  contracts: 3
+  entry_price: 0.96
+  exit_price: 0.67
+  pnl: -0.87
+  opportunity_id: opp_0b30b23c
+  closed_at: '2026-03-27T11:18:56.046270Z'
+  entry_rationale: 'STRONGLY FAVORED: YES is actionable at 96¢ with a 2¢ spread, 18,679
+    volume, and 12,507 open interest in a same-event ladder where much higher strikes
+    still trade with NO at 95–96¢. The board structure leaves a 4¢ hold-to-resolution
+    edge inside the required band.'
 seen_tickers:
 - KXWTIW-26MAR13-B91.5
 - KXPCECORE-26JAN-T0.3
@@ -544,3 +570,6 @@ seen_tickers:
 - KXBTCD-26MAR2517-T67899.99
 - KXTRUMPMENTION-26MAR25-TRUM
 - KXBTCD-26MAR2717-T65899.99
+- KXETH-26MAR2717-B1930
+- KXETHD-26MAR2717-T2189.99
+- KXBTCD-26MAR2717-T63399.99
