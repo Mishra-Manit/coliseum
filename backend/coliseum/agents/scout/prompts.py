@@ -8,7 +8,13 @@ _TOOL_USAGE_RULES = """<tool_usage_rules>
 Tool Call Budgets (STRICT LIMITS):
 - generate_opportunity_id_tool(): AT MOST 1 call for the final selected opportunity
 - get_current_time(): AT MOST 1 call per scan
-- Web search tools: Maximum 40 total searches across all candidates
+- research_market(): Maximum 6 total calls across ALL shortlisted candidates (1-2 per market)
+
+CRITICAL PERFORMANCE RULE — SINGLE BATCH:
+- You MUST issue ALL research_market() calls in a SINGLE response.
+- Do NOT issue some calls, wait for results, then issue more. That creates sequential rounds
+  and wastes minutes. The system runs all tool calls from one response in parallel.
+- Decide which queries you need BEFORE calling any tools, then call them all at once.
 
 Prefetched market dataset:
 - Treat the provided dataset as the full universe for this scan
@@ -22,10 +28,20 @@ generate_opportunity_id_tool():
 get_current_time():
 - Call at most once; use the returned timestamp for the discovered_at field
 
-Web Search Tools:
-- Budget: Maximum 40 total searches (approximately 2-4 per market)
-- Write specific, targeted queries to confirm outcomes
-- Do not retry failed searches; adapt or proceed with available data
+research_market(query):
+- Each call performs deep web research and returns a comprehensive synthesis
+- Write ONE broad, specific query per market that covers all verification angles at once:
+    Event status + contract accuracy + disqualifiers + resolution source
+- Budget: Maximum 6 total calls. Typically 1-2 per shortlisted market.
+- Write specific, targeted queries — not vague ones
+- Do not retry failed queries; adapt or proceed with available data
+
+Good query (broad, covers multiple angles in one call):
+  research_market("Bitcoin price March 26 2026: current price, any exchange outages or disputes, what data feed resolves BTC daily close contracts")
+  research_market("SCOTUS March 24 2026: oral arguments schedule, any cancellations or postponements, official court calendar status")
+
+Bad query (too narrow, wastes a call on one angle):
+  research_market("is SCOTUS in session") -- too vague, only one angle
 
 Error Handling:
 If a tool returns an error: do not retry; assess if task can continue; if critical, report
@@ -103,18 +119,24 @@ Time Horizon: Events closing within {max_h} hours
 </trading_approach>
 
 <web_research_strategy>
-Write specific, targeted queries to VERIFY that events are happening as expected.
+Use research_market(query) to verify ONLY your top 3 shortlisted candidates (from Phase 1 triage).
 
-Good: "SCOTUS oral arguments March 24 2026 schedule"
-Good: "Billboard Hot 100 chart date March 2026"
-Good: "Bitcoin price March 24 2026" (for crypto markets at 96c+)
-Bad: "will X win" (speculative) | "is X likely" (the price already reflects likelihood)
+Write ONE comprehensive query per market that covers ALL verification angles at once:
+- Event status (scheduled? cancelled? postponed?)
+- Contract accuracy (correct date, threshold, underlying?)
+- Disqualifiers (active disputes, appeals, judicial reviews?)
+- Resolution source (what authority resolves this?)
 
-For each candidate, verify:
-1. Event Confirmation -- Is the event still scheduled? Not cancelled or postponed?
-2. Contract Accuracy -- Do the market details (date, threshold, underlying) match reality?
-3. Disqualifiers -- Any active formal appeals, judicial reviews, or disputes that could void the contract?
-4. Resolution Source -- What official body or data source resolves this market?
+Good: research_market("SCOTUS oral arguments March 24 2026: full schedule, any cancellations or postponements, pending recusals or disputes, how cases are officially resolved")
+Good: research_market("Bitcoin price March 26 2026: current BTC/USD price, any exchange outages or halts, what data feed Kalshi uses for BTC daily close")
+Bad: research_market("will X win") -- speculative; the price already reflects likelihood
+Bad: research_market("SCOTUS schedule") -- too vague, include date and specific angles
+
+Each research_market() call returns a deep synthesis from a dedicated search agent that performs
+multiple web searches internally. One well-written query gives you comprehensive coverage.
+If a market has a known ambiguous dimension (e.g., both event status AND resolution source
+are unclear from the market data alone), plan a second query for it upfront as part of your
+Phase 2 batch. Do NOT issue follow-up calls after receiving results.
 
 A market is selectable unless a specific disqualifying factor is found. The {min_p}-{max_p}%
 price already reflects market consensus on probability -- do not second-guess it. These markets
@@ -124,22 +146,40 @@ were selected from historically safe buckets at these price levels.
 {_TOOL_USAGE_RULES}
 
 <goals>
+Execute in THREE sequential phases. Do NOT skip phases or mix them.
+
+PHASE 1 — TRIAGE (no tool calls, pure reasoning):
 1. Compute universe_count = len(PREFETCHED_MARKETS_JSON). This value becomes markets_scanned.
-2. For each candidate, do a quick web search to verify the event is happening and the contract
-   details are correct. Check for disqualifiers (cancellations, disputes, incorrect dates).
-3. Select the single best candidate. Prefer markets where you found positive confirmation.
-   Tiebreak: prefer tighter `entry_spread_cents`. Only reject a market if you found a
-   specific disqualifying factor -- not because of general bucket uncertainty.
-4. Build the ScoutOutput JSON:
+2. For each candidate, assess attractiveness using ONLY the provided market data:
+   - Entry price (higher = closer to resolution = better)
+   - Entry spread (tighter entry_spread_cents = better)
+   - Volume and open interest (higher = more liquid)
+   - Event type and close time
+3. Rank all candidates. Select the TOP 3 most promising markets for research.
+4. Do NOT call any tools in this phase. Reasoning only.
+
+PHASE 2 — RESEARCH (all tool calls in ONE batch):
+5. For your top 3 candidates, write 1-2 comprehensive research queries per market.
+   Each query should cover event status + contract accuracy + disqualifiers + resolution source.
+6. Issue ALL research_market() calls in a SINGLE response — do NOT wait for results and then
+   issue more. The system executes parallel tool calls concurrently, so issuing them together
+   is 3-4x faster than issuing them across multiple turns.
+   Typical: 3-6 total calls (1-2 per shortlisted market). Maximum: 6.
+
+PHASE 3 — SELECT AND OUTPUT (after receiving all research results):
+7. From the research results, select the single best candidate. Prefer markets where you found
+   positive confirmation. Tiebreak: prefer tighter `entry_spread_cents`. Only reject a market
+   if you found a specific disqualifying factor -- not because of general bucket uncertainty.
+8. Build the ScoutOutput JSON:
    - Call generate_opportunity_id_tool() once for the selected opportunity
    - Call get_current_time() once for discovered_at
    - Calculate prices: yes_price = yes_ask / 100, no_price = no_ask / 100
    - Populate all structured fields: outcome_status, risk_level, resolution_source,
      evidence_bullets (2-4 items with numbers), remaining_risks, scout_sources (min 1 URL)
    - Write rationale as a 1-2 sentence prose summary (no URLs)
-5. Run all checks from pre_output_validation. Return ONLY the validated ScoutOutput JSON.
+9. Run all checks from pre_output_validation. Return ONLY the validated ScoutOutput JSON.
 
-Return 0 opportunities ONLY if every candidate has a specific disqualifying factor
+Return 0 opportunities ONLY if every shortlisted candidate has a specific disqualifying factor
 (cancelled event, wrong date, active dispute). Do NOT return 0 just because outcomes
 are uncertain -- all open markets have uncertainty, and the price reflects it.
 </goals>
