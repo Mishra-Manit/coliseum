@@ -5,7 +5,7 @@
  * To change every element at a given level, update the string
  * values in the corresponding group — one edit, global effect.
  *
- * Muted  — secondary text: labels, metadata, icons, muted info (/70)
+ * Muted  — secondary text: labels, metadata, icons, muted info (/85)
  * Base   — primary content: values, card backgrounds, status colors (/80)
  * Faint  — tertiary: charts return pct, nav inactive links (/60)
  * Ghost  — very muted: agent section headers (/50)
@@ -13,11 +13,11 @@
  * BorderTint — colored borders, grouped by opacity level
  */
 
-/** /70 — secondary text, labels, muted foreground, icons */
+/** /85 — secondary text, labels, muted foreground, icons */
 export const Muted = {
-  mutedText:           "text-muted-foreground/70",
-  mutedTextHover:      "hover:text-muted-foreground/70",
-  mutedTextGroupHover: "group-hover:text-muted-foreground/70",
+  mutedText:           "text-muted-foreground/85",
+  mutedTextHover:      "hover:text-muted-foreground/85",
+  mutedTextGroupHover: "group-hover:text-muted-foreground/85",
   foreground:          "text-foreground/70",
   emeraldLabel:        "text-emerald-400/70",
   redLabel:            "text-red-400/70",

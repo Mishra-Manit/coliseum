@@ -112,6 +112,7 @@ export function OpportunityDetailView({
 
   const yesPercent = Math.round(summary.yes_price * 100);
   const noPercent = Math.round(summary.no_price * 100);
+  const headerTitle = summary.event_title || summary.title;
 
   const closeDate = summary.close_time ? new Date(summary.close_time) : null;
   const closeFormatted = closeDate ? formatInTz(closeDate, tz) : "N/A";
@@ -138,9 +139,16 @@ export function OpportunityDetailView({
         </div>
 
         {/* Title */}
-        <h2 className="text-[14px] font-semibold text-foreground leading-snug">
-          {summary.title}
-        </h2>
+        <div>
+          <h2 className="text-[14px] font-semibold text-foreground leading-snug">
+            {headerTitle}
+          </h2>
+          {summary.subtitle ? (
+            <p className={`mt-1 ${FontSize.small} ${Muted.mutedText} leading-snug`}>
+              {summary.subtitle}
+            </p>
+          ) : null}
+        </div>
 
         {/* Inline prices + close time */}
         <div className={`flex items-center gap-3 mt-2 ${FontSize.medium} font-mono`}>
