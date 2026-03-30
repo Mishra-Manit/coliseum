@@ -3,24 +3,20 @@
 SAFE_CATEGORIES: set[str] = {"Economics", "Entertainment"}
 
 SAFE_EVENT_PREFIXES: set[str] = {
+    "KXHIGHLAX",
     "KXHIGHMIA",
+    "KXHIGHPHIL",
     "KXLOWTLAX",
     "KXLOWTMIA",
     "KXHIGHTPHX",
     "KXHIGHTMIN",
-    "KXLOWTMIN",
     "KXHIGHTDAL",
     "KXHIGHTOKC",
     "KXHIGHTHOU",
     "KXHIGHTSATX",
-    "KXPRESMENTION",
-    "KXSURVIVORMENTION",
-    "KXFEDMENTION",
-    "KXJENSENMENTION",
-    "KXENTMENTION",
-    "KXSCOTUSMENTION",
     "KXBTC15M",
     "KXETH15M",
+    "KXPRESMENTION",
 }
 
 PRICE_GATED_EVENT_PREFIXES: dict[str, int] = {
