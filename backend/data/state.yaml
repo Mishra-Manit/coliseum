@@ -1,30 +1,9 @@
-last_updated: '2026-03-27T15:49:42.766947+00:00'
+last_updated: '2026-03-29T21:21:33.784034+00:00'
 portfolio:
-  total_value: 20.66
-  cash_balance: 6.36
-  positions_value: 14.3
-open_positions:
-- id: pos_8e2c16c4
-  market_ticker: KXBTCD-26MAR2717-T63399.99
-  side: 'YES'
-  contracts: 5
-  average_entry: 0.96
-  current_price: 0.98
-  opportunity_id: opp_9e3dd775
-- id: pos_d098edb9
-  market_ticker: KXETHD-26MAR2717-T2189.99
-  side: 'NO'
-  contracts: 5
-  average_entry: 0.96
-  current_price: 0.99
-  opportunity_id: opp_7b87a336
-- id: pos_ba94a602
-  market_ticker: KXETH-26MAR2717-B1930
-  side: 'NO'
-  contracts: 5
-  average_entry: 0.96
-  current_price: 0.89
-  opportunity_id: opp_5977ccae
+  total_value: 21.36
+  cash_balance: 21.36
+  positions_value: 0.0
+open_positions: []
 closed_positions:
 - market_ticker: KXNBAMENTION-26MAR06LALDEN-INJU
   side: 'YES'
@@ -545,6 +524,39 @@ closed_positions:
     volume, and 12,507 open interest in a same-event ladder where much higher strikes
     still trade with NO at 95–96¢. The board structure leaves a 4¢ hold-to-resolution
     edge inside the required band.'
+- market_ticker: KXBTCD-26MAR2717-T63399.99
+  side: 'YES'
+  contracts: 5
+  entry_price: 0.96
+  exit_price: 1.0
+  pnl: 0.2
+  opportunity_id: opp_9e3dd775
+  closed_at: '2026-03-29T21:21:33.414837Z'
+  entry_rationale: 'STRONGLY FAVORED: Spot and the reported 24-hour low both remain
+    comfortably above the $63,400 threshold ahead of the 5pm EDT fix. YES asks 96¢
+    with a 1¢ spread.'
+- market_ticker: KXETHD-26MAR2717-T2189.99
+  side: 'NO'
+  contracts: 5
+  entry_price: 0.96
+  exit_price: 1.0
+  pnl: 0.2
+  opportunity_id: opp_7b87a336
+  closed_at: '2026-03-29T21:21:33.545997Z'
+  entry_rationale: 'STRONGLY FAVORED: ETH is trading well below the $2,190 threshold,
+    and even today’s high remains under it with no benchmark incidents reported. NO
+    is offered at 96¢ with a 1¢ spread.'
+- market_ticker: KXETH-26MAR2717-B1930
+  side: 'NO'
+  contracts: 5
+  entry_price: 0.96
+  exit_price: 1.0
+  pnl: 0.2
+  opportunity_id: opp_5977ccae
+  closed_at: '2026-03-29T21:21:33.691908Z'
+  entry_rationale: 'NEAR-DECIDED: The market prices NO at 96¢ with a 1¢ spread and
+    1,378 open interest, signaling strong consensus against a 5pm ET finish in the
+    $1,910-$1,949.99 band. YES is only 5¢.'
 seen_tickers:
 - KXWTIW-26MAR13-B91.5
 - KXPCECORE-26JAN-T0.3

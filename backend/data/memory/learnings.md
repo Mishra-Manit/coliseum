@@ -24,6 +24,8 @@
 - **KXBTCD** same-day downside-threshold **YES** entries at **96¢** are favorable when spot is already several percent above the strike, the same-day intraday low has also stayed above the strike, and the contract resolves from the final **60-second** **CF Benchmarks** average.
 - **KXSOLD** same-day downside-threshold **YES** entries at **96¢** are favorable when spot and the **24H** low both sit comfortably above the strike, the cushion is roughly **8%+**, and the contract resolves from the final **60-second** **CF Benchmarks** average.
 - Same-day crypto timestamp **YES** entries are favorable only in lower-volatility setups where the strike remains below both the current spot and the session low by a meaningful cushion rather than merely by a small percentage.
+- Same-day crypto timestamp **NO** entries are favorable when spot remains materially below the strike, the same-day high also stays below it, and the contract resolves from the final **60-second** benchmark average with no reported benchmark incident.
+- Same-day crypto range-market **NO** entries are favorable when the full current-day trading range already sits outside the target band and the contract resolves from the final **60-second** benchmark average.
 - Multi-day crypto downside-threshold **YES** entries are unsafe at **96¢** when the holding window still spans roughly **48 hours**, even if spot is **7–8%** above the strike and the same-session low is comfortably clear.
 - **KXJOBLESSCLAIMS** high-price **YES** entries are favorable when the latest official print and the **4-week average** both clear the strike by at least **10,000** and the contract resolves from the scheduled **DOL** weekly release.
 - Mention-market **YES** entries can be favorable at **93–95¢** when the event is scheduled from an official source, the speaker regularly uses the exact word in the same recurring format, and the market has tight spreads with solid liquidity.
@@ -44,6 +46,8 @@
 - In same-day **WTI** threshold markets, paying **95¢** for **NO** is acceptable only after confirming the exact exchange source, any front-month rollover rule, and a settlement-to-strike cushion large enough that only an outlier one-session move can flip the market.
 - In crypto timestamp markets, paying **96¢** for **YES** is acceptable only after confirming the exact benchmark source and verifying both spot and the current-day low remain above the strike.
 - In same-day crypto timestamp markets, pay **96¢** for **YES** only when the spread is **1¢** and the strike is still clearly below both spot and the current session low.
+- In same-day crypto timestamp markets, paying **96¢** for **NO** is acceptable only when the strike remains above both spot and the current-day high and the required move to lose is still larger than the session’s realized upside.
+- In same-day crypto range markets, paying **96¢** for **NO** is acceptable only when the current-day high-low range already excludes the target band and the remaining move into the band requires a fresh directional reversal before the fixing window.
 - Do not pay **96¢** for crypto **YES** when time to expiry is longer than one trading day unless the strike cushion is large enough to survive a routine high-single-digit drawdown.
 - In mention markets, a **1–2¢** spread with strong volume/open interest is enough to pay **93–95¢** only after confirming the exact phrase has repeated historical usage in the same show or event format.
 - In scheduled macro releases, paying **96¢** for **YES** is acceptable when the market closes just before publication and the latest official level still leaves a **10,000+** cushion over the strike.
@@ -58,3 +62,4 @@
 - In crypto timestamp markets, do not treat a recent historical flip at the same strike as disqualifying when current spot and the session low both remain well above the threshold at entry.
 - In crypto research, treat “no adverse headline found” as weak evidence and not as confirmation that a **48-hour** high-volatility window is safe for a **96¢** entry.
 - Mention-market research must verify the exact resolution source and exact-word rule because a plausible theme match is not enough to support a high-price **YES** entry.
+- In crypto markets, lack of an indexed market page is not disqualifying when Kalshi help documentation or product certification confirms the benchmark family and fallback chain for that contract type.
