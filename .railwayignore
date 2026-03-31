@@ -2,6 +2,3 @@ backend/venv/
 backend/__pycache__/
 **/__pycache__/
 **/*.pyc
-backend/data/memory/journal/
-backend/data/opportunities/
-backend/data/trades/
