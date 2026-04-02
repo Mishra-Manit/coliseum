@@ -63,7 +63,16 @@ def build_trader_prompt(
     """Construct trading decision prompt."""
     memory_context = build_trader_context()
 
-    event_title_line = f"**Event**: {opportunity.event_title}\n" if opportunity.event_title else ""
+    if opportunity.event_title:
+        event_title_line = f"**Event**: {opportunity.event_title}\n"
+    else:
+        event_title_line = ""
+
+    if opportunity.close_time:
+        close_time_display = opportunity.close_time.strftime('%Y-%m-%d %H:%M UTC')
+    else:
+        close_time_display = 'N/A'
+
     return f"""You are evaluating a trade for execution.
 
 ## Opportunity Details
@@ -75,7 +84,7 @@ def build_trader_prompt(
 **Outcome**: {opportunity.subtitle or "N/A"}
 **YES Price**: {opportunity.yes_price:.2%} ({opportunity.yes_price * 100:.1f}¢)
 **NO Price**: {opportunity.no_price:.2%} ({opportunity.no_price * 100:.1f}¢)
-**Closes**: {opportunity.close_time.strftime('%Y-%m-%d %H:%M UTC') if opportunity.close_time else 'N/A'}
+**Closes**: {close_time_display}
 {memory_context}
 ## Full Research Context
 

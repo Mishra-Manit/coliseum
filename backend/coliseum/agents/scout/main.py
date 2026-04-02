@@ -14,8 +14,13 @@ from coliseum.memory.context import build_scout_context
 from coliseum.services.kalshi.client import KalshiClient
 from coliseum.services.kalshi.config import KalshiConfig
 from coliseum.services.kalshi.models import Market
+from coliseum.services.supabase.repositories.opportunities import save_opportunity_to_db
+from coliseum.services.supabase.repositories.seen_tickers import (
+    add_seen_ticker_to_db,
+    get_seen_tickers_from_db,
+)
 from coliseum.storage.files import save_opportunity, generate_opportunity_id
-from coliseum.storage.state import add_seen_ticker, get_seen_tickers
+from coliseum.storage.state import add_seen_ticker
 
 from .filters import passes_filter
 from .models import ScoutDependencies, ScoutOutput
@@ -143,6 +148,10 @@ def _build_prefetched_market(
 ) -> dict:
     """Build the Scout candidate payload for one prefetched market."""
     event_title, category = event_meta.get(market.event_ticker, ("", ""))
+    if market.close_time:
+        close_time_iso = market.close_time.isoformat()
+    else:
+        close_time_iso = None
     return {
         "ticker": market.ticker,
         "event_ticker": market.event_ticker,
@@ -154,7 +163,7 @@ def _build_prefetched_market(
         "no_ask": market.no_ask,
         "volume": market.volume,
         "open_interest": market.open_interest,
-        "close_time": market.close_time.isoformat() if market.close_time else None,
+        "close_time": close_time_iso,
         "category": category,
         "event_title": event_title,
         **entry_view,
@@ -248,7 +257,10 @@ async def run_scout(
         settings = get_settings()
 
     # Paper mode is stateless: skip seen_tickers so every run rediscovers from scratch
-    seen_tickers = [] if settings.trading.paper_mode else get_seen_tickers()
+    if settings.trading.paper_mode:
+        seen_tickers = []
+    else:
+        seen_tickers = await get_seen_tickers_from_db()
 
     with logfire.span("scout scan"):
         kalshi_config = KalshiConfig()
@@ -282,21 +294,36 @@ async def run_scout(
             output: ScoutOutput = result.output
 
             # Strip citation tokens leaked by the OpenAI Responses API structured output
-            for opp in output.opportunities:
-                opp.rationale = _strip_cite_tokens(opp.rationale)
-                opp.resolution_source = _strip_cite_tokens(opp.resolution_source)
-                opp.evidence_bullets = [_strip_cite_tokens(b) for b in opp.evidence_bullets]
-                opp.remaining_risks = [_strip_cite_tokens(r) for r in opp.remaining_risks]
+            cleaned_opps = [
+                opp.model_copy(update={
+                    "rationale": _strip_cite_tokens(opp.rationale),
+                    "resolution_source": _strip_cite_tokens(opp.resolution_source),
+                    "evidence_bullets": [_strip_cite_tokens(b) for b in opp.evidence_bullets],
+                    "remaining_risks": [_strip_cite_tokens(r) for r in opp.remaining_risks],
+                })
+                for opp in output.opportunities
+            ]
 
             added_count = 0
-            for opp in output.opportunities:
+            for opp in cleaned_opps:
+                try:
+                    await save_opportunity_to_db(opp, paper=settings.trading.paper_mode)
+                except Exception as e:
+                    logfire.error("DB write failed for opportunity", opportunity_id=opp.id, error=str(e))
+
                 try:
                     save_opportunity(opp, paper=settings.trading.paper_mode)
-                    if not settings.trading.paper_mode:
-                        add_seen_ticker(opp.market_ticker)
                     added_count += 1
                 except Exception as e:
-                    logfire.error("Failed to save opportunity", opportunity_id=opp.id, error=str(e))
+                    logfire.error("Local write failed for opportunity", opportunity_id=opp.id, error=str(e))
+                    continue
+
+                if not settings.trading.paper_mode:
+                    try:
+                        await add_seen_ticker_to_db(opp.market_ticker)
+                    except Exception as e:
+                        logfire.error("DB seen ticker write failed", ticker=opp.market_ticker, error=str(e))
+                    add_seen_ticker(opp.market_ticker)
 
             logfire.info(
                 "Scout scan complete",

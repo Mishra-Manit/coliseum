@@ -149,7 +149,10 @@ def _format_markdown_with_frontmatter(
 def _get_opps_dir(paper: bool = False) -> Path:
     """Return the base opportunities directory, routed by paper mode."""
     base = get_data_dir() / "opportunities"
-    return base / "paper-mode" if paper else base
+    if paper:
+        return base / "paper-mode"
+    else:
+        return base
 
 
 _atomic_write = atomic_write
@@ -191,13 +194,28 @@ def save_opportunity(opportunity: OpportunitySignal, paper: bool = False) -> Pat
 
     frontmatter = opportunity.model_dump(mode="json", exclude={"market_title", "subtitle"})
 
-    event_line = f"**Event**: {opportunity.event_title}\n" if opportunity.event_title else ""
-    subtitle_section = f"\n**Outcome**: {opportunity.subtitle}\n" if opportunity.subtitle else ""
+    if opportunity.event_title:
+        event_line = f"**Event**: {opportunity.event_title}\n"
+    else:
+        event_line = ""
+    if opportunity.subtitle:
+        subtitle_section = f"\n**Outcome**: {opportunity.subtitle}\n"
+    else:
+        subtitle_section = ""
 
     # Build structured Scout Assessment section
-    evidence_lines = "\n".join(f"- {b}" for b in opportunity.evidence_bullets) if opportunity.evidence_bullets else "- See rationale"
-    risks_lines = "\n".join(f"- {r}" for r in opportunity.remaining_risks) if opportunity.remaining_risks else "- None identified"
-    sources_lines = "\n".join(f"- {s}" for s in opportunity.scout_sources) if opportunity.scout_sources else ""
+    if opportunity.evidence_bullets:
+        evidence_lines = "\n".join(f"- {b}" for b in opportunity.evidence_bullets)
+    else:
+        evidence_lines = "- See rationale"
+    if opportunity.remaining_risks:
+        risks_lines = "\n".join(f"- {r}" for r in opportunity.remaining_risks)
+    else:
+        risks_lines = "- None identified"
+    if opportunity.scout_sources:
+        sources_lines = "\n".join(f"- {s}" for s in opportunity.scout_sources)
+    else:
+        sources_lines = ""
 
     verdict_line = (
         f"**{opportunity.outcome_status}**  ·  **{opportunity.risk_level} RISK**"

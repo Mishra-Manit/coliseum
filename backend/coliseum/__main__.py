@@ -199,11 +199,35 @@ def cmd_config(args: argparse.Namespace) -> int:
         print(f"  Max Consecutive Failures: {settings.daemon.max_consecutive_failures}\n")
 
         print("API Keys:")
-        print(f"  Kalshi: {'✓ Set' if settings.kalshi_api_key else '✗ Not set'}")
-        print(f"  RSA Private Key: {'✓ Set' if settings.rsa_private_key else '✗ Not set'}")
-        print(f"  Exa AI: {'✓ Set' if settings.exa_api_key else '✗ Not set'}")
-        print(f"  OpenRouter: {'✓ Set' if settings.openrouter_api_key else '✗ Not set'}")
-        print(f"  Logfire: {'✓ Set' if settings.logfire_token else '✗ Not set'}\n")
+        if settings.kalshi_api_key:
+            kalshi_status = "✓ Set"
+        else:
+            kalshi_status = "✗ Not set"
+        print(f"  Kalshi: {kalshi_status}")
+
+        if settings.rsa_private_key:
+            rsa_status = "✓ Set"
+        else:
+            rsa_status = "✗ Not set"
+        print(f"  RSA Private Key: {rsa_status}")
+
+        if settings.exa_api_key:
+            exa_status = "✓ Set"
+        else:
+            exa_status = "✗ Not set"
+        print(f"  Exa AI: {exa_status}")
+
+        if settings.openrouter_api_key:
+            openrouter_status = "✓ Set"
+        else:
+            openrouter_status = "✗ Not set"
+        print(f"  OpenRouter: {openrouter_status}")
+
+        if settings.logfire_token:
+            logfire_status = "✓ Set"
+        else:
+            logfire_status = "✗ Not set"
+        print(f"  Logfire: {logfire_status}\n")
 
         return 0
 
@@ -307,8 +331,17 @@ def cmd_analyst(args: argparse.Namespace) -> int:
 
     print(f"✓ Analyst pipeline complete\n")
     print(f"Status: {result.status}")
-    print(f"Research Completed: {'yes' if result.research_completed_at else 'no'}")
-    print(f"Recommendation Completed: {'yes' if result.recommendation_completed_at else 'no'}\n")
+    if result.research_completed_at:
+        research_status = "yes"
+    else:
+        research_status = "no"
+    print(f"Research Completed: {research_status}")
+
+    if result.recommendation_completed_at:
+        recommendation_status = "yes"
+    else:
+        recommendation_status = "no"
+    print(f"Recommendation Completed: {recommendation_status}\n")
     print("Trade decision pending (no BUY/NO decision made).\n")
 
     return 0
@@ -349,7 +382,11 @@ def cmd_api(args: argparse.Namespace) -> int:
 
     print(f"\n=== Coliseum Dashboard API ===\n")
     print(f"Starting server on http://{args.host}:{args.port}")
-    print(f"Auto-reload: {'enabled' if args.reload else 'disabled'}\n")
+    if args.reload:
+        reload_status = "enabled"
+    else:
+        reload_status = "disabled"
+    print(f"Auto-reload: {reload_status}\n")
 
     uvicorn.run(
         "coliseum.api.server:app",
@@ -373,7 +410,11 @@ def cmd_daemon(args: argparse.Namespace) -> int:
 
     print("\n=== Coliseum Autonomous Daemon ===")
     print(f"\nVersion: {__version__}")
-    print(f"Mode: {'PAPER TRADING' if settings.trading.paper_mode else 'LIVE TRADING'}")
+    if settings.trading.paper_mode:
+        daemon_mode = "PAPER TRADING"
+    else:
+        daemon_mode = "LIVE TRADING"
+    print(f"Mode: {daemon_mode}")
     print(f"Data Directory: {settings.data_dir}")
     print(f"Heartbeat Interval: {settings.daemon.heartbeat_interval_minutes}m")
     print(f"Guardian Interval: {settings.daemon.guardian_interval_minutes}m")
@@ -405,7 +446,11 @@ def cmd_pipeline(args: argparse.Namespace) -> int:
 
     print("\n=== Coliseum Autonomous Trading System ===\n")
     print(f"Version: {__version__}")
-    print(f"Mode: {'PAPER TRADING' if settings.trading.paper_mode else 'LIVE TRADING'}")
+    if settings.trading.paper_mode:
+        pipeline_mode = "PAPER TRADING"
+    else:
+        pipeline_mode = "LIVE TRADING"
+    print(f"Mode: {pipeline_mode}")
     print(f"Data Directory: {settings.data_dir}\n")
 
     print("Running full pipeline once (Guardian -> Scout -> Analyst -> Trader)...\n")

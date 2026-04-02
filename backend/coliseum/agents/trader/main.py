@@ -70,12 +70,22 @@ def _register_tools(agent: Agent[TraderDependencies, TraderOutput]) -> None:
         """Fetch live Kalshi orderbook prices to confirm YES or NO is still 92-96%."""
         client = ctx.deps.kalshi_client
         market = await client.get_market(ticker)
+        if market.yes_ask:
+            yes_price_decimal = market.yes_ask / 100
+        else:
+            yes_price_decimal = None
+
+        if market.no_ask:
+            no_price_decimal = market.no_ask / 100
+        else:
+            no_price_decimal = None
+
         return {
             "ticker": ticker,
             "yes_ask": market.yes_ask,
-            "yes_price_decimal": market.yes_ask / 100 if market.yes_ask else None,
+            "yes_price_decimal": yes_price_decimal,
             "no_ask": market.no_ask,
-            "no_price_decimal": market.no_ask / 100 if market.no_ask else None,
+            "no_price_decimal": no_price_decimal,
         }
 
 
@@ -141,7 +151,10 @@ async def execute_working_order(
 
             if order.is_filled:
                 # Fully filled — fall back to `contracts` if Kalshi omits fill counts
-                actual_fill_count = order.fill_count if order.fill_count > 0 else contracts
+                if order.fill_count > 0:
+                    actual_fill_count = order.fill_count
+                else:
+                    actual_fill_count = contracts
                 fill_price_decimal = _calc_fill_price(
                     order.taker_fill_cost, order.maker_fill_cost, order.fill_count, current_price
                 )
@@ -156,7 +169,10 @@ async def execute_working_order(
                 )
 
             # Check if partial fill is worth keeping
-            fill_pct = order.fill_count / contracts if contracts > 0 else 0.0
+            if contracts > 0:
+                fill_pct = order.fill_count / contracts
+            else:
+                fill_pct = 0.0
             if fill_pct >= config.execution.min_fill_pct_to_keep:
                 fill_price_decimal = _calc_fill_price(
                     order.taker_fill_cost, order.maker_fill_cost, order.fill_count, current_price
@@ -191,7 +207,8 @@ async def execute_working_order(
                 except Exception as exc:
                     logger.warning("Final status poll failed for %s: %s", order_id, exc)
 
-                order = refreshed if refreshed is not None else order
+                if refreshed is not None:
+                    order = refreshed
 
                 # Return partial fill if any
                 if order.fill_count > 0:
@@ -263,7 +280,10 @@ async def run_trader(
 
     kalshi_config = KalshiConfig()
     # No auth needed in paper mode — market reads work unauthenticated; execution is skipped
-    private_key_pem = "" if settings.trading.paper_mode else settings.get_rsa_private_key()
+    if settings.trading.paper_mode:
+        private_key_pem = ""
+    else:
+        private_key_pem = settings.get_rsa_private_key()
 
     with logfire.span("trader", opportunity_id=opportunity_id, ticker=opportunity.market_ticker):
         async with AsyncExitStack() as stack:
@@ -301,8 +321,15 @@ async def run_trader(
                 output = output.model_copy(update={"execution_status": "skipped"})
                 logfire.info("Trade rejected", reasoning=output.decision.reasoning)
             else:
-                side = "yes" if output.decision.action == "EXECUTE_BUY_YES" else "no"
-                target_price = opportunity.yes_price if side == "yes" else opportunity.no_price
+                if output.decision.action == "EXECUTE_BUY_YES":
+                    side = "yes"
+                else:
+                    side = "no"
+
+                if side == "yes":
+                    target_price = opportunity.yes_price
+                else:
+                    target_price = opportunity.no_price
                 try:
                     output = await _execute_trade(
                         client, opportunity, output, side, target_price, settings,
@@ -342,14 +369,14 @@ async def _execute_trade(
 
     with logfire.span("slippage check", ticker=opportunity.market_ticker):
         market = await client.get_market(opportunity.market_ticker)
-        current_price_decimal = (
-            market.yes_ask / 100 if side == "yes" else market.no_ask / 100
-        )
-        slippage_pct = (
-            abs(current_price_decimal - target_price) / target_price
-            if target_price > 0
-            else 0.0
-        )
+        if side == "yes":
+            current_price_decimal = market.yes_ask / 100
+        else:
+            current_price_decimal = market.no_ask / 100
+        if target_price > 0:
+            slippage_pct = abs(current_price_decimal - target_price) / target_price
+        else:
+            slippage_pct = 0.0
         logfire.info(
             "Slippage check",
             slippage_pct=round(slippage_pct, 4),
@@ -421,13 +448,23 @@ async def _execute_trade(
         )
         log_trade(trade)
 
+        if order_result.fill_price:
+            fill_price_rounded = round(order_result.fill_price, 4)
+        else:
+            fill_price_rounded = None
+
+        if order_result.total_cost_usd:
+            total_cost_rounded = round(order_result.total_cost_usd, 2)
+        else:
+            total_cost_rounded = None
+
         logfire.info(
             "Trade executed",
             ticker=opportunity.market_ticker,
             side=side,
             contracts=order_result.contracts_filled,
-            fill_price=round(order_result.fill_price, 4) if order_result.fill_price else None,
-            total_cost_usd=round(order_result.total_cost_usd, 2) if order_result.total_cost_usd else None,
+            fill_price=fill_price_rounded,
+            total_cost_usd=total_cost_rounded,
         )
 
     return output

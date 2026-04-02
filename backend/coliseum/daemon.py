@@ -194,8 +194,15 @@ class ColiseumDaemon:
         if self._started_at:
             uptime_h = (datetime.now(timezone.utc) - self._started_at).total_seconds() / 3600
 
-        status = "PAUSED" if self._paused else "RUNNING"
-        last_cycle = self._last_cycle_at.isoformat() if self._last_cycle_at else "never"
+        if self._paused:
+            status = "PAUSED"
+        else:
+            status = "RUNNING"
+
+        if self._last_cycle_at:
+            last_cycle = self._last_cycle_at.isoformat()
+        else:
+            last_cycle = "never"
 
         msg = (
             f"COLISEUM HEARTBEAT\n\n"
@@ -247,13 +254,18 @@ class ColiseumDaemon:
                 datetime.now(timezone.utc) - self._started_at
             ).total_seconds() / 3600
 
+        if self._last_cycle_at:
+            last_success = self._last_cycle_at.isoformat()
+        else:
+            last_success = "never"
+
         msg = (
             "COLISEUM ALERT\n\n"
             f"Daemon paused after {self._consecutive_failures} consecutive failures.\n"
             f"Last error: {error}\n"
             f"{pattern_line}\n"
             f"Uptime: {uptime_h:.1f}h | Cycles completed: {self._cycle_count}\n"
-            f"Last success: {self._last_cycle_at.isoformat() if self._last_cycle_at else 'never'}\n\n"
+            f"Last success: {last_success}\n\n"
             "Action: Pipeline paused. Manual intervention required or daemon will retry after next heartbeat interval."
         )
 
@@ -295,7 +307,10 @@ class ColiseumDaemon:
     def status_summary(self) -> dict:
         """Return a snapshot of daemon state for diagnostics."""
         now = datetime.now(timezone.utc)
-        uptime = (now - self._started_at).total_seconds() if self._started_at else 0
+        if self._started_at:
+            uptime = (now - self._started_at).total_seconds()
+        else:
+            uptime = 0
         return {
             "running": self.running,
             "paused": self._paused,

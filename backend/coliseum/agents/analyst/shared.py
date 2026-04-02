@@ -35,12 +35,17 @@ def format_opportunity_header(opportunity: OpportunitySignal) -> str:
         else ""
     )
 
+    if opportunity.close_time:
+        close_time_display = opportunity.close_time.isoformat()
+    else:
+        close_time_display = 'N/A'
+
     return f"""**ID**: {opportunity.id}
 **Event Ticker**: {opportunity.event_ticker}
 {event_title_line}**Market Ticker**: {opportunity.market_ticker}
 **Market**: {opportunity.market_title}
 {subtitle_info}**Current YES Price**: {opportunity.yes_price:.2f} ({opportunity.yes_price * 100:.1f}¢)
 **Current NO Price**: {opportunity.no_price:.2f} ({opportunity.no_price * 100:.1f}¢)
-**Market Closes**: {opportunity.close_time.isoformat() if opportunity.close_time else 'N/A'}
+**Market Closes**: {close_time_display}
 **Status**: {opportunity.status}
 **Discovered**: {opportunity.discovered_at.isoformat()}"""

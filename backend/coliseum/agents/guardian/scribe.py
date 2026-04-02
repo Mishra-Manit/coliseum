@@ -52,8 +52,14 @@ def _load_opportunity_body(opportunity_id: str | None) -> str | None:
 
 def _format_trade_block(pos: ClosedPosition, opportunity_body: str | None) -> str:
     """Format a single closed position into a readable block for the prompt."""
-    pnl_sign = "+" if pos.pnl >= 0 else ""
-    outcome = "WIN" if pos.pnl >= 0 else "LOSS"
+    if pos.pnl >= 0:
+        pnl_sign = "+"
+    else:
+        pnl_sign = ""
+    if pos.pnl >= 0:
+        outcome = "WIN"
+    else:
+        outcome = "LOSS"
     entry_cents = round(pos.entry_price * 100)
     exit_cents = round(pos.exit_price * 100)
 

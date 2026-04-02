@@ -19,7 +19,10 @@ from coliseum.storage.files import OpportunitySignal
 def _slug(ticker: str) -> str:
     """Extract the trailing slug from a hyphenated ticker."""
     parts = ticker.split("-")
-    return parts[-1] if len(parts) > 1 else "unknown"
+    if len(parts) > 1:
+        return parts[-1]
+    else:
+        return "unknown"
 
 
 @dataclass(frozen=True)
@@ -553,5 +556,8 @@ def get_market_type_context(opportunity: OpportunitySignal) -> str:
     """Return market-type-specific research guidance based on the ticker."""
     event = opportunity.event_ticker.upper()
     config = _match_market_type(event)
-    slug = _slug(opportunity.market_ticker.upper()) if config.uses_slug else ""
+    if config.uses_slug:
+        slug = _slug(opportunity.market_ticker.upper())
+    else:
+        slug = ""
     return _format_context(config, slug)

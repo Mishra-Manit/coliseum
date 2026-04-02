@@ -61,6 +61,10 @@ def _append_rows(rows: list[dict]) -> None:
 
 
 def _make_row(m, side: str, entry_price: int, now: str, event_title: str = "", category: str = "") -> dict:
+    if m.close_time:
+        scheduled_close_time = m.close_time.isoformat()
+    else:
+        scheduled_close_time = ""
     return {
         "ticker": m.ticker,
         "event_ticker": m.event_ticker,
@@ -69,7 +73,7 @@ def _make_row(m, side: str, entry_price: int, now: str, event_title: str = "", c
         "side": side,
         "entry_price": entry_price,
         "entry_time": now,
-        "scheduled_close_time": m.close_time.isoformat() if m.close_time else "",
+        "scheduled_close_time": scheduled_close_time,
         "volume": m.volume,
         "open_interest": m.open_interest,
         "result": "",
@@ -106,6 +110,7 @@ async def collect() -> None:
                 event_data[et] = (event.get("title", ""), event.get("category", ""))
             except Exception:
                 event_data[et] = ("", "")
+            await asyncio.sleep(0.1)
 
     existing = _load_existing_keys()
     new_rows: list[dict] = []
@@ -162,7 +167,10 @@ async def update() -> None:
                 market = await client.get_market(row["ticker"])
                 if market.result in ("yes", "no"):
                     row["result"] = market.result
-                    row["close_price"] = 100 if market.result == row["side"] else 0
+                    if market.result == row["side"]:
+                        row["close_price"] = 100
+                    else:
+                        row["close_price"] = 0
                     row["resolved_at"] = datetime.now(timezone.utc).isoformat()
                     updated += 1
                 elif market.result:
@@ -172,6 +180,7 @@ async def update() -> None:
                     updated += 1
             except Exception as e:
                 print(f"  Error fetching {row['ticker']}: {e}")
+            await asyncio.sleep(0.1)
 
     with tempfile.NamedTemporaryFile("w", dir=CSV_PATH.parent, delete=False, newline="", suffix=".tmp") as tmp:
         writer = csv.DictWriter(tmp, fieldnames=COLUMNS)

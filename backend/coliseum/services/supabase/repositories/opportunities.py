@@ -19,13 +19,18 @@ async def save_opportunity_to_db(
     paper: bool = False,
 ) -> None:
     """Upsert an Opportunity and its OpportunityAnalysis in a single transaction."""
+    if opportunity.subtitle:
+        subtitle = opportunity.subtitle
+    else:
+        subtitle = None
+
     opp_row = Opportunity(
         id=opportunity.id,
         market_ticker=opportunity.market_ticker,
         event_ticker=opportunity.event_ticker,
         event_title=opportunity.event_title,
         market_title=opportunity.market_title,
-        subtitle=opportunity.subtitle if opportunity.subtitle else None,
+        subtitle=subtitle,
         yes_price=Decimal(str(opportunity.yes_price)),
         no_price=Decimal(str(opportunity.no_price)),
         close_time=opportunity.close_time,
@@ -36,10 +41,15 @@ async def save_opportunity_to_db(
         paper=paper,
     )
 
+    if opportunity.resolution_source:
+        resolution_source = opportunity.resolution_source
+    else:
+        resolution_source = None
+
     analysis_row = OpportunityAnalysis(
         opportunity_id=opportunity.id,
         rationale=opportunity.rationale,
-        resolution_source=opportunity.resolution_source if opportunity.resolution_source else None,
+        resolution_source=resolution_source,
         evidence_bullets=opportunity.evidence_bullets,
         remaining_risks=opportunity.remaining_risks,
         scout_sources=opportunity.scout_sources,
@@ -59,9 +69,9 @@ async def update_opportunity_research(
     completed_at: datetime,
     duration_seconds: int,
 ) -> None:
-    """Persist research synthesis and completion timestamp for an opportunity."""
+    """Persist research synthesis, duration, and completion timestamp."""
     async with get_db_session() as session:
-        await session.execute(
+        analysis_result = await session.execute(
             update(OpportunityAnalysis)
             .where(OpportunityAnalysis.opportunity_id == opportunity_id)
             .values(
@@ -69,14 +79,25 @@ async def update_opportunity_research(
                 research_duration_seconds=duration_seconds,
             )
         )
-        await session.execute(
+        opp_result = await session.execute(
             update(Opportunity)
             .where(Opportunity.id == opportunity_id)
             .values(research_completed_at=completed_at)
         )
         await session.commit()
 
-    logger.info("Updated research for opportunity %s", opportunity_id)
+    if analysis_result.rowcount == 0:
+        logger.warning(
+            "No OpportunityAnalysis row found for opportunity %s -- research synthesis update was a no-op",
+            opportunity_id,
+        )
+    if opp_result.rowcount == 0:
+        logger.warning(
+            "No Opportunity row found for opportunity %s -- research_completed_at update was a no-op",
+            opportunity_id,
+        )
+    if analysis_result.rowcount > 0 and opp_result.rowcount > 0:
+        logger.info("Updated research for opportunity %s", opportunity_id)
 
 
 async def update_opportunity_recommendation(
@@ -87,7 +108,7 @@ async def update_opportunity_recommendation(
 ) -> None:
     """Persist recommendation action and status for an opportunity."""
     async with get_db_session() as session:
-        await session.execute(
+        result = await session.execute(
             update(Opportunity)
             .where(Opportunity.id == opportunity_id)
             .values(
@@ -98,7 +119,13 @@ async def update_opportunity_recommendation(
         )
         await session.commit()
 
-    logger.info("Updated recommendation for opportunity %s", opportunity_id)
+    if result.rowcount == 0:
+        logger.warning(
+            "No DB row found for opportunity %s -- recommendation update was a no-op",
+            opportunity_id,
+        )
+    else:
+        logger.info("Updated recommendation for opportunity %s", opportunity_id)
 
 
 async def mark_opportunity_failed_in_db(
@@ -108,7 +135,7 @@ async def mark_opportunity_failed_in_db(
 ) -> None:
     """Mark an opportunity as failed with stage and error details."""
     async with get_db_session() as session:
-        await session.execute(
+        result = await session.execute(
             update(Opportunity)
             .where(Opportunity.id == opportunity_id)
             .values(
@@ -120,4 +147,10 @@ async def mark_opportunity_failed_in_db(
         )
         await session.commit()
 
-    logger.info("Marked opportunity %s as failed at stage '%s'", opportunity_id, failed_stage)
+    if result.rowcount == 0:
+        logger.warning(
+            "No DB row found for opportunity %s -- failed-stage update was a no-op",
+            opportunity_id,
+        )
+    else:
+        logger.info("Marked opportunity %s as failed at stage '%s'", opportunity_id, failed_stage)

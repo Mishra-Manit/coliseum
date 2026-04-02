@@ -45,7 +45,11 @@ def _get_sell_fill_prices(
         ticker = fill.get("ticker") or fill.get("market_ticker")
         if ticker != market_ticker:
             continue
-        fill_side = normalize_kalshi_side(str(fill.get("side")) if fill.get("side") else None)
+        if fill.get("side"):
+            raw_side = str(fill.get("side"))
+        else:
+            raw_side = None
+        fill_side = normalize_kalshi_side(raw_side)
         if fill_side != side:
             continue
         action = fill.get("action")
@@ -126,7 +130,10 @@ def _extract_entry_rationale(opportunity_id: str | None) -> str | None:
             if frontmatter.get("rationale"):
                 return str(frontmatter["rationale"])
         # fallback: old format stored rationale in markdown body
-        body = parts[2] if len(parts) >= 3 else content
+        if len(parts) >= 3:
+            body = parts[2]
+        else:
+            body = content
         for line in body.splitlines():
             if line.startswith("**Rationale**:"):
                 return line.removeprefix("**Rationale**:").strip()

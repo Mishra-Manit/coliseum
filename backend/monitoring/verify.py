@@ -23,12 +23,16 @@ COLUMNS = [
     "ticker", "event_ticker", "title", "subtitle", "side",
     "entry_price", "entry_time", "scheduled_close_time",
     "volume", "open_interest", "result", "close_price", "resolved_at",
+    "event_title", "category",
 ]
 
 
 def _expected_close_price(result: str, side: str) -> str:
     if result in ("yes", "no"):
-        return "100" if result == side else "0"
+        if result == side:
+            return "100"
+        else:
+            return "0"
     return ""
 
 
@@ -78,6 +82,8 @@ async def verify(fix: bool) -> None:
                     row["result"] = actual_result
                     row["close_price"] = _expected_close_price(actual_result, row["side"])
                     row["resolved_at"] = datetime.now(timezone.utc).isoformat()
+
+            await asyncio.sleep(0.1)
 
     print(f"\nDiscrepancies: {discrepancies}  |  Newly resolved: {newly_resolved}")
 

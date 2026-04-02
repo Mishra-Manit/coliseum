@@ -38,7 +38,10 @@ def _get_journal_dir() -> Path:
 def _format_journal_entry(summary: JournalCycleSummary) -> str:
     """Format a cycle summary as a markdown journal entry."""
     ts = summary.cycle_timestamp.strftime("%Y-%m-%dT%H:%M:%SZ")
-    errors_line = ", ".join(summary.errors) if summary.errors else "None"
+    if summary.errors:
+        errors_line = ", ".join(summary.errors)
+    else:
+        errors_line = "None"
 
     return f"""## Cycle {ts}
 
@@ -89,4 +92,7 @@ def load_recent_journal(days: int = 2) -> str:
             except Exception as e:
                 logger.warning("Failed to read journal %s: %s", journal_path, e)
 
-    return "\n".join(parts) if parts else "(No recent journal entries)"
+    if parts:
+        return "\n".join(parts)
+    else:
+        return "(No recent journal entries)"

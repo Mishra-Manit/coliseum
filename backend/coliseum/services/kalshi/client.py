@@ -37,8 +37,13 @@ class KalshiClient:
         else:
             self.auth = None
 
+        if self.auth:
+            auth_status = "enabled"
+        else:
+            auth_status = "disabled"
+
         logger.info(
-            f"Initialized KalshiClient (auth={'enabled' if self.auth else 'disabled'})"
+            f"Initialized KalshiClient (auth={auth_status})"
         )
 
     async def __aenter__(self) -> KalshiClient:
@@ -291,7 +296,10 @@ class KalshiClient:
         for pos in data.get("market_positions", []):
             def _c(key: str) -> int:
                 v = pos.get(key)
-                return round(float(v) * 100) if v is not None else 0
+                if v is not None:
+                    return round(float(v) * 100)
+                else:
+                    return 0
 
             positions.append(
                 Position(
@@ -423,12 +431,18 @@ class KalshiClient:
         def _c(key: str) -> int:
             """Convert FixedPointDollars string to cents int."""
             v = data.get(key)
-            return round(float(v) * 100) if v is not None else 0
+            if v is not None:
+                return round(float(v) * 100)
+            else:
+                return 0
 
         def _i(key: str) -> int:
             """Convert FixedPointCount string to int."""
             v = data.get(key)
-            return int(float(v)) if v is not None else 0
+            if v is not None:
+                return int(float(v))
+            else:
+                return 0
 
         return Order(
             order_id=data.get("order_id", ""),

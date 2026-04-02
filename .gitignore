@@ -96,3 +96,6 @@ backend/kalshi_private/kalshi_private_key.pem
 
 # Docs
 /docs/plans
+
+# Handoffs
+handoffs/

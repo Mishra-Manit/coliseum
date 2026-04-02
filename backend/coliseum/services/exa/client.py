@@ -93,9 +93,10 @@ class ExaClient:
             include_text: Whether to include full text in citations
             system_prompt: Custom system prompt for the LLM
         """
-        include_text = (
-            include_text if include_text is not None else self.config.answer_include_text
-        )
+        if include_text is not None:
+            include_text = include_text
+        else:
+            include_text = self.config.answer_include_text
         system_prompt = system_prompt or self.config.default_system_prompt
 
         def _answer():

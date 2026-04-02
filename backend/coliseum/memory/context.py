@@ -20,9 +20,18 @@ def _format_decisions(decisions: list[DecisionEntry]) -> str:
         return "  (none)"
     lines = []
     for d in decisions:
-        price_str = f"@ {d.price * 100:.0f}¢" if d.price else ""
-        status_str = f"({d.execution_status})" if d.execution_status else ""
-        reason_str = f' — "{d.reasoning[:400]}"' if d.reasoning else ""
+        if d.price:
+            price_str = f"@ {d.price * 100:.0f}¢"
+        else:
+            price_str = ""
+        if d.execution_status:
+            status_str = f"({d.execution_status})"
+        else:
+            status_str = ""
+        if d.reasoning:
+            reason_str = f' — "{d.reasoning[:400]}"'
+        else:
+            reason_str = ""
         lines.append(f"  - {d.action} {d.ticker} {price_str} {status_str}{reason_str}")
     return "\n".join(lines)
 
@@ -30,7 +39,10 @@ def _format_decisions(decisions: list[DecisionEntry]) -> str:
 def _format_portfolio(state: PortfolioState) -> str:
     p = state.portfolio
     positions = len(state.open_positions)
-    tickers = ", ".join(pos.market_ticker for pos in state.open_positions) if state.open_positions else "none"
+    if state.open_positions:
+        tickers = ", ".join(pos.market_ticker for pos in state.open_positions)
+    else:
+        tickers = "none"
     return (
         f"  Cash: ${p.cash_balance:.2f} | Positions: ${p.positions_value:.2f} "
         f"({positions} open) | Total: ${p.total_value:.2f}\n"

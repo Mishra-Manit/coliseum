@@ -50,7 +50,10 @@ def create_agent(
 
     Set use_responses_api=False for agents that don't need WebSearchTool
     """
-    system_prompt = f"{load_kalshi_mechanics()}\n\n{prompt}" if prepend_mechanics else prompt
+    if prepend_mechanics:
+        system_prompt = f"{load_kalshi_mechanics()}\n\n{prompt}"
+    else:
+        system_prompt = prompt
     model_name = OpenAIModel.GPT_5_4
     provider = _get_provider()
 

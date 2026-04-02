@@ -67,8 +67,13 @@ async def run_pipeline(settings: Settings) -> JournalCycleSummary:
             scout_output = await run_scout(settings=settings)
 
             if not scout_output or not scout_output.opportunities:
+                if scout_output:
+                    markets_scanned = scout_output.markets_scanned
+                else:
+                    markets_scanned = 0
+
                 summary.scout_summary = (
-                    f"Scanned {scout_output.markets_scanned if scout_output else 0} markets, "
+                    f"Scanned {markets_scanned} markets, "
                     f"0 opportunities"
                 )
                 logfire.info("Scout found no opportunities")
@@ -136,8 +141,15 @@ async def run_pipeline(settings: Settings) -> JournalCycleSummary:
                             error_message=str(e),
                         )
 
-        summary.analyst_summary = "; ".join(analyst_summaries) if analyst_summaries else "N/A"
-        summary.trader_summary = "; ".join(trader_summaries) if trader_summaries else "N/A"
+        if analyst_summaries:
+            summary.analyst_summary = "; ".join(analyst_summaries)
+        else:
+            summary.analyst_summary = "N/A"
+
+        if trader_summaries:
+            summary.trader_summary = "; ".join(trader_summaries)
+        else:
+            summary.trader_summary = "N/A"
 
         logfire.info("All opportunities processed", count=total)
 
@@ -177,7 +189,7 @@ async def _mark_opportunity_failed(
             error_message=error_message,
         )
     except Exception as e:
-        logger.error("DB mark-failed write failed: %s", e)
+        logfire.error("DB mark-failed write failed", opportunity_id=opportunity_id, error=str(e))
 
     try:
         opp_file = find_opportunity_file_by_id(opportunity_id, paper=paper)

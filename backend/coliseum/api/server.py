@@ -365,7 +365,10 @@ def _read_trades(
         return rows
 
     start_iso = start_date.isoformat()
-    ts_field = "executed_at" if trade_type == "buy" else "closed_at"
+    if trade_type == "buy":
+        ts_field = "executed_at"
+    else:
+        ts_field = "closed_at"
     return [r for r in rows if r.get(ts_field, "")[:10] >= start_iso]
 
 
@@ -471,14 +474,29 @@ async def get_chart_data():
     losing_trades = sum(d["losses"] for d in daily)
     daily_pnls = [d["pnl"] for d in daily]
 
+    if total_trades > 0:
+        win_rate = round(winning_trades / total_trades, 4)
+    else:
+        win_rate = 0.0
+
+    if daily_pnls:
+        best_day = round(max(daily_pnls), 4)
+    else:
+        best_day = 0.0
+
+    if daily_pnls:
+        worst_day = round(min(daily_pnls), 4)
+    else:
+        worst_day = 0.0
+
     stats = {
         "total_pnl": round(total_pnl, 4),
-        "win_rate": round(winning_trades / total_trades, 4) if total_trades > 0 else 0.0,
+        "win_rate": win_rate,
         "total_trades": total_trades,
         "winning_trades": winning_trades,
         "losing_trades": losing_trades,
-        "best_day": round(max(daily_pnls), 4) if daily_pnls else 0.0,
-        "worst_day": round(min(daily_pnls), 4) if daily_pnls else 0.0,
+        "best_day": best_day,
+        "worst_day": worst_day,
         "current_nav": round(current_nav, 4),
         "initial_nav": round(initial_nav, 4),
     }
@@ -524,7 +542,10 @@ def _enrich_position(pos: Position, current_price: float) -> EnrichedPosition:
     """Compute unrealized P&L for an open position. Returns new object, no mutation."""
     pnl = (current_price - pos.average_entry) * pos.contracts
     cost = pos.average_entry * pos.contracts
-    pct = (pnl / cost * 100) if cost > 0 else 0.0
+    if cost > 0:
+        pct = pnl / cost * 100
+    else:
+        pct = 0.0
     return EnrichedPosition(
         id=pos.id,
         market_ticker=pos.market_ticker,

@@ -54,12 +54,18 @@ class Market(BaseModel):
         def _c(key: str) -> int:
             """Convert FixedPointDollars string to cents int."""
             v = data.get(key)
-            return round(float(v) * 100) if v is not None else 0
+            if v is not None:
+                return round(float(v) * 100)
+            else:
+                return 0
 
         def _i(key: str) -> int:
             """Convert FixedPointCount string to int."""
             v = data.get(key)
-            return int(float(v)) if v is not None else 0
+            if v is not None:
+                return int(float(v))
+            else:
+                return 0
 
         return cls(
             ticker=data.get("ticker", ""),

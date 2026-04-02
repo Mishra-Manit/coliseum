@@ -30,12 +30,17 @@ def initialize_logfire(settings: Settings) -> None:
         return
 
     try:
+        if settings.trading.paper_mode:
+            environment = "paper"
+        else:
+            environment = "live"
+
         # 1. Configure Logfire with cloud token
         logfire.configure(
             token=settings.logfire_token,
             service_name="coliseum",
             service_version=__version__,
-            environment="paper" if settings.trading.paper_mode else "live",
+            environment=environment,
             console=False,
         )
 

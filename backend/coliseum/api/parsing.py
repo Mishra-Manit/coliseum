@@ -44,9 +44,19 @@ def _parse_research(markdown_body: str) -> dict | None:
     flip = re.search(r"\*\*Flip Risk:\*\*\s*(YES|NO|UNCERTAIN)", s)
     conf = re.search(r"Confidence:\s*(HIGH|MEDIUM|LOW)", s)
 
+    if flip:
+        flip_risk = flip.group(1)
+    else:
+        flip_risk = "UNCERTAIN"
+
+    if conf:
+        confidence = conf.group(1)
+    else:
+        confidence = None
+
     return {
-        "flip_risk": flip.group(1) if flip else "UNCERTAIN",
-        "confidence": conf.group(1) if conf else None,
+        "flip_risk": flip_risk,
+        "confidence": confidence,
         "event_status": _subsection(s, "Event Status"),
         "evidence_for": _bullets(s, "Key Evidence For YES"),
         "evidence_against": _bullets(s, "Key Evidence Against YES"),
@@ -64,7 +74,10 @@ def _subsection(text: str, header: str) -> str:
         text,
         re.DOTALL,
     )
-    return m.group(1).strip() if m else ""
+    if m:
+        return m.group(1).strip()
+    else:
+        return ""
 
 
 def _bullets(text: str, header: str) -> list[str]:
