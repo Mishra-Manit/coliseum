@@ -82,6 +82,9 @@ class Settings(BaseSettings):
     # Paths
     data_dir: Path = Path("data")
 
+    # Database
+    supabase_db_url: str = ""  # postgresql+asyncpg://... set via SUPABASE_DB_URL in .env
+
     # API Keys
     kalshi_api_key: str = ""
     rsa_private_key: str = ""

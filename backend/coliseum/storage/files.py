@@ -9,7 +9,6 @@ from uuid import uuid4
 import yaml
 from pydantic import BaseModel, Field, field_validator
 
-from coliseum.agents.shared_tools import _strip_cite_tokens
 from coliseum.storage._io import atomic_write, yaml_dump, append_jsonl
 from coliseum.storage.state import get_data_dir
 
@@ -190,46 +189,33 @@ def save_opportunity(opportunity: OpportunitySignal, paper: bool = False) -> Pat
     filename = f"{opportunity.market_ticker}.md"
     file_path = date_dir / filename
 
-    # Strip cite tokens from all text fields before writing
-    clean_rationale = _strip_cite_tokens(opportunity.rationale)
-    clean_resolution = _strip_cite_tokens(opportunity.resolution_source)
-    clean_evidence = [_strip_cite_tokens(b) for b in opportunity.evidence_bullets]
-    clean_risks = [_strip_cite_tokens(r) for r in opportunity.remaining_risks]
-
-    # Build a clean copy for frontmatter — rationale goes to frontmatter as short summary
-    clean_opp = opportunity.model_copy(update={
-        "rationale": clean_rationale,
-        "resolution_source": clean_resolution,
-        "evidence_bullets": clean_evidence,
-        "remaining_risks": clean_risks,
-    })
-    frontmatter = clean_opp.model_dump(mode="json", exclude={"market_title", "subtitle"})
+    frontmatter = opportunity.model_dump(mode="json", exclude={"market_title", "subtitle"})
 
     event_line = f"**Event**: {opportunity.event_title}\n" if opportunity.event_title else ""
     subtitle_section = f"\n**Outcome**: {opportunity.subtitle}\n" if opportunity.subtitle else ""
 
     # Build structured Scout Assessment section
-    evidence_lines = "\n".join(f"- {b}" for b in clean_evidence) if clean_evidence else "- See rationale"
-    risks_lines = "\n".join(f"- {r}" for r in clean_risks) if clean_risks else "- None identified"
+    evidence_lines = "\n".join(f"- {b}" for b in opportunity.evidence_bullets) if opportunity.evidence_bullets else "- See rationale"
+    risks_lines = "\n".join(f"- {r}" for r in opportunity.remaining_risks) if opportunity.remaining_risks else "- None identified"
     sources_lines = "\n".join(f"- {s}" for s in opportunity.scout_sources) if opportunity.scout_sources else ""
 
     verdict_line = (
         f"**{opportunity.outcome_status}**  ·  **{opportunity.risk_level} RISK**"
         if opportunity.outcome_status
-        else f"**Rationale**: {clean_rationale}"
+        else f"**Rationale**: {opportunity.rationale}"
     )
 
     scout_section = f"""## Scout Assessment
 
 {verdict_line}
 
-{clean_rationale}
+{opportunity.rationale}
 
 **Evidence**
 {evidence_lines}
 
 **Resolution**
-{clean_resolution}
+{opportunity.resolution_source}
 
 **Risks**
 {risks_lines}

@@ -11,6 +11,7 @@ from coliseum.agents.scout import run_scout
 from coliseum.agents.trader import run_trader
 from coliseum.config import Settings
 from coliseum.memory.journal import JournalCycleSummary, write_journal_entry
+from coliseum.services.supabase.repositories.opportunities import mark_opportunity_failed_in_db
 from coliseum.storage.files import find_opportunity_file_by_id, mark_opportunity_failed
 from coliseum.storage.state import load_state
 
@@ -102,7 +103,7 @@ async def run_pipeline(settings: Settings) -> JournalCycleSummary:
                         errors.append(f"Analyst({opp.market_ticker}): {e}")
                         logfire.error("Analyst failed", error=str(e))
                         logger.error("Analyst failed for %s: %s", opp.market_ticker, e)
-                        _mark_opportunity_failed(
+                        await _mark_opportunity_failed(
                             opp.id,
                             settings.trading.paper_mode,
                             failed_stage="analyst",
@@ -128,7 +129,7 @@ async def run_pipeline(settings: Settings) -> JournalCycleSummary:
                     except Exception as e:
                         errors.append(f"Trader({opp.market_ticker}): {e}")
                         logfire.error("Trader failed", error=str(e))
-                        _mark_opportunity_failed(
+                        await _mark_opportunity_failed(
                             opp.id,
                             settings.trading.paper_mode,
                             failed_stage="trader",
@@ -161,7 +162,7 @@ async def run_pipeline(settings: Settings) -> JournalCycleSummary:
     return summary
 
 
-def _mark_opportunity_failed(
+async def _mark_opportunity_failed(
     opportunity_id: str,
     paper: bool,
     *,
@@ -169,6 +170,15 @@ def _mark_opportunity_failed(
     error_message: str,
 ) -> None:
     """Set explicit failure metadata after an agent exception without changing body content."""
+    try:
+        await mark_opportunity_failed_in_db(
+            opportunity_id=opportunity_id,
+            failed_stage=failed_stage,
+            error_message=error_message,
+        )
+    except Exception as e:
+        logger.error("DB mark-failed write failed: %s", e)
+
     try:
         opp_file = find_opportunity_file_by_id(opportunity_id, paper=paper)
         if opp_file:
