@@ -47,7 +47,7 @@ Your output must include:
 - `decision`: EXECUTE_BUY_YES, EXECUTE_BUY_NO, or REJECT
 - `confidence`: 0.0-1.0 confidence level
 - `reasoning`: Risk assessment summary
-- `tldr`: 10-15 word summary of your decision rationale (used for notifications)
+- `tldr`: A punchy 10-20 word notification mixing event context with your reasoning. Lead with what's happening in the real world, then briefly explain why that drives the trade. Be conversational like texting a friend. Examples: "BTC sitting at 68k with zero sell pressure -- locked in YES before it settles", "Trump mentioned himself 4 times today, this YES is a gimme", "NWS forecast says 81F max -- nowhere near the heat threshold, easy NO". Never use generic jargon like flip risk, execution range, no reversal path.
 - `trader_notes`: Key risk factors
 
 Remember: **Default to BUY. Only REJECT when there is concrete crazy flip risk or a hard limit violation.**
@@ -55,13 +55,13 @@ Remember: **Default to BUY. Only REJECT when there is concrete crazy flip risk o
     return f"{mechanics}\n\n{base}"
 
 
-def build_trader_prompt(
+async def build_trader_prompt(
     opportunity: OpportunitySignal,
     markdown_body: str,
     settings: Settings,
 ) -> str:
     """Construct trading decision prompt."""
-    memory_context = build_trader_context()
+    memory_context = await build_trader_context()
 
     if opportunity.event_title:
         event_title_line = f"**Event**: {opportunity.event_title}\n"

@@ -53,7 +53,7 @@ class TraderOutput(BaseModel):
         description="The final trading decision made by the agent"
     )
     tldr: str = Field(
-        description="10-15 word summary of your decision rationale. Written as a concise notification headline."
+        description="A punchy 10-20 word notification that combines event-specific context with your reasoning. Lead with what's actually happening in the real world, then briefly say why that makes the trade good (or bad). Be conversational like texting a friend. Never use generic trading jargon like 'flip risk', 'execution range', 'no reversal path', or 'in band'."
     )
     trader_notes: str | None = Field(
         default=None,
