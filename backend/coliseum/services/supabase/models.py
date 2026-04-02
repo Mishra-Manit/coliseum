@@ -3,7 +3,17 @@
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import ARRAY, Boolean, CheckConstraint, Integer, Numeric, Text, TIMESTAMP
+from sqlalchemy import (
+    ARRAY,
+    Boolean,
+    CheckConstraint,
+    ForeignKey,
+    Integer,
+    Numeric,
+    Text,
+    TIMESTAMP,
+    text,
+)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -33,18 +43,26 @@ class Opportunity(Base):
     failed_stage: Mapped[str | None] = mapped_column(Text, nullable=True)
     failure_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     failed_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
-    paper: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    paper: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("true"))
 
 
 class OpportunityAnalysis(Base):
     __tablename__ = "opportunity_analysis"
 
-    opportunity_id: Mapped[str] = mapped_column(Text, primary_key=True)
+    opportunity_id: Mapped[str] = mapped_column(
+        Text, ForeignKey("opportunities.id"), primary_key=True
+    )
     rationale: Mapped[str] = mapped_column(Text, nullable=False)
     resolution_source: Mapped[str | None] = mapped_column(Text, nullable=True)
-    evidence_bullets: Mapped[list[str]] = mapped_column(ARRAY(Text), nullable=False, default=list)
-    remaining_risks: Mapped[list[str]] = mapped_column(ARRAY(Text), nullable=False, default=list)
-    scout_sources: Mapped[list[str]] = mapped_column(ARRAY(Text), nullable=False, default=list)
+    evidence_bullets: Mapped[list[str]] = mapped_column(
+        ARRAY(Text), nullable=False, server_default=text("'{}'::text[]")
+    )
+    remaining_risks: Mapped[list[str]] = mapped_column(
+        ARRAY(Text), nullable=False, server_default=text("'{}'::text[]")
+    )
+    scout_sources: Mapped[list[str]] = mapped_column(
+        ARRAY(Text), nullable=False, server_default=text("'{}'::text[]")
+    )
     research_synthesis: Mapped[str | None] = mapped_column(Text, nullable=True)
     trader_tldr: Mapped[str | None] = mapped_column(Text, nullable=True)
     research_duration_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
@@ -59,8 +77,12 @@ class OpenPosition(Base):
     contracts: Mapped[int] = mapped_column(Integer, nullable=False)
     average_entry: Mapped[Decimal] = mapped_column(Numeric(5, 4), nullable=False)
     current_price: Mapped[Decimal] = mapped_column(Numeric(5, 4), nullable=False)
-    opportunity_id: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False)
+    opportunity_id: Mapped[str | None] = mapped_column(
+        Text, ForeignKey("opportunities.id"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, server_default=text("now()")
+    )
 
 
 class ClosedPosition(Base):
@@ -115,11 +137,13 @@ class PortfolioState(Base):
         CheckConstraint("id = 1", name="ck_portfolio_state_singleton"),
     )
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, server_default=text("1"))
     cash_balance: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     positions_value: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     total_value: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, server_default=text("now()")
+    )
 
 
 class PortfolioSnapshot(Base):
@@ -131,14 +155,18 @@ class PortfolioSnapshot(Base):
     positions_value: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     open_positions: Mapped[int] = mapped_column(Integer, nullable=False)
     realized_pnl: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
-    snapshot_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False)
+    snapshot_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, server_default=text("now()")
+    )
 
 
 class SeenTicker(Base):
     __tablename__ = "seen_tickers"
 
     ticker: Mapped[str] = mapped_column(Text, primary_key=True)
-    first_seen_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False)
+    first_seen_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, server_default=text("now()")
+    )
 
 
 class Decision(Base):
@@ -164,17 +192,19 @@ class RunCycle(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     cycle_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False)
     duration_seconds: Mapped[int] = mapped_column(Integer, nullable=False)
-    guardian_synced: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    guardian_closed: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    scout_scanned: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    scout_found: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    guardian_synced: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
+    guardian_closed: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
+    scout_scanned: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
+    scout_found: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
     analyst_results: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     trader_results: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     cash_balance: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
     positions_value: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
     total_value: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
     open_positions: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    errors: Mapped[list[str]] = mapped_column(ARRAY(Text), nullable=False, default=list)
+    errors: Mapped[list[str]] = mapped_column(
+        ARRAY(Text), nullable=False, server_default=text("'{}'::text[]")
+    )
 
 
 class Learning(Base):
@@ -183,5 +213,7 @@ class Learning(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     category: Mapped[str] = mapped_column(Text, nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False)
-    active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, server_default=text("now()")
+    )
+    active: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("true"))
