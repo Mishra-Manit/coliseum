@@ -154,3 +154,41 @@ async def mark_opportunity_failed_in_db(
         )
     else:
         logger.info("Marked opportunity %s as failed at stage '%s'", opportunity_id, failed_stage)
+
+
+async def update_opportunity_trader_decision(
+    opportunity_id: str,
+    trader_decision: str,
+    trader_tldr: str,
+    status: str | None = None,
+) -> None:
+    """Persist trader decision and summary for an opportunity."""
+    opp_values: dict[str, str] = {"trader_decision": trader_decision}
+    if status is not None:
+        opp_values["status"] = status
+
+    async with get_db_session() as session:
+        opp_result = await session.execute(
+            update(Opportunity)
+            .where(Opportunity.id == opportunity_id)
+            .values(**opp_values)
+        )
+        analysis_result = await session.execute(
+            update(OpportunityAnalysis)
+            .where(OpportunityAnalysis.opportunity_id == opportunity_id)
+            .values(trader_tldr=trader_tldr)
+        )
+        await session.commit()
+
+    if opp_result.rowcount == 0:
+        logger.warning(
+            "No Opportunity row found for opportunity %s -- trader_decision update was a no-op",
+            opportunity_id,
+        )
+    if analysis_result.rowcount == 0:
+        logger.warning(
+            "No OpportunityAnalysis row found for opportunity %s -- trader_tldr update was a no-op",
+            opportunity_id,
+        )
+    if opp_result.rowcount > 0 and analysis_result.rowcount > 0:
+        logger.info("Updated trader decision for opportunity %s", opportunity_id)

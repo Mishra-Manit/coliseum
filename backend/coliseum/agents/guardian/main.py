@@ -18,6 +18,8 @@ from coliseum.storage.files import (
     generate_close_id,
     log_trade_close,
 )
+from coliseum.services.supabase.repositories.trades import save_trade_close_to_db
+from coliseum.services.supabase.repositories.portfolio import save_closed_position_to_db, sync_portfolio_to_db
 from coliseum.storage.state import ClosedPosition, PortfolioState, Position, load_state, save_state
 from coliseum.storage.sync import (
     extract_fill_count,
@@ -287,20 +289,26 @@ async def reconcile_closed_positions(
         )
         newly_closed.append(closed_pos)
 
-        log_trade_close(
-            TradeClose(
-                id=generate_close_id(),
-                opportunity_id=pos.opportunity_id,
-                market_ticker=pos.market_ticker,
-                side=pos.side,
-                contracts=pos.contracts,
-                entry_price=pos.average_entry,
-                exit_price=exit_price,
-                pnl=pnl,
-                entry_rationale=entry_rationale,
-                closed_at=closed_at,
-            )
+        trade_close = TradeClose(
+            id=generate_close_id(),
+            opportunity_id=pos.opportunity_id,
+            market_ticker=pos.market_ticker,
+            side=pos.side,
+            contracts=pos.contracts,
+            entry_price=pos.average_entry,
+            exit_price=exit_price,
+            pnl=pnl,
+            entry_rationale=entry_rationale,
+            closed_at=closed_at,
         )
+
+        try:
+            await save_trade_close_to_db(trade_close)
+            await save_closed_position_to_db(closed_pos)
+        except Exception as e:
+            logfire.error("DB write failed for position closure", market_ticker=pos.market_ticker, error=str(e))
+
+        log_trade_close(trade_close)
 
         stats.newly_closed += 1
         logger.info(
@@ -316,6 +324,16 @@ async def reconcile_closed_positions(
         closed_positions=new_state.closed_positions + newly_closed,
         seen_tickers=new_state.seen_tickers,
     )
+    try:
+        await sync_portfolio_to_db(
+            cash_balance=float(updated_state.portfolio.cash_balance),
+            positions_value=float(updated_state.portfolio.positions_value),
+            total_value=float(updated_state.portfolio.total_value),
+            open_positions=updated_state.open_positions,
+        )
+    except Exception as e:
+        logfire.error("DB portfolio sync failed after reconciliation", error=str(e))
+
     save_state(updated_state)
     return updated_state, stats, newly_closed
 

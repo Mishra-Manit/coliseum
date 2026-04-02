@@ -57,7 +57,6 @@ def _register_tools(agent: Agent[ScoutDependencies, ScoutOutput]) -> None:
 
     @agent.tool
     def generate_opportunity_id_tool(ctx: RunContext[ScoutDependencies]) -> str:
-        """Generate a unique opportunity ID with opp_ prefix."""
         return generate_opportunity_id()
 
     register_get_current_time(agent)
