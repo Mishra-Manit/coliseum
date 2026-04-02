@@ -48,12 +48,12 @@ async def run_researcher(
 ) -> ResearcherOutput:
     """Run Researcher agent - appends research to opportunity file."""
     start_time = time.time()
-    opp_file, opportunity = load_opportunity(opportunity_id, paper=settings.trading.paper_mode)
+    opportunity = await load_opportunity(opportunity_id)
 
     deps = AnalystDependencies(
         opportunity_id=opportunity_id,
     )
-    prompt = _build_research_prompt(opportunity, settings)
+    prompt = await _build_research_prompt(opportunity, settings)
 
     agent = get_agent()
     result = await agent.run(prompt, deps=deps)
@@ -101,10 +101,10 @@ async def run_researcher(
     return output
 
 
-def _build_research_prompt(opportunity: OpportunitySignal, settings: Settings) -> str:
+async def _build_research_prompt(opportunity: OpportunitySignal, settings: Settings) -> str:
     """Build the research prompt for the agent."""
     header = format_opportunity_header(opportunity)
-    memory_context = build_analyst_context()
+    memory_context = await build_analyst_context()
     market_type_context = get_market_type_context(opportunity)
 
     return f"""Assess whether this pre-resolution prediction market is likely to hold at 92-96% YES.

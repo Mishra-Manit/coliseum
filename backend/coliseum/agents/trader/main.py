@@ -4,7 +4,6 @@ import asyncio
 import logging
 from contextlib import AsyncExitStack
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Literal
 from uuid import uuid4
 
@@ -29,23 +28,27 @@ from coliseum.services.telegram import TelegramClient, create_telegram_client
 from coliseum.storage.files import (
     OpportunitySignal,
     TradeExecution,
-    get_opportunity_markdown_body,
     find_opportunity_file_by_id,
     generate_trade_id,
-    load_opportunity_from_file,
     log_trade,
     update_opportunity_frontmatter,
 )
 from coliseum.memory.decisions import DecisionEntry, log_decision
-from coliseum.services.supabase.repositories.opportunities import update_opportunity_trader_decision
+from coliseum.services.supabase.repositories.opportunities import (
+    load_opportunity_from_db,
+    get_opportunity_body_from_db,
+    update_opportunity_trader_decision,
+)
 from coliseum.services.supabase.repositories.trades import save_trade_to_db
 from coliseum.services.supabase.repositories.decisions import save_decision_to_db
-from coliseum.services.supabase.repositories.portfolio import update_portfolio_after_trade_in_db
+from coliseum.services.supabase.repositories.portfolio import (
+    load_state_from_db,
+    update_portfolio_after_trade_in_db,
+)
 from coliseum.storage.state import (
     PortfolioState,
     PortfolioStats,
     Position,
-    load_state,
     save_state,
 )
 
@@ -272,12 +275,7 @@ async def run_trader(
     if settings is None:
         settings = get_settings()
 
-    # Load opportunity file
-    opp_file = find_opportunity_file_by_id(opportunity_id, paper=settings.trading.paper_mode)
-    if not opp_file:
-        raise FileNotFoundError(f"Opportunity file not found: {opportunity_id}")
-
-    opportunity = load_opportunity_from_file(opp_file)
+    opportunity = await load_opportunity_from_db(opportunity_id)
 
     if not opportunity.recommendation_completed_at:
         raise ValueError(f"Recommendation not completed for {opportunity_id}")
@@ -312,8 +310,8 @@ async def run_trader(
                 config=settings,
             )
 
-            markdown_body = get_opportunity_markdown_body(opp_file)
-            prompt = build_trader_prompt(opportunity, markdown_body, settings)
+            markdown_body = await get_opportunity_body_from_db(opportunity_id)
+            prompt = await build_trader_prompt(opportunity, markdown_body, settings)
 
             with logfire.span("agent decision", ticker=opportunity.market_ticker):
                 agent = get_agent(settings)
@@ -358,10 +356,12 @@ async def run_trader(
             except Exception as e:
                 logfire.error("DB write failed for trader decision", opportunity_id=opportunity_id, error=str(e))
 
-            try:
-                update_opportunity_frontmatter(opp_file, frontmatter_updates)
-            except Exception as e:
-                logfire.error("Failed to persist trader verdict", opportunity_id=opportunity_id, error=str(e))
+            opp_file = find_opportunity_file_by_id(opportunity_id, paper=settings.trading.paper_mode)
+            if opp_file:
+                try:
+                    update_opportunity_frontmatter(opp_file, frontmatter_updates)
+                except Exception as e:
+                    logfire.error("Failed to persist trader verdict", opportunity_id=opportunity_id, error=str(e))
 
             # Deterministic Telegram alert — always fires
             await _send_telegram_alert(telegram_client, opportunity, output)
@@ -559,7 +559,7 @@ async def _update_state_after_trade(
     position_id: str,
 ) -> None:
     """Update state.yaml with new position and adjust portfolio balances."""
-    state = load_state()
+    state = await load_state_from_db()
 
     new_cash = state.portfolio.cash_balance - total_cost
     new_positions_value = state.portfolio.positions_value + total_cost

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 
 import logfire
@@ -10,9 +11,10 @@ from pydantic_ai import Agent
 from coliseum.agents.agent_factory import AgentFactory, create_agent
 from coliseum.agents.guardian.models import LearningReflectionOutput
 from coliseum.agents.guardian.prompts import SCRIBE_PROMPT
-from coliseum.memory.learnings import load_learnings, _get_learnings_path
+from coliseum.memory.learnings import _get_learnings_path
+from coliseum.services.supabase.repositories.learnings import load_learnings_from_db
+from coliseum.services.supabase.repositories.opportunities import get_opportunity_body_from_db
 from coliseum.storage._io import atomic_write
-from coliseum.storage.files import find_opportunity_file_by_id, get_opportunity_markdown_body
 from coliseum.storage.state import ClosedPosition
 
 logger = logging.getLogger(__name__)
@@ -36,15 +38,15 @@ def get_agent() -> Agent[None, LearningReflectionOutput]:
     return _agent_factory.get_agent()
 
 
-def _load_opportunity_body(opportunity_id: str | None) -> str | None:
+async def _load_opportunity_body(opportunity_id: str | None) -> str | None:
     """Load full opportunity markdown body for richer reflection context."""
     if not opportunity_id:
         return None
     try:
-        opp_file = find_opportunity_file_by_id(opportunity_id)
-        if not opp_file:
-            return None
-        return get_opportunity_markdown_body(opp_file)
+        body = await get_opportunity_body_from_db(opportunity_id)
+        if body:
+            return body
+        return None
     except Exception as exc:
         logger.warning("Scribe could not load opportunity body for %s: %s", opportunity_id, exc)
         return None
@@ -119,13 +121,13 @@ def _write_learnings(content: str) -> None:
 
 async def run_scribe(newly_closed: list[ClosedPosition]) -> str:
     """Reflect on closed positions and update learnings.md. Returns the change summary."""
-    current_learnings = load_learnings()
+    current_learnings = await load_learnings_from_db()
 
-    opportunity_bodies: dict[str, str | None] = {
-        pos.opportunity_id: _load_opportunity_body(pos.opportunity_id)
-        for pos in newly_closed
-        if pos.opportunity_id
-    }
+    unique_opp_ids = [pos.opportunity_id for pos in newly_closed if pos.opportunity_id]
+    body_results = await asyncio.gather(
+        *[_load_opportunity_body(opp_id) for opp_id in unique_opp_ids]
+    )
+    opportunity_bodies: dict[str, str | None] = dict(zip(unique_opp_ids, body_results))
 
     prompt = _build_prompt(newly_closed, opportunity_bodies, current_learnings)
 

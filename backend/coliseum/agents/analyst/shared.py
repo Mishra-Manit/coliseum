@@ -1,25 +1,16 @@
 """Shared utilities for Analyst sub-agents (Researcher + Recommender)."""
 
 import logging
-from pathlib import Path
 
-from coliseum.storage.files import (
-    OpportunitySignal,
-    find_opportunity_file_by_id,
-    load_opportunity_from_file,
-)
+from coliseum.services.supabase.repositories.opportunities import load_opportunity_from_db
+from coliseum.storage.files import OpportunitySignal
 
 logger = logging.getLogger(__name__)
 
 
-def load_opportunity(opportunity_id: str, paper: bool = False) -> tuple[Path, OpportunitySignal]:
-    """Load an opportunity file by ID."""
-    opp_file = find_opportunity_file_by_id(opportunity_id, paper=paper)
-    if not opp_file:
-        raise FileNotFoundError(f"Opportunity file not found: {opportunity_id}")
-
-    opportunity = load_opportunity_from_file(opp_file)
-    return opp_file, opportunity
+async def load_opportunity(opportunity_id: str) -> OpportunitySignal:
+    """Load an opportunity from the database by ID."""
+    return await load_opportunity_from_db(opportunity_id)
 
 
 def format_opportunity_header(opportunity: OpportunitySignal) -> str:

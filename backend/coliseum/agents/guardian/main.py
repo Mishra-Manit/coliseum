@@ -6,7 +6,6 @@ import logging
 from datetime import datetime, timezone
 
 import logfire
-import yaml
 
 from coliseum.config import Settings, get_settings
 from coliseum.services.kalshi import KalshiClient
@@ -14,13 +13,13 @@ from coliseum.services.telegram import TelegramClient
 from coliseum.services.kalshi.config import KalshiConfig
 from coliseum.storage.files import (
     TradeClose,
-    find_opportunity_file_by_id,
     generate_close_id,
     log_trade_close,
 )
+from coliseum.services.supabase.repositories.opportunities import get_entry_rationale_from_db
+from coliseum.services.supabase.repositories.portfolio import load_state_from_db, save_closed_position_to_db, sync_portfolio_to_db
 from coliseum.services.supabase.repositories.trades import save_trade_close_to_db
-from coliseum.services.supabase.repositories.portfolio import save_closed_position_to_db, sync_portfolio_to_db
-from coliseum.storage.state import ClosedPosition, PortfolioState, Position, load_state, save_state
+from coliseum.storage.state import ClosedPosition, PortfolioState, Position, save_state
 from coliseum.storage.sync import (
     extract_fill_count,
     extract_fill_price,
@@ -117,29 +116,12 @@ async def _compute_exit_outcome(
     return exit_price, pnl
 
 
-def _extract_entry_rationale(opportunity_id: str | None) -> str | None:
-    """Read opportunity file and extract the original Scout rationale."""
+async def _extract_entry_rationale(opportunity_id: str | None) -> str | None:
+    """Read the original Scout rationale from the database."""
     if not opportunity_id:
         return None
     try:
-        opp_file = find_opportunity_file_by_id(opportunity_id)
-        if not opp_file:
-            return None
-        content = opp_file.read_text(encoding="utf-8")
-        parts = content.split("---", 2)
-        if len(parts) >= 3:
-            frontmatter = yaml.safe_load(parts[1]) or {}
-            if frontmatter.get("rationale"):
-                return str(frontmatter["rationale"])
-        # fallback: old format stored rationale in markdown body
-        if len(parts) >= 3:
-            body = parts[2]
-        else:
-            body = content
-        for line in body.splitlines():
-            if line.startswith("**Rationale**:"):
-                return line.removeprefix("**Rationale**:").strip()
-        return None
+        return await get_entry_rationale_from_db(opportunity_id)
     except Exception as exc:
         logger.warning("Could not extract entry rationale for %s: %s", opportunity_id, exc)
         return None
@@ -274,7 +256,7 @@ async def reconcile_closed_positions(
 
         closed_at = datetime.now(timezone.utc)
         exit_price, pnl = await _compute_exit_outcome(pos, fills, client)
-        entry_rationale = _extract_entry_rationale(pos.opportunity_id)
+        entry_rationale = await _extract_entry_rationale(pos.opportunity_id)
 
         closed_pos = ClosedPosition(
             market_ticker=pos.market_ticker,
@@ -365,7 +347,7 @@ async def run_guardian(settings: Settings | None = None) -> GuardianResult:
             private_key_pem=private_key_pem,
         ) as client:
             # Step 1: snapshot pre-sync positions
-            pre_sync_state = load_state()
+            pre_sync_state = await load_state_from_db()
 
             # Step 2: sync portfolio from Kalshi
             with logfire.span("sync portfolio from Kalshi"):

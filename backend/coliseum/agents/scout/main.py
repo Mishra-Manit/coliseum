@@ -277,7 +277,7 @@ async def run_scout(
             with logfire.span("scout agent run", markets=len(prefetched_markets)):
                 agent = get_scout_agent(settings)
                 scout_cfg = settings.scout
-                memory_context = build_scout_context()
+                memory_context = await build_scout_context()
                 prompt = (
                     f"Review the prefiltered Scout candidates and find the single best "
                     f"near-decided opportunity in the {scout_cfg.min_price}-{scout_cfg.max_price}% "

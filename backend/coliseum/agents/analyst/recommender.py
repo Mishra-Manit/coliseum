@@ -16,11 +16,13 @@ from coliseum.agents.analyst.shared import (
 )
 from coliseum.config import Settings
 from coliseum.memory.context import build_analyst_context
-from coliseum.services.supabase.repositories.opportunities import update_opportunity_recommendation
+from coliseum.services.supabase.repositories.opportunities import (
+    get_opportunity_body_from_db,
+    update_opportunity_recommendation,
+)
 from coliseum.storage.files import (
     OpportunitySignal,
-    get_opportunity_markdown_body,
-    load_opportunity_from_file,
+    find_opportunity_file,
     update_opportunity_frontmatter,
 )
 
@@ -51,17 +53,17 @@ async def run_recommender(
     """Run Recommender agent - updates opportunity frontmatter with recommendation status."""
     start_time = time.time()
 
-    opp_file, opportunity = load_opportunity(opportunity_id, paper=settings.trading.paper_mode)
+    opportunity = await load_opportunity(opportunity_id)
 
     if not opportunity.research_completed_at:
         raise ValueError(f"Research not completed for {opportunity_id}")
 
-    markdown_body = get_opportunity_markdown_body(opp_file)
+    markdown_body = await get_opportunity_body_from_db(opportunity.id)
 
     deps = AnalystDependencies(
         opportunity_id=opportunity_id,
     )
-    prompt = _build_decision_prompt(opportunity, markdown_body)
+    prompt = await _build_decision_prompt(opportunity, markdown_body)
 
     agent = get_agent()
     result = await agent.run(prompt, deps=deps)
@@ -80,27 +82,29 @@ async def run_recommender(
     except Exception as e:
         logfire.error("DB write failed for recommender", opportunity_id=opportunity_id, error=str(e))
 
-    update_opportunity_frontmatter(
-        opp_file,
-        {
-            "recommendation_completed_at": completed_at.isoformat(),
-            "action": None,
-            "status": "recommended",
-        },
-    )
+    opp_file = find_opportunity_file(opportunity.market_ticker, paper=settings.trading.paper_mode)
+    if opp_file:
+        update_opportunity_frontmatter(
+            opp_file,
+            {
+                "recommendation_completed_at": completed_at.isoformat(),
+                "action": None,
+                "status": "recommended",
+            },
+        )
 
     logfire.info("Recommender complete", duration_seconds=round(duration, 1))
 
-    updated_opp = load_opportunity_from_file(opp_file)
+    updated_opp = await load_opportunity(opportunity.id)
     return output, updated_opp
 
 
-def _build_decision_prompt(
+async def _build_decision_prompt(
     opportunity: OpportunitySignal, markdown_body: str
 ) -> str:
     """Build the evaluation prompt for execution readiness."""
     header = format_opportunity_header(opportunity)
-    memory_context = build_analyst_context()
+    memory_context = await build_analyst_context()
 
     return f"""Screen this research for execution readiness. Your output goes directly to the Trader.
 {memory_context}
