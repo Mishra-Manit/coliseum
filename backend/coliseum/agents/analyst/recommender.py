@@ -16,6 +16,7 @@ from coliseum.agents.analyst.shared import (
 )
 from coliseum.config import Settings
 from coliseum.memory.context import build_analyst_context
+from coliseum.services.supabase.repositories.opportunities import update_opportunity_recommendation
 from coliseum.storage.files import (
     OpportunitySignal,
     get_opportunity_markdown_body,
@@ -68,6 +69,16 @@ async def run_recommender(
 
     duration = time.time() - start_time
     completed_at = datetime.now(timezone.utc)
+
+    try:
+        await update_opportunity_recommendation(
+            opportunity_id=opportunity_id,
+            completed_at=completed_at,
+            action=None,  # action is set later by the Trader agent
+            status="recommended",
+        )
+    except Exception as e:
+        logfire.error("DB write failed for recommender", opportunity_id=opportunity_id, error=str(e))
 
     update_opportunity_frontmatter(
         opp_file,
