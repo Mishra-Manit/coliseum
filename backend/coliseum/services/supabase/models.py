@@ -17,7 +17,7 @@ class Opportunity(Base):
     market_ticker: Mapped[str] = mapped_column(Text, nullable=False)
     event_ticker: Mapped[str] = mapped_column(Text, nullable=False)
     event_title: Mapped[str] = mapped_column(Text, nullable=False)
-    title: Mapped[str] = mapped_column(Text, nullable=False)
+    market_title: Mapped[str] = mapped_column(Text, nullable=False)
     subtitle: Mapped[str | None] = mapped_column(Text, nullable=True)
     yes_price: Mapped[Decimal] = mapped_column(Numeric(5, 4), nullable=False)
     no_price: Mapped[Decimal] = mapped_column(Numeric(5, 4), nullable=False)
