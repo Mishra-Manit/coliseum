@@ -1,6 +1,7 @@
 """Production pipeline orchestration: Guardian -> Scout -> (Analyst -> Trader) -> Guardian."""
 
 import logging
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
 import logfire
@@ -12,8 +13,21 @@ from coliseum.agents.trader import run_trader
 from coliseum.config import Settings
 from coliseum.memory.journal import JournalCycleSummary, write_journal_entry
 from coliseum.services.supabase.repositories.opportunities import mark_opportunity_failed_in_db
+from coliseum.services.supabase.repositories.portfolio import load_state_from_db
+from coliseum.services.supabase.repositories.run_cycles import save_run_cycle_to_db
 from coliseum.storage.files import find_opportunity_file_by_id, mark_opportunity_failed
-from coliseum.storage.state import load_state
+
+
+@dataclass
+class CycleMetrics:
+    """Structured metrics collected during a pipeline cycle for DB persistence."""
+
+    guardian_synced: int = 0
+    guardian_closed: int = 0
+    scout_scanned: int = 0
+    scout_found: int = 0
+    analyst_results: dict[str, str] = field(default_factory=dict)
+    trader_results: dict[str, str] = field(default_factory=dict)
 
 logger = logging.getLogger("coliseum.pipeline")
 
@@ -22,6 +36,7 @@ async def run_pipeline(settings: Settings) -> JournalCycleSummary:
     """Run one full pipeline cycle: Guardian -> Scout -> (Analyst -> Trader) -> Guardian."""
     cycle_start = datetime.now(timezone.utc)
     summary = JournalCycleSummary(cycle_timestamp=cycle_start)
+    metrics = CycleMetrics()
     errors: list[str] = []
 
     with logfire.span("pipeline cycle"):
@@ -29,6 +44,8 @@ async def run_pipeline(settings: Settings) -> JournalCycleSummary:
         with logfire.span("guardian pre-trade"):
             try:
                 guardian_result = await run_guardian(settings=settings)
+                metrics.guardian_synced += guardian_result.positions_synced
+                metrics.guardian_closed += guardian_result.reconciliation.newly_closed
                 summary.guardian_summary = (
                     f"Synced {guardian_result.positions_synced} positions, "
                     f"closed {guardian_result.reconciliation.newly_closed}"
@@ -47,7 +64,7 @@ async def run_pipeline(settings: Settings) -> JournalCycleSummary:
         if not settings.trading.paper_mode:
             min_cash = settings.trading.contracts * 1.0  # Need at least $1 per contract
             try:
-                state = load_state()
+                state = await load_state_from_db()
                 if state.portfolio.cash_balance < min_cash:
                     logfire.warn(
                         "Insufficient cash for trading cycle; skipping Scout/Analyst/Trader",
@@ -57,7 +74,7 @@ async def run_pipeline(settings: Settings) -> JournalCycleSummary:
                     summary.scout_summary = "Skipped (insufficient cash)"
                     summary.analyst_summary = "N/A"
                     summary.trader_summary = "N/A"
-                    _finalize_summary(summary, cycle_start, errors)
+                    await _finalize_summary(summary, cycle_start, errors, metrics)
                     return summary
             except Exception as e:
                 logger.warning("Could not load state for pre-trade cash check: %s", e)
@@ -68,20 +85,22 @@ async def run_pipeline(settings: Settings) -> JournalCycleSummary:
 
             if not scout_output or not scout_output.opportunities:
                 if scout_output:
-                    markets_scanned = scout_output.markets_scanned
+                    metrics.scout_scanned = scout_output.markets_scanned
                 else:
-                    markets_scanned = 0
+                    metrics.scout_scanned = 0
 
                 summary.scout_summary = (
-                    f"Scanned {markets_scanned} markets, "
+                    f"Scanned {metrics.scout_scanned} markets, "
                     f"0 opportunities"
                 )
                 logfire.info("Scout found no opportunities")
-                _finalize_summary(summary, cycle_start, errors)
+                await _finalize_summary(summary, cycle_start, errors, metrics)
                 return summary
 
             opportunities = scout_output.opportunities
             total = len(opportunities)
+            metrics.scout_scanned = scout_output.markets_scanned
+            metrics.scout_found = total
             summary.scout_summary = (
                 f"Scanned {scout_output.markets_scanned} markets, "
                 f"{total} opportunities"
@@ -101,6 +120,7 @@ async def run_pipeline(settings: Settings) -> JournalCycleSummary:
                             opportunity_id=opp.id,
                             settings=settings,
                         )
+                        metrics.analyst_results[opp.market_ticker] = analyzed.status
                         analyst_summaries.append(f"{opp.market_ticker}: status={analyzed.status}")
                         logfire.info("Analyst complete", status=analyzed.status)
                         logger.info("Analyst complete for %s: status=%s", opp.market_ticker, analyzed.status)
@@ -121,6 +141,9 @@ async def run_pipeline(settings: Settings) -> JournalCycleSummary:
                         trader_output = await run_trader(
                             opportunity_id=opp.id,
                             settings=settings,
+                        )
+                        metrics.trader_results[opp.market_ticker] = (
+                            f"{trader_output.decision.action} ({trader_output.execution_status})"
                         )
                         trader_summaries.append(
                             f"{opp.market_ticker}: {trader_output.decision.action} "
@@ -157,6 +180,8 @@ async def run_pipeline(settings: Settings) -> JournalCycleSummary:
         with logfire.span("guardian post-trade"):
             try:
                 guardian_result = await run_guardian(settings=settings)
+                metrics.guardian_synced += guardian_result.positions_synced
+                metrics.guardian_closed += guardian_result.reconciliation.newly_closed
                 summary.guardian_summary += (
                     f" | Post-trade: synced {guardian_result.positions_synced}, "
                     f"closed {guardian_result.reconciliation.newly_closed}"
@@ -170,7 +195,7 @@ async def run_pipeline(settings: Settings) -> JournalCycleSummary:
                 errors.append(f"Guardian(post-trade): {e}")
                 logfire.error("Guardian post-trade failed", error=str(e))
 
-    _finalize_summary(summary, cycle_start, errors)
+    await _finalize_summary(summary, cycle_start, errors, metrics)
     return summary
 
 
@@ -208,17 +233,18 @@ async def _mark_opportunity_failed(
         logger.error("Could not mark opportunity failed: %s", e)
 
 
-def _finalize_summary(
+async def _finalize_summary(
     summary: JournalCycleSummary,
     cycle_start: datetime,
     errors: list[str],
+    metrics: CycleMetrics,
 ) -> None:
-    """Populate portfolio snapshot, duration, errors, and write the journal entry."""
+    """Populate portfolio snapshot, duration, errors, and persist cycle data."""
     summary.duration_seconds = (datetime.now(timezone.utc) - cycle_start).total_seconds()
     summary.errors = errors
 
     try:
-        state = load_state()
+        state = await load_state_from_db()
         summary.portfolio_cash = state.portfolio.cash_balance
         summary.portfolio_positions_value = state.portfolio.positions_value
         summary.portfolio_total = state.portfolio.total_value
@@ -226,6 +252,27 @@ def _finalize_summary(
     except Exception as e:
         logger.warning("Could not load portfolio state for journal: %s", e)
 
+    # DB write first (primary)
+    try:
+        await save_run_cycle_to_db(
+            cycle_at=summary.cycle_timestamp,
+            duration_seconds=summary.duration_seconds,
+            guardian_synced=metrics.guardian_synced,
+            guardian_closed=metrics.guardian_closed,
+            scout_scanned=metrics.scout_scanned,
+            scout_found=metrics.scout_found,
+            analyst_results=metrics.analyst_results if metrics.analyst_results else None,
+            trader_results=metrics.trader_results if metrics.trader_results else None,
+            cash_balance=summary.portfolio_cash,
+            positions_value=summary.portfolio_positions_value,
+            total_value=summary.portfolio_total,
+            open_positions=summary.open_position_count,
+            errors=summary.errors,
+        )
+    except Exception as e:
+        logfire.error("Failed to write run_cycle to DB", error=str(e))
+
+    # Local file fallback
     try:
         write_journal_entry(summary)
     except Exception as e:

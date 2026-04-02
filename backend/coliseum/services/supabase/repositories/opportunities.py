@@ -4,7 +4,7 @@ import logging
 from datetime import datetime, timezone
 from decimal import Decimal
 
-from sqlalchemy import update
+from sqlalchemy import select, update
 
 from coliseum.services.supabase.db import get_db_session
 from coliseum.services.supabase.models import Opportunity, OpportunityAnalysis
@@ -156,6 +156,63 @@ async def mark_opportunity_failed_in_db(
         logger.info("Marked opportunity %s as failed at stage '%s'", opportunity_id, failed_stage)
 
 
+def _d2f(v: Decimal | None, default: float = 0.0) -> float:
+    """Convert Decimal to float, with default for None."""
+    if v is not None:
+        return float(v)
+    return default
+
+
+def _to_opportunity_signal(
+    opp: Opportunity,
+    analysis: OpportunityAnalysis | None,
+) -> OpportunitySignal:
+    """Map an Opportunity + optional OpportunityAnalysis row into an OpportunitySignal."""
+    if analysis:
+        rationale = analysis.rationale
+        resolution_source = analysis.resolution_source or ""
+        evidence_bullets = analysis.evidence_bullets
+        remaining_risks = analysis.remaining_risks
+        scout_sources = analysis.scout_sources
+        research_duration_seconds = analysis.research_duration_seconds
+        trader_tldr = analysis.trader_tldr or ""
+    else:
+        rationale = ""
+        resolution_source = ""
+        evidence_bullets = []
+        remaining_risks = []
+        scout_sources = []
+        research_duration_seconds = None
+        trader_tldr = ""
+
+    return OpportunitySignal(
+        id=opp.id,
+        market_ticker=opp.market_ticker,
+        event_ticker=opp.event_ticker,
+        event_title=opp.event_title,
+        market_title=opp.market_title,
+        subtitle=opp.subtitle or "",
+        yes_price=_d2f(opp.yes_price),
+        no_price=_d2f(opp.no_price),
+        close_time=opp.close_time,
+        discovered_at=opp.discovered_at,
+        status=opp.status,
+        outcome_status=opp.outcome_status,
+        risk_level=opp.risk_level,
+        action=opp.action,
+        trader_decision=opp.trader_decision or "",
+        research_completed_at=opp.research_completed_at,
+        recommendation_completed_at=opp.recommendation_completed_at,
+        rationale=rationale,
+        resolution_source=resolution_source,
+        evidence_bullets=evidence_bullets,
+        remaining_risks=remaining_risks,
+        scout_sources=scout_sources,
+        research_duration_seconds=research_duration_seconds,
+        trader_tldr=trader_tldr,
+    )
+
+
 async def update_opportunity_trader_decision(
     opportunity_id: str,
     trader_decision: str,
@@ -192,3 +249,160 @@ async def update_opportunity_trader_decision(
         )
     if opp_result.rowcount > 0 and analysis_result.rowcount > 0:
         logger.info("Updated trader decision for opportunity %s", opportunity_id)
+
+
+async def load_opportunity_from_db(opportunity_id: str) -> OpportunitySignal:
+    """Load a single opportunity and its analysis by ID, raising if absent."""
+    async with get_db_session() as session:
+        opp_result = await session.execute(
+            select(Opportunity).where(Opportunity.id == opportunity_id)
+        )
+        opp = opp_result.scalar_one_or_none()
+        if opp is None:
+            raise ValueError(f"Opportunity {opportunity_id} not found in DB")
+
+        analysis_result = await session.execute(
+            select(OpportunityAnalysis).where(
+                OpportunityAnalysis.opportunity_id == opportunity_id
+            )
+        )
+        analysis = analysis_result.scalar_one_or_none()
+
+    return _to_opportunity_signal(opp, analysis)
+
+
+async def load_opportunity_by_ticker_from_db(market_ticker: str) -> OpportunitySignal | None:
+    """Load the most recently discovered opportunity for a market ticker, or None."""
+    async with get_db_session() as session:
+        opp_result = await session.execute(
+            select(Opportunity)
+            .where(Opportunity.market_ticker == market_ticker)
+            .order_by(Opportunity.discovered_at.desc())
+            .limit(1)
+        )
+        opp = opp_result.scalar_one_or_none()
+        if opp is None:
+            return None
+
+        analysis_result = await session.execute(
+            select(OpportunityAnalysis).where(
+                OpportunityAnalysis.opportunity_id == opp.id
+            )
+        )
+        analysis = analysis_result.scalar_one_or_none()
+
+    return _to_opportunity_signal(opp, analysis)
+
+
+async def get_opportunity_body_from_db(opportunity_id: str) -> str:
+    """Reconstruct a markdown prompt body for an opportunity from DB rows."""
+    async with get_db_session() as session:
+        opp_result = await session.execute(
+            select(Opportunity).where(Opportunity.id == opportunity_id)
+        )
+        opp = opp_result.scalar_one_or_none()
+        if opp is None:
+            return ""
+
+        analysis_result = await session.execute(
+            select(OpportunityAnalysis).where(
+                OpportunityAnalysis.opportunity_id == opportunity_id
+            )
+        )
+        analysis = analysis_result.scalar_one_or_none()
+
+    yes_price = _d2f(opp.yes_price)
+    no_price = _d2f(opp.no_price)
+
+    if opp.event_title:
+        event_line = f"**Event**: {opp.event_title}\n"
+    else:
+        event_line = ""
+    if opp.subtitle:
+        subtitle_section = f"\n**Outcome**: {opp.subtitle}\n"
+    else:
+        subtitle_section = ""
+
+    if analysis:
+        rationale = analysis.rationale
+        resolution_source = analysis.resolution_source or ""
+        evidence_bullets = analysis.evidence_bullets
+        remaining_risks = analysis.remaining_risks
+        scout_sources = analysis.scout_sources
+    else:
+        rationale = ""
+        resolution_source = ""
+        evidence_bullets = []
+        remaining_risks = []
+        scout_sources = []
+
+    if opp.outcome_status:
+        verdict_line = f"**{opp.outcome_status}**  ·  **{opp.risk_level} RISK**"
+    else:
+        verdict_line = f"**Rationale**: {rationale}"
+
+    if evidence_bullets:
+        evidence_lines = "\n".join(f"- {b}" for b in evidence_bullets)
+    else:
+        evidence_lines = "- See rationale"
+
+    if remaining_risks:
+        risks_lines = "\n".join(f"- {r}" for r in remaining_risks)
+    else:
+        risks_lines = "- None identified"
+
+    sources_section = ""
+    if scout_sources:
+        sources_lines = "\n".join(f"- {s}" for s in scout_sources)
+        sources_section = f"\n**Sources**\n{sources_lines}\n"
+
+    scout_section = f"""## Scout Assessment
+
+{verdict_line}
+
+{rationale}
+
+**Evidence**
+{evidence_lines}
+
+**Resolution**
+{resolution_source}
+
+**Risks**
+{risks_lines}
+{sources_section}"""
+
+    close_formatted = opp.close_time.strftime("%Y-%m-%d %I:%M %p")
+
+    body = f"""# {opp.market_title}
+{event_line}{subtitle_section}
+{scout_section}
+## Market Snapshot
+
+| Metric | Value |
+|--------|-------|
+| Yes Price | {yes_price * 100:.0f}¢ (${yes_price:.2f}) |
+| No Price | {no_price * 100:.0f}¢ (${no_price:.2f}) |
+| Closes | {close_formatted} |"""
+
+    if analysis:
+        research_synthesis = analysis.research_synthesis
+    else:
+        research_synthesis = None
+    if research_synthesis is not None:
+        body += f"\n\n---\n\n## Research Synthesis\n\n{research_synthesis}"
+
+    return body
+
+
+async def get_entry_rationale_from_db(opportunity_id: str) -> str | None:
+    """Fetch only the rationale field for an opportunity, or None if absent."""
+    async with get_db_session() as session:
+        result = await session.execute(
+            select(OpportunityAnalysis.rationale).where(
+                OpportunityAnalysis.opportunity_id == opportunity_id
+            )
+        )
+        row = result.scalar_one_or_none()
+
+    return row

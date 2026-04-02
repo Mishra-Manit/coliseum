@@ -2,9 +2,11 @@
 
 import logging
 
-from coliseum.memory.decisions import DecisionEntry, load_recent_decisions
-from coliseum.memory.learnings import load_learnings
-from coliseum.storage.state import PortfolioState, get_data_dir, load_state
+from coliseum.memory.decisions import DecisionEntry
+from coliseum.services.supabase.repositories.decisions import load_recent_decisions_from_db
+from coliseum.services.supabase.repositories.learnings import load_learnings_from_db
+from coliseum.services.supabase.repositories.portfolio import load_state_from_db
+from coliseum.storage.state import PortfolioState, get_data_dir
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +23,7 @@ def _format_decisions(decisions: list[DecisionEntry]) -> str:
     lines = []
     for d in decisions:
         if d.price:
-            price_str = f"@ {d.price * 100:.0f}¢"
+            price_str = f"@ {d.price * 100:.0f}c"
         else:
             price_str = ""
         if d.execution_status:
@@ -29,7 +31,7 @@ def _format_decisions(decisions: list[DecisionEntry]) -> str:
         else:
             status_str = ""
         if d.reasoning:
-            reason_str = f' — "{d.reasoning[:400]}"'
+            reason_str = f' -- "{d.reasoning[:400]}"'
         else:
             reason_str = ""
         lines.append(f"  - {d.action} {d.ticker} {price_str} {status_str}{reason_str}")
@@ -50,17 +52,31 @@ def _format_portfolio(state: PortfolioState) -> str:
     )
 
 
-def build_scout_context() -> str:
+async def build_scout_context() -> str:
     """Assemble context block for the Scout agent's user prompt."""
-    try:
-        state = load_state()
-        decisions = load_recent_decisions(hours=24)
-        learnings = load_learnings()
-    except Exception as exc:
-        logger.warning("build_scout_context failed: %s", exc)
-        return ""
+    state = None
+    decisions: list[DecisionEntry] = []
+    learnings = "(Learnings unavailable)"
 
-    portfolio_block = _format_portfolio(state)
+    try:
+        state = await load_state_from_db()
+    except Exception as exc:
+        logger.warning("build_scout_context: failed to load state: %s", exc)
+
+    try:
+        decisions = await load_recent_decisions_from_db(hours=24)
+    except Exception as exc:
+        logger.warning("build_scout_context: failed to load decisions: %s", exc)
+
+    try:
+        learnings = await load_learnings_from_db()
+    except Exception as exc:
+        logger.warning("build_scout_context: failed to load learnings: %s", exc)
+
+    if state is None:
+        portfolio_block = "  (unavailable)"
+    else:
+        portfolio_block = _format_portfolio(state)
     decisions_block = _format_decisions(decisions)
 
     return f"""
@@ -79,23 +95,34 @@ Use this context to avoid re-researching recently skipped tickers and to underst
 """
 
 
-def build_analyst_context() -> str:
+async def build_analyst_context() -> str:
     """Assemble context block for the Analyst Researcher's and Recommender's prompt."""
-    try:
-        state = load_state()
-    except Exception as exc:
-        logger.warning("build_analyst_context failed: %s", exc)
-        return ""
+    state = None
+    learnings = "(Learnings unavailable)"
 
-    portfolio_block = _format_portfolio(state)
-    if state.open_positions:
-        lines = [
-            f"  - {pos.market_ticker} ({pos.side}, {pos.contracts} contracts @ {pos.average_entry * 100:.0f}¢)"
-            for pos in state.open_positions
-        ]
-        positions_detail = "\n".join(lines)
+    try:
+        state = await load_state_from_db()
+    except Exception as exc:
+        logger.warning("build_analyst_context: failed to load state: %s", exc)
+
+    try:
+        learnings = await load_learnings_from_db()
+    except Exception as exc:
+        logger.warning("build_analyst_context: failed to load learnings: %s", exc)
+
+    if state is None:
+        portfolio_block = "  (unavailable)"
+        positions_detail = "  (unavailable)"
     else:
-        positions_detail = "  (no open positions)"
+        portfolio_block = _format_portfolio(state)
+        if state.open_positions:
+            lines = [
+                f"  - {pos.market_ticker} ({pos.side}, {pos.contracts} contracts @ {pos.average_entry * 100:.0f}c)"
+                for pos in state.open_positions
+            ]
+            positions_detail = "\n".join(lines)
+        else:
+            positions_detail = "  (no open positions)"
 
     return f"""
 ## Portfolio Context
@@ -105,20 +132,38 @@ def build_analyst_context() -> str:
 Open position detail:
 {positions_detail}
 
-Account for concentration risk — avoid recommending a position in the same market as an existing holding.
+### System Learnings
+{learnings}
+
+Account for concentration risk -- avoid recommending a position in the same market as an existing holding.
 """
 
 
-def build_trader_context() -> str:
+async def build_trader_context() -> str:
     """Assemble context block for the Trader agent's prompt."""
-    try:
-        state = load_state()
-        decisions = load_recent_decisions(hours=48)
-    except Exception as exc:
-        logger.warning("build_trader_context failed: %s", exc)
-        return ""
+    state = None
+    decisions: list[DecisionEntry] = []
+    learnings = "(Learnings unavailable)"
 
-    portfolio_block = _format_portfolio(state)
+    try:
+        state = await load_state_from_db()
+    except Exception as exc:
+        logger.warning("build_trader_context: failed to load state: %s", exc)
+
+    try:
+        decisions = await load_recent_decisions_from_db(hours=48)
+    except Exception as exc:
+        logger.warning("build_trader_context: failed to load decisions: %s", exc)
+
+    try:
+        learnings = await load_learnings_from_db()
+    except Exception as exc:
+        logger.warning("build_trader_context: failed to load learnings: %s", exc)
+
+    if state is None:
+        portfolio_block = "  (unavailable)"
+    else:
+        portfolio_block = _format_portfolio(state)
     decisions_block = _format_decisions(decisions)
 
     return f"""
@@ -129,6 +174,9 @@ def build_trader_context() -> str:
 
 ### Recent Decisions (last 48h)
 {decisions_block}
+
+### System Learnings
+{learnings}
 
 Use recent decisions to detect patterns (e.g., repeated fills at lower-than-ask prices, or repeated rejections on similar market types).
 """

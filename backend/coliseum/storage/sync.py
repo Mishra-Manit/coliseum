@@ -9,13 +9,13 @@ from uuid import uuid4
 
 from coliseum.services.kalshi import KalshiClient
 from coliseum.services.kalshi.models import Market, Position as KalshiPosition
-from coliseum.storage.files import find_opportunity_file, load_opportunity_from_file
+from coliseum.services.supabase.repositories.opportunities import load_opportunity_by_ticker_from_db
+from coliseum.services.supabase.repositories.portfolio import load_state_from_db
 from coliseum.storage.state import (
     ClosedPosition,
     PortfolioState,
     PortfolioStats,
     Position,
-    load_state,
     save_state,
 )
 
@@ -204,7 +204,7 @@ async def sync_portfolio_from_kalshi(client: KalshiClient) -> PortfolioState:
     fills = await client.get_fills()
     avg_entries = _compute_average_entries(fills)
 
-    existing_state = load_state()
+    existing_state = await load_state_from_db()
     existing_by_key = {
         (pos.market_ticker, pos.side): pos for pos in existing_state.open_positions
     }
@@ -258,12 +258,9 @@ async def sync_portfolio_from_kalshi(client: KalshiClient) -> PortfolioState:
         if existing_opp_id and existing_opp_id.startswith("opp_"):
             opp_id = existing_opp_id
         else:
-            opp_file = (
-                find_opportunity_file(kalshi_pos.market_ticker)
-                or find_opportunity_file(kalshi_pos.market_ticker, paper=True)
-            )
-            if opp_file:
-                opp_id = load_opportunity_from_file(opp_file).id
+            opp = await load_opportunity_by_ticker_from_db(kalshi_pos.market_ticker)
+            if opp:
+                opp_id = opp.id
             else:
                 opp_id = None
 
