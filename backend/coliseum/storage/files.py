@@ -33,7 +33,7 @@ class OpportunitySignal(BaseModel):
     market_ticker: str = Field(
         description="Kalshi market ticker from market data 'ticker' field (e.g., 'KXNFL-2024-KC-WIN')"
     )
-    title: str = Field(
+    market_title: str = Field(
         description="Human-readable market title describing the event outcome"
     )
     subtitle: str = Field(
@@ -203,7 +203,7 @@ def save_opportunity(opportunity: OpportunitySignal, paper: bool = False) -> Pat
         "evidence_bullets": clean_evidence,
         "remaining_risks": clean_risks,
     })
-    frontmatter = clean_opp.model_dump(mode="json", exclude={"title", "subtitle"})
+    frontmatter = clean_opp.model_dump(mode="json", exclude={"market_title", "subtitle"})
 
     event_line = f"**Event**: {opportunity.event_title}\n" if opportunity.event_title else ""
     subtitle_section = f"\n**Outcome**: {opportunity.subtitle}\n" if opportunity.subtitle else ""
@@ -237,7 +237,7 @@ def save_opportunity(opportunity: OpportunitySignal, paper: bool = False) -> Pat
     if sources_lines:
         scout_section += f"\n**Sources**\n{sources_lines}\n"
 
-    body = f"""# {opportunity.title}
+    body = f"""# {opportunity.market_title}
 {event_line}{subtitle_section}
 {scout_section}
 ## Market Snapshot
@@ -327,7 +327,7 @@ def mark_opportunity_failed(
 def _parse_opportunity_from_parts(frontmatter: dict, body: str) -> OpportunitySignal:
     """Build OpportunitySignal from frontmatter and body content."""
     lines = body.strip().split("\n")
-    title = ""
+    market_title = ""
     subtitle = ""
     rationale = ""
 
@@ -335,7 +335,7 @@ def _parse_opportunity_from_parts(frontmatter: dict, body: str) -> OpportunitySi
         line = line.strip().replace("\\n", "")
 
         if line.startswith("# "):
-            title = line[2:].strip()
+            market_title = line[2:].strip()
         elif line.startswith("**Outcome**:"):
             subtitle = line.split(":", 1)[1].strip()
         elif line.startswith("**Rationale**:"):
@@ -343,7 +343,7 @@ def _parse_opportunity_from_parts(frontmatter: dict, body: str) -> OpportunitySi
 
     data = {
         **frontmatter,
-        "title": title,
+        "market_title": market_title,
         "subtitle": subtitle or "",
         # New files have rationale in frontmatter; old files have it in the body
         "rationale": rationale or frontmatter.get("rationale", ""),

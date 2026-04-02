@@ -71,7 +71,7 @@ def build_trader_prompt(
 **ID**: {opportunity.id}
 **Event Ticker**: {opportunity.event_ticker}
 {event_title_line}**Market**: {opportunity.market_ticker}
-**Title**: {opportunity.title}
+**Title**: {opportunity.market_title}
 **Outcome**: {opportunity.subtitle or "N/A"}
 **YES Price**: {opportunity.yes_price:.2%} ({opportunity.yes_price * 100:.1f}¢)
 **NO Price**: {opportunity.no_price:.2%} ({opportunity.no_price * 100:.1f}¢)

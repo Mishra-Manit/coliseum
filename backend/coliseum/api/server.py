@@ -136,19 +136,19 @@ def _parse_opportunity(file_path: Path) -> dict[str, Any] | None:
         frontmatter = yaml.safe_load(parts[1]) or {}
         body = parts[2].strip()
 
-        title = ""
+        market_title = ""
         subtitle = ""
         for line in body.split("\n"):
             stripped = line.strip()
-            if stripped.startswith("# ") and not title:
-                title = stripped[2:].strip()
+            if stripped.startswith("# ") and not market_title:
+                market_title = stripped[2:].strip()
             elif stripped.startswith("**Outcome**:"):
                 subtitle = stripped.split(":", 1)[1].strip()
 
         return {
             "frontmatter": frontmatter,
             "body": body,
-            "title": title,
+            "market_title": market_title,
             "subtitle": subtitle,
             "date_folder": file_path.parent.name,
         }
@@ -216,7 +216,7 @@ async def list_opportunities():
                 "id": fm.get("id", ""),
                 "event_ticker": fm.get("event_ticker", ""),
                 "market_ticker": fm.get("market_ticker", ""),
-                "title": opp["title"],
+                "market_title": opp["market_title"],
                 "subtitle": opp["subtitle"],
                 "yes_price": fm.get("yes_price", 0.0),
                 "no_price": fm.get("no_price", 0.0),
@@ -250,7 +250,7 @@ async def get_opportunity(opportunity_id: str):
             "event_ticker": opp.event_ticker,
             "event_title": opp.event_title,
             "market_ticker": opp.market_ticker,
-            "title": opp.title,
+            "market_title": opp.market_title,
             "subtitle": opp.subtitle,
             "yes_price": opp.yes_price,
             "no_price": opp.no_price,

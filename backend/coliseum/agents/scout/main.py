@@ -146,7 +146,7 @@ def _build_prefetched_market(
     return {
         "ticker": market.ticker,
         "event_ticker": market.event_ticker,
-        "title": market.title,
+        "market_title": market.title,
         "subtitle": market.subtitle,
         "yes_bid": market.yes_bid,
         "yes_ask": market.yes_ask,
