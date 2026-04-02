@@ -1,7 +1,10 @@
 """DB repository for trading decision persistence."""
 
 import logging
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
+
+from sqlalchemy import select
 
 from coliseum.memory.decisions import DecisionEntry
 from coliseum.services.supabase.db import get_db_session
@@ -31,3 +34,31 @@ async def save_decision_to_db(entry: DecisionEntry) -> None:
         await session.commit()
 
     logger.info("Saved decision for ticker %s (opportunity_id=%s) to DB", entry.ticker, entry.opportunity_id)
+
+
+async def load_recent_decisions_from_db(hours: int = 24) -> list[DecisionEntry]:
+    """Load decisions recorded within the last `hours` hours, newest first."""
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
+
+    async with get_db_session() as session:
+        result = await session.execute(
+            select(Decision).where(Decision.ts >= cutoff).order_by(Decision.ts.desc())
+        )
+        rows = result.scalars().all()
+
+    return [
+        DecisionEntry(
+            ts=row.ts,
+            opportunity_id=row.opportunity_id or "",
+            ticker=row.ticker,
+            action=row.action,
+            price=float(row.price),
+            contracts=row.contracts,
+            confidence=float(row.confidence),
+            reasoning=row.reasoning,
+            tldr=row.tldr or "",
+            execution_status=row.execution_status,
+            outcome=row.outcome,
+        )
+        for row in rows
+    ]

@@ -17,7 +17,10 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
+from coliseum.memory.enums import LearningCategory
 from coliseum.services.supabase.db import Base
+
+_category_values = ", ".join(f"'{v.value}'" for v in LearningCategory)
 
 
 class Opportunity(Base):
@@ -209,6 +212,12 @@ class RunCycle(Base):
 
 class Learning(Base):
     __tablename__ = "learnings"
+    __table_args__ = (
+        CheckConstraint(
+            f"category IN ({_category_values})",
+            name="ck_learnings_category",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     category: Mapped[str] = mapped_column(Text, nullable=False)

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
+from coliseum.memory.enums import LearningAddition, LearningCategory
+
 
 class ReconciliationStats(BaseModel):
     """Reconciliation summary stats for a Guardian run."""
@@ -29,5 +31,14 @@ class GuardianResult(BaseModel):
 class LearningReflectionOutput(BaseModel):
     """Structured output from the Scribe reflection agent."""
 
-    updated_learnings_md: str
-    summary: str
+    deletions: list[int] = Field(
+        default_factory=list,
+        description="Row IDs of learnings to soft-delete (only when a trade outcome directly contradicts them)",
+    )
+    additions: list[LearningAddition] = Field(
+        default_factory=list,
+        description="New learnings to add, each with a category and content string",
+    )
+    summary: str = Field(
+        description="One sentence describing what changed in the learnings",
+    )
