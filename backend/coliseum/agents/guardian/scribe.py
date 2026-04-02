@@ -1,4 +1,4 @@
-"""Scribe: LLM reflection agent that updates learnings.md when positions close."""
+"""Scribe: LLM reflection agent that updates learnings when positions close."""
 
 from __future__ import annotations
 
@@ -11,11 +11,13 @@ from pydantic_ai import Agent
 from coliseum.agents.agent_factory import AgentFactory, create_agent
 from coliseum.agents.guardian.models import LearningReflectionOutput
 from coliseum.agents.guardian.prompts import SCRIBE_PROMPT
-from coliseum.memory.learnings import _get_learnings_path
-from coliseum.services.supabase.repositories.learnings import load_learnings_from_db
-from coliseum.services.supabase.repositories.opportunities import get_opportunity_body_from_db
+from coliseum.services.supabase.repositories.learnings import (
+    apply_scribe_operations,
+    load_learnings_from_db,
+)
 from coliseum.storage._io import atomic_write
-from coliseum.storage.state import ClosedPosition
+from coliseum.storage.files import find_opportunity_file_by_id, get_opportunity_markdown_body
+from coliseum.storage.state import ClosedPosition, get_data_dir
 
 logger = logging.getLogger(__name__)
 
@@ -38,15 +40,13 @@ def get_agent() -> Agent[None, LearningReflectionOutput]:
     return _agent_factory.get_agent()
 
 
-async def _load_opportunity_body(opportunity_id: str | None) -> str | None:
+async def _load_opportunity_body(opportunity_id: str) -> str | None:
     """Load full opportunity markdown body for richer reflection context."""
-    if not opportunity_id:
-        return None
     try:
-        body = await get_opportunity_body_from_db(opportunity_id)
-        if body:
-            return body
-        return None
+        opp_file = find_opportunity_file_by_id(opportunity_id)
+        if not opp_file:
+            return None
+        return get_opportunity_markdown_body(opp_file)
     except Exception as exc:
         logger.warning("Scribe could not load opportunity body for %s: %s", opportunity_id, exc)
         return None
@@ -56,18 +56,16 @@ def _format_trade_block(pos: ClosedPosition, opportunity_body: str | None) -> st
     """Format a single closed position into a readable block for the prompt."""
     if pos.pnl >= 0:
         pnl_sign = "+"
-    else:
-        pnl_sign = ""
-    if pos.pnl >= 0:
         outcome = "WIN"
     else:
+        pnl_sign = ""
         outcome = "LOSS"
     entry_cents = round(pos.entry_price * 100)
     exit_cents = round(pos.exit_price * 100)
 
     lines = [
         f"### {pos.market_ticker} ({outcome}, {pnl_sign}${pos.pnl:.2f})",
-        f"- Side: {pos.side} | Entry: {entry_cents}¢ | Exit: {exit_cents}¢"
+        f"- Side: {pos.side} | Entry: {entry_cents}c | Exit: {exit_cents}c"
         f" | Contracts: {pos.contracts}",
     ]
 
@@ -95,32 +93,33 @@ def _build_prompt(
 
     trades_section = "\n\n---\n\n".join(trade_blocks)
 
-    return f"""Analyze the following closed positions and update the learnings document.
+    return f"""Analyze the following closed positions and update the learnings.
 
 {trades_section}
 
 ---
 
-## Current Learnings
+## Current Learnings (each row has an [#ID] prefix)
 
 {current_learnings}
 
 ---
 
-Update the learnings document based on what these trade outcomes reveal. Return the complete
-updated document and a one-sentence summary of what changed.
+Review the trade outcomes against the current learnings. Return your deletions (row IDs to retire)
+and additions (new learnings to add). If no changes are warranted, return empty lists.
 """
 
 
-def _write_learnings(content: str) -> None:
-    """Atomically write updated content to learnings.md."""
-    learnings_path = _get_learnings_path()
+def _write_learnings_fallback(content: str) -> None:
+    """Write learnings markdown to local file as disaster-recovery fallback."""
+    learnings_path = get_data_dir() / "memory" / "learnings.md"
+    learnings_path.parent.mkdir(parents=True, exist_ok=True)
     atomic_write(learnings_path, content)
-    logger.debug("Scribe wrote updated learnings to %s", learnings_path)
+    logger.debug("Scribe wrote learnings fallback to %s", learnings_path)
 
 
 async def run_scribe(newly_closed: list[ClosedPosition]) -> str:
-    """Reflect on closed positions and update learnings.md. Returns the change summary."""
+    """Reflect on closed positions and update learnings in DB. Returns the change summary."""
     current_learnings = await load_learnings_from_db()
 
     unique_opp_ids = [pos.opportunity_id for pos in newly_closed if pos.opportunity_id]
@@ -136,7 +135,36 @@ async def run_scribe(newly_closed: list[ClosedPosition]) -> str:
         result = await agent.run(prompt)
         output = result.output
 
-    _write_learnings(output.updated_learnings_md)
-    logfire.info("Scribe updated learnings", summary=output.summary, trades=len(newly_closed))
+    # Apply structured operations to DB
+    db_success = False
+    try:
+        await apply_scribe_operations(output.deletions, output.additions)
+        db_success = True
+    except Exception as exc:
+        logfire.error(
+            "Scribe DB operations failed -- learnings lost",
+            error=str(exc),
+            pending_deletions=output.deletions,
+            pending_additions=[
+                {"category": a.category, "content": a.content}
+                for a in output.additions
+            ],
+        )
+
+    # Local fallback: only re-fetch and write if DB succeeded (otherwise stale)
+    if db_success:
+        try:
+            updated_learnings = await load_learnings_from_db()
+            _write_learnings_fallback(updated_learnings)
+        except Exception as exc:
+            logger.warning("Scribe local fallback write failed: %s", exc)
+
+    logfire.info(
+        "Scribe updated learnings",
+        summary=output.summary,
+        trades=len(newly_closed),
+        deletions=len(output.deletions),
+        additions=len(output.additions),
+    )
 
     return output.summary
