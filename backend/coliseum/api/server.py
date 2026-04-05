@@ -8,7 +8,7 @@ from collections import defaultdict
 from contextlib import asynccontextmanager
 from datetime import date
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any
 
 import logfire
 import yaml
@@ -23,12 +23,17 @@ from coliseum.observability import initialize_logfire
 from coliseum.pipeline import run_pipeline
 from coliseum.services.kalshi.client import KalshiClient
 from coliseum.api.parsing import parse_opportunity_sections
-from coliseum.storage.files import (
-    find_opportunity_file_by_id,
-    get_opportunity_markdown_body,
-    load_opportunity_from_file,
+from coliseum.services.supabase.repositories.portfolio import load_state_from_db
+from coliseum.services.supabase.repositories.opportunities import (
+    load_opportunity_from_db,
+    get_opportunity_body_from_db,
+    list_opportunities_from_db,
 )
-from coliseum.storage.state import Position, load_state
+from coliseum.services.supabase.repositories.trades import (
+    list_trades_from_db,
+    list_trade_closes_from_db,
+)
+from coliseum.storage.state import Position
 from coliseum.storage.sync import resolve_market_price
 
 logger = logging.getLogger(__name__)
@@ -124,70 +129,6 @@ def _get_data_dir() -> Path:
     return get_settings().data_dir
 
 
-def _parse_opportunity(file_path: Path) -> dict[str, Any] | None:
-    """Parse a markdown opportunity file into frontmatter + body."""
-    try:
-        content = file_path.read_text(encoding="utf-8")
-        if not content.startswith("---"):
-            return None
-        parts = content.split("---", 2)
-        if len(parts) < 3:
-            return None
-        frontmatter = yaml.safe_load(parts[1]) or {}
-        body = parts[2].strip()
-
-        market_title = ""
-        subtitle = ""
-        for line in body.split("\n"):
-            stripped = line.strip()
-            if stripped.startswith("# ") and not market_title:
-                market_title = stripped[2:].strip()
-            elif stripped.startswith("**Outcome**:"):
-                subtitle = stripped.split(":", 1)[1].strip()
-
-        return {
-            "frontmatter": frontmatter,
-            "body": body,
-            "market_title": market_title,
-            "subtitle": subtitle,
-            "date_folder": file_path.parent.name,
-        }
-    except Exception as e:
-        logger.warning("Error parsing %s: %s", file_path, e)
-        return None
-
-
-def _get_all_opportunities() -> list[dict[str, Any]]:
-    """Scan all opportunity markdown files, sorted by discovered_at descending."""
-    opps_dir = _get_data_dir() / "opportunities"
-    if not opps_dir.exists():
-        return []
-
-    start_date = _get_start_date()
-
-    results: list[dict[str, Any]] = []
-    for md_file in opps_dir.rglob("*.md"):
-        if start_date is not None:
-            try:
-                if date.fromisoformat(md_file.parent.name) < start_date:
-                    continue
-            except ValueError:
-                pass
-        parsed = _parse_opportunity(md_file)
-        if parsed:
-            if start_date is not None:
-                discovered = str(parsed["frontmatter"].get("discovered_at", ""))[:10]
-                if discovered < start_date.isoformat():
-                    continue
-            results.append(parsed)
-
-    results.sort(
-        key=lambda o: o["frontmatter"].get("discovered_at", ""),
-        reverse=True,
-    )
-    return results
-
-
 # ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------
@@ -201,49 +142,54 @@ async def get_config():
 
 @router.get("/api/state")
 async def get_state():
-    """Return the full state.yaml contents."""
-    return _load_yaml(_get_data_dir() / "state.yaml")
+    """Return current portfolio state from DB."""
+    state = await load_state_from_db()
+    return {
+        "last_updated": None,
+        "portfolio": {
+            "cash_balance": state.portfolio.cash_balance,
+            "positions_value": state.portfolio.positions_value,
+            "total_value": state.portfolio.total_value,
+        },
+        "open_positions": [p.model_dump(mode="json") for p in state.open_positions],
+    }
 
 
 @router.get("/api/opportunities")
 async def list_opportunities():
     """List all opportunities with frontmatter summary."""
-    results = []
-    for opp in _get_all_opportunities():
-        fm = opp["frontmatter"]
-        results.append(
-            {
-                "id": fm.get("id", ""),
-                "event_ticker": fm.get("event_ticker", ""),
-                "market_ticker": fm.get("market_ticker", ""),
-                "market_title": opp["market_title"],
-                "subtitle": opp["subtitle"],
-                "yes_price": fm.get("yes_price", 0.0),
-                "no_price": fm.get("no_price", 0.0),
-                "close_time": str(fm.get("close_time", "")),
-                "discovered_at": str(fm.get("discovered_at", "")),
-                "status": fm.get("status", "pending"),
-                "event_title": fm.get("event_title", ""),
-                "action": fm.get("action"),
-                "date_folder": opp["date_folder"],
-            }
-        )
-    return results
+    start_date = _get_start_date()
+    opps = await list_opportunities_from_db(start_date=start_date)
+    return [
+        {
+            "id": opp.id,
+            "event_ticker": opp.event_ticker,
+            "market_ticker": opp.market_ticker,
+            "market_title": opp.market_title,
+            "subtitle": opp.subtitle,
+            "yes_price": opp.yes_price,
+            "no_price": opp.no_price,
+            "close_time": str(opp.close_time),
+            "discovered_at": str(opp.discovered_at),
+            "status": opp.status,
+            "event_title": opp.event_title,
+            "action": opp.action,
+            "date_folder": str(opp.discovered_at)[:10],
+        }
+        for opp in opps
+    ]
 
 
 @router.get("/api/opportunities/{opportunity_id}")
 async def get_opportunity(opportunity_id: str):
     """Get full opportunity detail including markdown body."""
-    file_path = (
-        find_opportunity_file_by_id(opportunity_id, paper=False)
-        or find_opportunity_file_by_id(opportunity_id, paper=True)
-    )
-    if not file_path:
+    try:
+        opp = await load_opportunity_from_db(opportunity_id)
+    except ValueError:
         raise HTTPException(
             status_code=404, detail=f"Opportunity {opportunity_id} not found"
         )
-    opp = load_opportunity_from_file(file_path)
-    markdown_body = get_opportunity_markdown_body(file_path)
+    markdown_body = await get_opportunity_body_from_db(opportunity_id)
     return {
         "summary": {
             "id": opp.id,
@@ -258,7 +204,7 @@ async def get_opportunity(opportunity_id: str):
             "discovered_at": str(opp.discovered_at),
             "status": opp.status,
             "action": opp.action,
-            "date_folder": file_path.parent.name,
+            "date_folder": str(opp.discovered_at)[:10],
         },
         "markdown_body": markdown_body,
         "raw_frontmatter": opp.model_dump(mode="json"),
@@ -276,7 +222,7 @@ async def stream_portfolio(request: Request) -> EventSourceResponse:
                 if await request.is_disconnected():
                     break
                 try:
-                    state = await asyncio.to_thread(load_state)
+                    state = await load_state_from_db()
                     positions = state.open_positions
                     if positions:
                         with logfire.suppress_instrumentation():
@@ -316,19 +262,6 @@ async def stream_portfolio(request: Request) -> EventSourceResponse:
 # ---------------------------------------------------------------------------
 
 
-def _read_jsonl(path: Path) -> list[dict[str, Any]]:
-    """Read all JSON objects from a .jsonl file."""
-    rows: list[dict[str, Any]] = []
-    try:
-        for line in path.read_text(encoding="utf-8").splitlines():
-            line = line.strip()
-            if line:
-                rows.append(json.loads(line))
-    except Exception as e:
-        logger.warning("Error reading %s: %s", path, e)
-    return rows
-
-
 def _get_start_date() -> date | None:
     """Read dashboard_display.start_date from config, or None if unset."""
     settings = get_settings()
@@ -338,79 +271,11 @@ def _get_start_date() -> date | None:
     return date.fromisoformat(raw)
 
 
-def _read_trades(
-    trade_type: Literal["buy", "close"],
-    start_date: date | None = None,
-) -> list[dict[str, Any]]:
-    """Read trade records from date-partitioned .jsonl files.
-
-    Skips entire files whose filename date is before start_date.
-    """
-    trade_dir = _get_data_dir() / "trades" / trade_type
-    if not trade_dir.exists():
-        return []
-
-    rows: list[dict[str, Any]] = []
-    for f in sorted(trade_dir.glob("*.jsonl")):
-        if start_date is not None:
-            file_date_str = f.stem
-            try:
-                if date.fromisoformat(file_date_str) < start_date:
-                    continue
-            except ValueError:
-                pass
-        rows.extend(_read_jsonl(f))
-
-    if start_date is None:
-        return rows
-
-    start_iso = start_date.isoformat()
-    if trade_type == "buy":
-        ts_field = "executed_at"
-    else:
-        ts_field = "closed_at"
-    return [r for r in rows if r.get(ts_field, "")[:10] >= start_iso]
-
-
 @router.get("/api/ledger")
 async def get_ledger(limit: int = 100):
     """Return merged buy+close trade entries sorted newest-first."""
     start_date = _get_start_date()
-
-    entries: list[dict[str, Any]] = []
-    for row in _read_trades("buy", start_date):
-        entries.append(
-            {
-                "type": "buy",
-                "id": row.get("id", ""),
-                "market_ticker": row.get("market_ticker", ""),
-                "side": (row.get("side") or "").upper(),
-                "contracts": row.get("contracts", 0),
-                "price": row.get("price", 0.0),
-                "pnl": None,
-                "opportunity_id": row.get("opportunity_id"),
-                "paper": row.get("paper", False),
-                "timestamp": row.get("executed_at", ""),
-            }
-        )
-    for row in _read_trades("close", start_date):
-        entries.append(
-            {
-                "type": "close",
-                "id": row.get("id", ""),
-                "market_ticker": row.get("market_ticker", ""),
-                "side": (row.get("side") or "").upper(),
-                "contracts": row.get("contracts", 0),
-                "price": row.get("exit_price", 0.0),
-                "pnl": row.get("pnl"),
-                "opportunity_id": row.get("opportunity_id"),
-                "paper": True,
-                "timestamp": row.get("closed_at", ""),
-            }
-        )
-
-    entries.sort(key=lambda e: e["timestamp"], reverse=True)
-    return entries[:limit]
+    return await list_trades_from_db(start_date=start_date, limit=limit)
 
 
 # ---------------------------------------------------------------------------
@@ -422,31 +287,26 @@ async def get_ledger(limit: int = 100):
 async def get_chart_data():
     """Return portfolio chart data: daily P&L, cumulative NAV, and stats."""
     start_date = _get_start_date()
-
-    raw_entries: list[dict[str, Any]] = []
-    for row in _read_trades("close", start_date):
-        pnl = row.get("pnl")
-        closed_at = row.get("closed_at", "")
-        if pnl is not None and closed_at:
-            raw_entries.append({"pnl": float(pnl), "closed_at": str(closed_at)})
-
-    raw_entries.sort(key=lambda e: e["closed_at"])
+    raw_entries = await list_trade_closes_from_db(start_date=start_date)
 
     daily_map: dict[str, dict[str, Any]] = defaultdict(
         lambda: {"pnl": 0.0, "trades": 0, "wins": 0, "losses": 0}
     )
     for entry in raw_entries:
-        date = entry["closed_at"][:10]
+        day = entry["closed_at"][:10]
         pnl = entry["pnl"]
-        daily_map[date]["pnl"] += pnl
-        daily_map[date]["trades"] += 1
+        daily_map[day]["pnl"] += pnl
+        daily_map[day]["trades"] += 1
         if pnl >= 0:
-            daily_map[date]["wins"] += 1
+            daily_map[day]["wins"] += 1
         else:
-            daily_map[date]["losses"] += 1
+            daily_map[day]["losses"] += 1
 
-    state = _load_yaml(_get_data_dir() / "state.yaml")
-    current_nav = float(state.get("portfolio", {}).get("total_value", 1000.0))
+    try:
+        state = await load_state_from_db()
+        current_nav = float(state.portfolio.total_value)
+    except Exception:
+        current_nav = 1000.0
 
     total_pnl = sum(e["pnl"] for e in raw_entries)
     initial_nav = current_nav - total_pnl
@@ -454,18 +314,18 @@ async def get_chart_data():
     sorted_dates = sorted(daily_map.keys())
     cumulative = 0.0
     daily: list[dict[str, Any]] = []
-    for date in sorted_dates:
-        day = daily_map[date]
-        cumulative += day["pnl"]
+    for day in sorted_dates:
+        d = daily_map[day]
+        cumulative += d["pnl"]
         daily.append(
             {
-                "date": date,
-                "pnl": round(day["pnl"], 4),
+                "date": day,
+                "pnl": round(d["pnl"], 4),
                 "cumulative_pnl": round(cumulative, 4),
                 "nav": round(initial_nav + cumulative, 4),
-                "trades": day["trades"],
-                "wins": day["wins"],
-                "losses": day["losses"],
+                "trades": d["trades"],
+                "wins": d["wins"],
+                "losses": d["losses"],
             }
         )
 

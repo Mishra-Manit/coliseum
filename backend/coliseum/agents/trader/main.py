@@ -28,12 +28,9 @@ from coliseum.services.telegram import TelegramClient, create_telegram_client
 from coliseum.storage.files import (
     OpportunitySignal,
     TradeExecution,
-    find_opportunity_file_by_id,
     generate_trade_id,
-    log_trade,
-    update_opportunity_frontmatter,
 )
-from coliseum.memory.decisions import DecisionEntry, log_decision
+from coliseum.memory.decisions import DecisionEntry
 from coliseum.services.supabase.repositories.opportunities import (
     load_opportunity_from_db,
     get_opportunity_body_from_db,
@@ -45,12 +42,7 @@ from coliseum.services.supabase.repositories.portfolio import (
     load_state_from_db,
     update_portfolio_after_trade_in_db,
 )
-from coliseum.storage.state import (
-    PortfolioState,
-    PortfolioStats,
-    Position,
-    save_state,
-)
+from coliseum.storage.state import Position
 
 logger = logging.getLogger(__name__)
 
@@ -339,13 +331,6 @@ async def run_trader(
                 except Exception as exc:
                     logfire.error("Trade execution failed", opportunity_id=opportunity_id, error=str(exc))
 
-            # Single atomic frontmatter write after execution_status is finalized
-            frontmatter_updates = {
-                "trader_decision": output.decision.action,
-                "trader_tldr": output.tldr,
-            }
-            if output.decision.action == "REJECT":
-                frontmatter_updates["status"] = "skipped"
             try:
                 await update_opportunity_trader_decision(
                     opportunity_id=opportunity_id,
@@ -355,13 +340,6 @@ async def run_trader(
                 )
             except Exception as e:
                 logfire.error("DB write failed for trader decision", opportunity_id=opportunity_id, error=str(e))
-
-            opp_file = find_opportunity_file_by_id(opportunity_id, paper=settings.trading.paper_mode)
-            if opp_file:
-                try:
-                    update_opportunity_frontmatter(opp_file, frontmatter_updates)
-                except Exception as e:
-                    logfire.error("Failed to persist trader verdict", opportunity_id=opportunity_id, error=str(e))
 
             # Deterministic Telegram alert — always fires
             await _send_telegram_alert(telegram_client, opportunity, output)
@@ -468,8 +446,6 @@ async def _execute_trade(
         except Exception as e:
             logfire.error("DB write failed for trade", trade_id=trade.id, error=str(e))
 
-        log_trade(trade)
-
         if order_result.fill_price:
             fill_price_rounded = round(order_result.fill_price, 4)
         else:
@@ -527,26 +503,21 @@ async def _log_trader_decision(
     output: TraderOutput,
 ) -> None:
     """Log a trading decision to the persistent decision log."""
+    entry = DecisionEntry(
+        opportunity_id=opportunity.id,
+        ticker=opportunity.market_ticker,
+        action=output.decision.action,
+        price=output.fill_price or opportunity.yes_price,
+        contracts=output.contracts_filled,
+        confidence=output.decision.confidence,
+        reasoning=output.decision.reasoning,
+        tldr=output.tldr,
+        execution_status=output.execution_status,
+    )
     try:
-        entry = DecisionEntry(
-            opportunity_id=opportunity.id,
-            ticker=opportunity.market_ticker,
-            action=output.decision.action,
-            price=output.fill_price or opportunity.yes_price,
-            contracts=output.contracts_filled,
-            confidence=output.decision.confidence,
-            reasoning=output.decision.reasoning,
-            tldr=output.tldr,
-            execution_status=output.execution_status,
-        )
-        try:
-            await save_decision_to_db(entry)
-        except Exception as e:
-            logfire.error("DB write failed for decision", opportunity_id=opportunity.id, error=str(e))
-
-        log_decision(entry)
+        await save_decision_to_db(entry)
     except Exception as e:
-        logger.error("Failed to log decision for %s: %s", opportunity.market_ticker, e)
+        logfire.error("DB write failed for decision", opportunity_id=opportunity.id, error=str(e))
 
 
 async def _update_state_after_trade(
@@ -558,16 +529,11 @@ async def _update_state_after_trade(
     config: Settings,
     position_id: str,
 ) -> None:
-    """Update state.yaml with new position and adjust portfolio balances."""
+    """Update DB portfolio with new position and adjusted balances."""
     state = await load_state_from_db()
 
     new_cash = state.portfolio.cash_balance - total_cost
     new_positions_value = state.portfolio.positions_value + total_cost
-    new_portfolio = PortfolioStats(
-        cash_balance=new_cash,
-        positions_value=new_positions_value,
-        total_value=new_cash + new_positions_value,
-    )
     position = Position(
         id=position_id,
         market_ticker=opportunity.market_ticker,
@@ -576,13 +542,6 @@ async def _update_state_after_trade(
         average_entry=fill_price,
         current_price=fill_price,
         opportunity_id=opportunity.id,
-    )
-    new_state = PortfolioState(
-        last_updated=state.last_updated,
-        portfolio=new_portfolio,
-        open_positions=[*state.open_positions, position],
-        closed_positions=state.closed_positions,
-        seen_tickers=state.seen_tickers,
     )
     try:
         await update_portfolio_after_trade_in_db(
@@ -594,9 +553,8 @@ async def _update_state_after_trade(
     except Exception as e:
         logfire.error("DB write failed for portfolio update", opportunity_id=opportunity.id, error=str(e))
 
-    save_state(new_state)
     logger.info(
         "Updated state: cash=$%.2f, positions=%d",
         new_cash,
-        len(new_state.open_positions),
+        len(state.open_positions) + 1,
     )
