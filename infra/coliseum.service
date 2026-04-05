@@ -1,0 +1,19 @@
+[Unit]
+Description=Coliseum Autonomous Trading Daemon
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=manitmishra
+WorkingDirectory=/home/manitmishra/coliseum-backend/backend
+EnvironmentFile=/home/manitmishra/coliseum-backend/backend/.env
+ExecStart=/home/manitmishra/coliseum-backend/backend/venv/bin/python -m coliseum daemon
+Restart=on-failure
+RestartSec=60
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=coliseum
+
+[Install]
+WantedBy=multi-user.target

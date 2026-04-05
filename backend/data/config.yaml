@@ -25,7 +25,7 @@ execution:
   max_order_age_minutes: 60 # Cancel order if open > 1 hour
 
 daemon:
-  heartbeat_interval_minutes: 60 # Full pipeline cycle interval
+  heartbeat_interval_minutes: 180 # Full pipeline cycle interval
   guardian_interval_minutes: 2 # Guardian-only checks between full cycles (5 minutes)
   max_consecutive_failures: 5 # Failures before pausing
 
