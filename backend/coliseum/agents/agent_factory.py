@@ -28,12 +28,12 @@ _openai_provider: OpenAIProvider | None = None
 def _get_provider() -> OpenAIProvider:
     """Return the shared OpenAI provider, creating it on first call.
 
-    max_retries=0 surfaces errors immediately instead of silently retrying for
-    minutes on 5xx/429 during time-sensitive pipeline runs.
+    max_retries=2 allows the SDK to retry transient failures (timeouts, 5xx)
+    before surfacing the error to the pipeline.
     """
     global _openai_provider
     if _openai_provider is None:
-        _openai_provider = OpenAIProvider(openai_client=AsyncOpenAI(max_retries=0))
+        _openai_provider = OpenAIProvider(openai_client=AsyncOpenAI(max_retries=2))
     return _openai_provider
 
 

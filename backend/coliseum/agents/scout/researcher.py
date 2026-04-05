@@ -57,7 +57,7 @@ def get_web_researcher() -> Agent[None, str]:
         )
         model = OpenAIResponsesModel(model_name, provider=provider, profile=profile)
         model_settings = OpenAIResponsesModelSettings(
-            timeout=90,
+            timeout=120,
             openai_reasoning_effort='low',
         )
         _web_researcher = Agent(
