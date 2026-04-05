@@ -19,8 +19,7 @@ from coliseum.services.supabase.repositories.seen_tickers import (
     add_seen_ticker_to_db,
     get_seen_tickers_from_db,
 )
-from coliseum.storage.files import save_opportunity, generate_opportunity_id
-from coliseum.storage.state import add_seen_ticker
+from coliseum.storage.files import generate_opportunity_id
 
 from .filters import passes_filter
 from .models import ScoutDependencies, ScoutOutput
@@ -307,22 +306,15 @@ async def run_scout(
             for opp in cleaned_opps:
                 try:
                     await save_opportunity_to_db(opp, paper=settings.trading.paper_mode)
-                except Exception as e:
-                    logfire.error("DB write failed for opportunity", opportunity_id=opp.id, error=str(e))
-
-                try:
-                    save_opportunity(opp, paper=settings.trading.paper_mode)
                     added_count += 1
                 except Exception as e:
-                    logfire.error("Local write failed for opportunity", opportunity_id=opp.id, error=str(e))
-                    continue
+                    logfire.error("DB write failed for opportunity", opportunity_id=opp.id, error=str(e))
 
                 if not settings.trading.paper_mode:
                     try:
                         await add_seen_ticker_to_db(opp.market_ticker)
                     except Exception as e:
                         logfire.error("DB seen ticker write failed", ticker=opp.market_ticker, error=str(e))
-                    add_seen_ticker(opp.market_ticker)
 
             logfire.info(
                 "Scout scan complete",

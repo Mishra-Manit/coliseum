@@ -15,9 +15,8 @@ from coliseum.services.supabase.repositories.learnings import (
     apply_scribe_operations,
     load_learnings_from_db,
 )
-from coliseum.storage._io import atomic_write
-from coliseum.storage.files import find_opportunity_file_by_id, get_opportunity_markdown_body
-from coliseum.storage.state import ClosedPosition, get_data_dir
+from coliseum.services.supabase.repositories.opportunities import get_opportunity_body_from_db
+from coliseum.storage.state import ClosedPosition
 
 logger = logging.getLogger(__name__)
 
@@ -43,10 +42,7 @@ def get_agent() -> Agent[None, LearningReflectionOutput]:
 async def _load_opportunity_body(opportunity_id: str) -> str | None:
     """Load full opportunity markdown body for richer reflection context."""
     try:
-        opp_file = find_opportunity_file_by_id(opportunity_id)
-        if not opp_file:
-            return None
-        return get_opportunity_markdown_body(opp_file)
+        return await get_opportunity_body_from_db(opportunity_id) or None
     except Exception as exc:
         logger.warning("Scribe could not load opportunity body for %s: %s", opportunity_id, exc)
         return None
@@ -110,14 +106,6 @@ and additions (new learnings to add). If no changes are warranted, return empty 
 """
 
 
-def _write_learnings_fallback(content: str) -> None:
-    """Write learnings markdown to local file as disaster-recovery fallback."""
-    learnings_path = get_data_dir() / "memory" / "learnings.md"
-    learnings_path.parent.mkdir(parents=True, exist_ok=True)
-    atomic_write(learnings_path, content)
-    logger.debug("Scribe wrote learnings fallback to %s", learnings_path)
-
-
 async def run_scribe(newly_closed: list[ClosedPosition]) -> str:
     """Reflect on closed positions and update learnings in DB. Returns the change summary."""
     current_learnings = await load_learnings_from_db()
@@ -135,11 +123,8 @@ async def run_scribe(newly_closed: list[ClosedPosition]) -> str:
         result = await agent.run(prompt)
         output = result.output
 
-    # Apply structured operations to DB
-    db_success = False
     try:
         await apply_scribe_operations(output.deletions, output.additions)
-        db_success = True
     except Exception as exc:
         logfire.error(
             "Scribe DB operations failed -- learnings lost",
@@ -150,14 +135,6 @@ async def run_scribe(newly_closed: list[ClosedPosition]) -> str:
                 for a in output.additions
             ],
         )
-
-    # Local fallback: only re-fetch and write if DB succeeded (otherwise stale)
-    if db_success:
-        try:
-            updated_learnings = await load_learnings_from_db()
-            _write_learnings_fallback(updated_learnings)
-        except Exception as exc:
-            logger.warning("Scribe local fallback write failed: %s", exc)
 
     logfire.info(
         "Scribe updated learnings",

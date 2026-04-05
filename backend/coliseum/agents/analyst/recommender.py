@@ -20,11 +20,7 @@ from coliseum.services.supabase.repositories.opportunities import (
     get_opportunity_body_from_db,
     update_opportunity_recommendation,
 )
-from coliseum.storage.files import (
-    OpportunitySignal,
-    find_opportunity_file,
-    update_opportunity_frontmatter,
-)
+from coliseum.storage.files import OpportunitySignal
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +46,7 @@ async def run_recommender(
     opportunity_id: str,
     settings: Settings,
 ) -> tuple[RecommenderOutput, OpportunitySignal]:
-    """Run Recommender agent - updates opportunity frontmatter with recommendation status."""
+    """Run Recommender agent - updates opportunity recommendation status in DB."""
     start_time = time.time()
 
     opportunity = await load_opportunity(opportunity_id)
@@ -81,17 +77,6 @@ async def run_recommender(
         )
     except Exception as e:
         logfire.error("DB write failed for recommender", opportunity_id=opportunity_id, error=str(e))
-
-    opp_file = find_opportunity_file(opportunity.market_ticker, paper=settings.trading.paper_mode)
-    if opp_file:
-        update_opportunity_frontmatter(
-            opp_file,
-            {
-                "recommendation_completed_at": completed_at.isoformat(),
-                "action": None,
-                "status": "recommended",
-            },
-        )
 
     logfire.info("Recommender complete", duration_seconds=round(duration, 1))
 

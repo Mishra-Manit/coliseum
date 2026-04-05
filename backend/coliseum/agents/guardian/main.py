@@ -14,12 +14,11 @@ from coliseum.services.kalshi.config import KalshiConfig
 from coliseum.storage.files import (
     TradeClose,
     generate_close_id,
-    log_trade_close,
 )
 from coliseum.services.supabase.repositories.opportunities import get_entry_rationale_from_db
 from coliseum.services.supabase.repositories.portfolio import load_state_from_db, save_closed_position_to_db, sync_portfolio_to_db
 from coliseum.services.supabase.repositories.trades import save_trade_close_to_db
-from coliseum.storage.state import ClosedPosition, PortfolioState, Position, save_state
+from coliseum.storage.state import ClosedPosition, PortfolioState, Position
 from coliseum.storage.sync import (
     extract_fill_count,
     extract_fill_price,
@@ -290,8 +289,6 @@ async def reconcile_closed_positions(
         except Exception as e:
             logfire.error("DB write failed for position closure", market_ticker=pos.market_ticker, error=str(e))
 
-        log_trade_close(trade_close)
-
         stats.newly_closed += 1
         logger.info(
             "Guardian closed %s exit_price=%.4f pnl=$%.2f",
@@ -316,7 +313,6 @@ async def reconcile_closed_positions(
     except Exception as e:
         logfire.error("DB portfolio sync failed after reconciliation", error=str(e))
 
-    save_state(updated_state)
     return updated_state, stats, newly_closed
 
 
@@ -406,8 +402,7 @@ async def run_guardian(settings: Settings | None = None) -> GuardianResult:
         if newly_closed:
             try:
                 with logfire.span("scribe reflection", trades=len(newly_closed)):
-                    scribe_summary = await run_scribe(newly_closed)
-                    logfire.info("Scribe complete", summary=scribe_summary)
+                    logfire.info("Scribe complete", summary=await run_scribe(newly_closed))
             except Exception as exc:
                 logger.warning("Scribe reflection failed (non-fatal): %s", exc)
 

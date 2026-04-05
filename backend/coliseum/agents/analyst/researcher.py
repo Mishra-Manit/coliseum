@@ -19,7 +19,7 @@ from coliseum.agents.shared_tools import _strip_cite_tokens
 from coliseum.config import Settings
 from coliseum.memory.context import build_analyst_context
 from coliseum.services.supabase.repositories.opportunities import update_opportunity_research
-from coliseum.storage.files import OpportunitySignal, append_to_opportunity
+from coliseum.storage.files import OpportunitySignal
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +46,7 @@ async def run_researcher(
     opportunity_id: str,
     settings: Settings,
 ) -> ResearcherOutput:
-    """Run Researcher agent - appends research to opportunity file."""
+    """Run Researcher agent - writes research synthesis to DB."""
     start_time = time.time()
     opportunity = await load_opportunity(opportunity_id)
 
@@ -63,17 +63,6 @@ async def run_researcher(
     duration = time.time() - start_time
     completed_at = datetime.now(timezone.utc)
 
-    research_section = f"""---
-
-## Research Synthesis
-
-{output.synthesis}"""
-
-    frontmatter_updates = {
-        "research_completed_at": completed_at.isoformat(),
-        "research_duration_seconds": int(duration),
-    }
-
     try:
         await update_opportunity_research(
             opportunity_id=opportunity_id,
@@ -83,14 +72,6 @@ async def run_researcher(
         )
     except Exception as e:
         logfire.error("DB write failed for researcher", opportunity_id=opportunity_id, error=str(e))
-
-    append_to_opportunity(
-        market_ticker=opportunity.market_ticker,
-        frontmatter_updates=frontmatter_updates,
-        body_section=research_section,
-        section_header="## Research Synthesis",
-        paper=settings.trading.paper_mode,
-    )
 
     logfire.info(
         "Researcher complete",
