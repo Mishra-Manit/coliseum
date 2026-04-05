@@ -8,10 +8,9 @@ import {
   Receipt,
 } from "lucide-react";
 import { useLedger, usePortfolioState } from "@/hooks/use-api";
-import { usePortfolioStream } from "@/hooks/use-portfolio-stream";
-import type { EnrichedPosition, LedgerEntry, Position } from "@/lib/types";
+import type { EnrichedPosition, LedgerEntry } from "@/lib/types";
 import { FontSize } from "@/lib/typography";
-import { Muted, Base, Faint, Ghost, BgTint, BorderTint } from "@/lib/styles";
+import { Muted, Base, BgTint, BorderTint } from "@/lib/styles";
 
 interface PositionsLedgerPanelProps {
   onSelectOpportunity?: (id: string) => void;
@@ -22,9 +21,8 @@ export function PositionsLedgerPanel({
 }: PositionsLedgerPanelProps) {
   const { data: state, isLoading: stateLoading } = usePortfolioState();
   const { data: entries, isLoading: ledgerLoading } = useLedger(150);
-  const { data: streamData, connected: streamConnected } = usePortfolioStream();
 
-  const positions = streamData?.open_positions ?? state?.open_positions ?? [];
+  const positions = state?.open_positions ?? [];
   const allEntries = entries ?? [];
   const closes = allEntries.filter((e) => e.type === "close" && e.pnl != null);
   const wins = closes.filter((e) => (e.pnl ?? 0) > 0).length;
@@ -36,17 +34,9 @@ export function PositionsLedgerPanel({
       {/* Top — Positions (35%) */}
       <div className="flex flex-col border-b border-border overflow-hidden" style={{ height: "35%" }}>
         <div className="flex items-center justify-between px-4 py-2.5 shrink-0 border-b border-border">
-          <div className="flex items-center gap-2">
-            <span className={`${FontSize.small} font-mono ${Muted.mutedText} tracking-[0.15em] uppercase`}>
-              Positions
-            </span>
-            {streamConnected && (
-              <span className="relative flex h-1.5 w-1.5">
-                <span className={`animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 ${Faint.opacityClass}`} />
-                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
-              </span>
-            )}
-          </div>
+          <span className={`${FontSize.small} font-mono ${Muted.mutedText} tracking-[0.15em] uppercase`}>
+            Positions
+          </span>
           <span className={`${FontSize.small} font-mono ${Muted.mutedText} tabular-nums`}>
             {positions.length}
           </span>
@@ -97,16 +87,12 @@ export function PositionsLedgerPanel({
   );
 }
 
-function isEnriched(p: Position | EnrichedPosition): p is EnrichedPosition {
-  return "unrealized_pnl" in p;
-}
-
 function PositionsContent({
   positions,
   isLoading,
   onSelectOpportunity,
 }: {
-  positions: (Position | EnrichedPosition)[];
+  positions: EnrichedPosition[];
   isLoading: boolean;
   onSelectOpportunity?: (id: string) => void;
 }) {
@@ -133,20 +119,13 @@ function PositionsContent({
     <div className="h-full overflow-y-auto min-h-0 px-3 py-2 space-y-1">
       {positions.map((pos) => {
         const isClickable = !!pos.opportunity_id && !!onSelectOpportunity;
-        const enriched = isEnriched(pos);
         const entryC = Math.round(pos.average_entry * 100);
-        const nowC = enriched && pos.current_price > 0
-          ? Math.round(pos.current_price * 100)
-          : null;
+        const nowC = pos.current_price > 0 ? Math.round(pos.current_price * 100) : null;
 
         return (
           <button
             key={pos.id}
-            onClick={
-              isClickable
-                ? () => onSelectOpportunity!(pos.opportunity_id!)
-                : undefined
-            }
+            onClick={isClickable ? () => onSelectOpportunity!(pos.opportunity_id!) : undefined}
             disabled={!isClickable}
             className={`w-full text-left px-3 py-2 rounded transition-colors ${
               isClickable
@@ -174,18 +153,12 @@ function PositionsContent({
               <span className={`${FontSize.small} ${Muted.mutedText} font-mono shrink-0`}>
                 x{pos.contracts}
               </span>
-              <span className="shrink-0 ml-auto">
-                {enriched ? (
-                  <span
-                    className={`${FontSize.medium} font-mono font-semibold tabular-nums ${
-                      pos.unrealized_pnl >= 0 ? "text-emerald-400" : "text-red-400"
-                    }`}
-                  >
-                    {pos.unrealized_pnl >= 0 ? "+" : ""}${pos.unrealized_pnl.toFixed(2)}
-                  </span>
-                ) : (
-                  <span className={`${FontSize.medium} font-mono ${Ghost.mutedText}`}>--</span>
-                )}
+              <span
+                className={`${FontSize.medium} font-mono font-semibold tabular-nums shrink-0 ml-auto ${
+                  pos.unrealized_pnl >= 0 ? "text-emerald-400" : "text-red-400"
+                }`}
+              >
+                {pos.unrealized_pnl >= 0 ? "+" : ""}${pos.unrealized_pnl.toFixed(2)}
               </span>
             </div>
             {/* Line 2: price movement + pct change */}
@@ -193,15 +166,13 @@ function PositionsContent({
               <span className={`${FontSize.small} font-mono ${Muted.mutedText} tabular-nums`}>
                 {entryC}c{nowC !== null ? ` \u2192 ${nowC}c` : ""}
               </span>
-              {enriched && (
-                <span
-                  className={`${FontSize.small} font-mono tabular-nums ml-auto ${
-                    pos.pct_change >= 0 ? Muted.emeraldLabel : Muted.redLabel
-                  }`}
-                >
-                  {pos.pct_change >= 0 ? "+" : ""}{pos.pct_change.toFixed(1)}%
-                </span>
-              )}
+              <span
+                className={`${FontSize.small} font-mono tabular-nums ml-auto ${
+                  pos.pct_change >= 0 ? Muted.emeraldLabel : Muted.redLabel
+                }`}
+              >
+                {pos.pct_change >= 0 ? "+" : ""}{pos.pct_change.toFixed(1)}%
+              </span>
             </div>
           </button>
         );
@@ -302,11 +273,7 @@ function LedgerRow({
 
   return (
     <button
-      onClick={
-        isClickable
-          ? () => onSelectOpportunity!(entry.opportunity_id!)
-          : undefined
-      }
+      onClick={isClickable ? () => onSelectOpportunity!(entry.opportunity_id!) : undefined}
       disabled={!isClickable}
       className={`w-full text-left flex items-center gap-2.5 px-2 py-1.5 rounded transition-colors ${
         isClickable
@@ -355,9 +322,7 @@ function LedgerRow({
         <div className="flex items-center gap-1 mt-0.5">
           <span
             className={`${FontSize.small} font-mono ${
-              entry.side === "YES"
-                ? Muted.emeraldLabel
-                : Muted.redLabel
+              entry.side === "YES" ? Muted.emeraldLabel : Muted.redLabel
             }`}
           >
             {entry.side}

@@ -19,11 +19,9 @@ export interface EnrichedPosition extends Position {
   pct_change: number;
 }
 
-export interface PortfolioStreamPayload {
-  open_positions: EnrichedPosition[];
+export interface PortfolioState {
   portfolio: PortfolioStats;
-  timestamp: number;
-  error?: string;
+  open_positions: EnrichedPosition[];
 }
 
 export interface ClosedPosition {
@@ -35,14 +33,6 @@ export interface ClosedPosition {
   pnl: number;
   opportunity_id: string | null;
   closed_at: string | null;
-}
-
-export interface PortfolioState {
-  last_updated: string | null;
-  portfolio: PortfolioStats;
-  open_positions: Position[];
-  closed_positions: ClosedPosition[];
-  seen_tickers: string[];
 }
 
 export interface OpportunitySummary {

@@ -1,27 +1,22 @@
 """FastAPI dashboard server for the Coliseum trading system."""
 
 import asyncio
-import json
 import logging
-import time
 from collections import defaultdict
 from contextlib import asynccontextmanager
 from datetime import date
 from pathlib import Path
 from typing import Any
 
-import logfire
 import yaml
 from fastapi import APIRouter, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from sse_starlette.sse import EventSourceResponse
 
 from coliseum.config import get_settings
 from coliseum.daemon import ColiseumDaemon
 from coliseum.observability import initialize_logfire
 from coliseum.pipeline import run_pipeline
-from coliseum.services.kalshi.client import KalshiClient
 from coliseum.api.parsing import parse_opportunity_sections
 from coliseum.services.supabase.repositories.portfolio import load_state_from_db
 from coliseum.services.supabase.repositories.opportunities import (
@@ -34,7 +29,6 @@ from coliseum.services.supabase.repositories.trades import (
     list_trade_closes_from_db,
 )
 from coliseum.storage.state import Position
-from coliseum.storage.sync import resolve_market_price
 
 logger = logging.getLogger(__name__)
 _DAEMON_OFFLINE: dict[str, Any] = {
@@ -85,7 +79,7 @@ async def _daemon_lifespan(app: FastAPI):
 
 
 # ---------------------------------------------------------------------------
-# Shared router (all API routes live here)
+# Shared router
 # ---------------------------------------------------------------------------
 
 router = APIRouter()
@@ -134,6 +128,52 @@ def _get_data_dir() -> Path:
     return get_settings().data_dir
 
 
+def _get_start_date() -> date | None:
+    """Read dashboard_display.start_date from config, or None if unset."""
+    settings = get_settings()
+    raw = settings.dashboard_display.start_date
+    if raw is None:
+        return None
+    return date.fromisoformat(raw)
+
+
+# ---------------------------------------------------------------------------
+# Portfolio enrichment
+# ---------------------------------------------------------------------------
+
+
+class EnrichedPosition(BaseModel):
+    """Position enriched with unrealized P&L computed from DB-stored prices."""
+
+    id: str
+    market_ticker: str
+    side: str
+    contracts: int
+    average_entry: float
+    current_price: float
+    unrealized_pnl: float
+    pct_change: float
+    opportunity_id: str | None
+
+
+def _enrich_position(pos: Position) -> EnrichedPosition:
+    """Compute unrealized P&L for a position. Returns a new object — no mutation."""
+    pnl = (pos.current_price - pos.average_entry) * pos.contracts
+    cost = pos.average_entry * pos.contracts
+    pct = (pnl / cost * 100) if cost > 0 else 0.0
+    return EnrichedPosition(
+        id=pos.id,
+        market_ticker=pos.market_ticker,
+        side=pos.side,
+        contracts=pos.contracts,
+        average_entry=pos.average_entry,
+        current_price=pos.current_price,
+        unrealized_pnl=round(pnl, 4),
+        pct_change=round(pct, 2),
+        opportunity_id=pos.opportunity_id,
+    )
+
+
 # ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------
@@ -147,16 +187,19 @@ async def get_config():
 
 @router.get("/api/state")
 async def get_state():
-    """Return current portfolio state from DB."""
+    """Return portfolio state with P&L-enriched positions from the DB.
+
+    Prices reflect the last Guardian reconciliation cycle (typically every 2 minutes).
+    """
     state = await load_state_from_db()
+    enriched = [_enrich_position(p) for p in state.open_positions]
     return {
-        "last_updated": None,
         "portfolio": {
             "cash_balance": state.portfolio.cash_balance,
             "positions_value": state.portfolio.positions_value,
             "total_value": state.portfolio.total_value,
         },
-        "open_positions": [p.model_dump(mode="json") for p in state.open_positions],
+        "open_positions": [e.model_dump() for e in enriched],
     }
 
 
@@ -215,65 +258,6 @@ async def get_opportunity(opportunity_id: str):
         "raw_frontmatter": opp.model_dump(mode="json"),
         "parsed_sections": parse_opportunity_sections(opp, markdown_body),
     }
-
-
-@router.get("/api/stream/portfolio")
-async def stream_portfolio(request: Request) -> EventSourceResponse:
-    """SSE endpoint: pushes enriched portfolio state with live prices every 2 seconds."""
-
-    async def _generator():
-        async with _make_kalshi_client() as client:
-            while True:
-                if await request.is_disconnected():
-                    break
-                try:
-                    state = await load_state_from_db()
-                    positions = state.open_positions
-                    if positions:
-                        with logfire.suppress_instrumentation():
-                            prices = await _fetch_prices_for_positions(client, positions)
-                        enriched = [
-                            _enrich_position(p, prices.get(p.market_ticker, p.current_price))
-                            for p in positions
-                        ]
-                    else:
-                        enriched = []
-                    live_positions_value = sum(
-                        e.current_price * p.contracts
-                        for e, p in zip(enriched, positions)
-                    )
-                    payload = {
-                        "open_positions": [e.model_dump() for e in enriched],
-                        "portfolio": {
-                            "cash_balance": state.portfolio.cash_balance,
-                            "positions_value": live_positions_value,
-                            "total_value": state.portfolio.cash_balance + live_positions_value,
-                        },
-                        "timestamp": time.time(),
-                    }
-                    yield {"data": json.dumps(payload)}
-                except asyncio.CancelledError:
-                    break
-                except Exception as e:
-                    logger.warning("SSE portfolio stream error: %s", e)
-                    yield {"data": json.dumps({"error": str(e)})}
-                await asyncio.sleep(2.0)
-
-    return EventSourceResponse(_generator())
-
-
-# ---------------------------------------------------------------------------
-# Trade ledger
-# ---------------------------------------------------------------------------
-
-
-def _get_start_date() -> date | None:
-    """Read dashboard_display.start_date from config, or None if unset."""
-    settings = get_settings()
-    raw = settings.dashboard_display.start_date
-    if raw is None:
-        return None
-    return date.fromisoformat(raw)
 
 
 @router.get("/api/ledger")
@@ -339,29 +323,14 @@ async def get_chart_data():
     losing_trades = sum(d["losses"] for d in daily)
     daily_pnls = [d["pnl"] for d in daily]
 
-    if total_trades > 0:
-        win_rate = round(winning_trades / total_trades, 4)
-    else:
-        win_rate = 0.0
-
-    if daily_pnls:
-        best_day = round(max(daily_pnls), 4)
-    else:
-        best_day = 0.0
-
-    if daily_pnls:
-        worst_day = round(min(daily_pnls), 4)
-    else:
-        worst_day = 0.0
-
     stats = {
         "total_pnl": round(total_pnl, 4),
-        "win_rate": win_rate,
+        "win_rate": round(winning_trades / total_trades, 4) if total_trades > 0 else 0.0,
         "total_trades": total_trades,
         "winning_trades": winning_trades,
         "losing_trades": losing_trades,
-        "best_day": best_day,
-        "worst_day": worst_day,
+        "best_day": round(max(daily_pnls), 4) if daily_pnls else 0.0,
+        "worst_day": round(min(daily_pnls), 4) if daily_pnls else 0.0,
         "current_nav": round(current_nav, 4),
         "initial_nav": round(initial_nav, 4),
     }
@@ -372,95 +341,6 @@ async def get_chart_data():
 # ---------------------------------------------------------------------------
 # Pipeline trigger
 # ---------------------------------------------------------------------------
-
-# In-memory price cache for SSE stream: ticker -> (price, fetched_at_epoch)
-_price_cache: dict[str, tuple[float, float]] = {}
-_price_cache_lock = asyncio.Lock()
-# TTL exceeds the 2s poll interval so concurrent SSE clients share cached values
-_PRICE_CACHE_TTL = 10.0
-
-
-class EnrichedPosition(BaseModel):
-    """Position view model enriched with live price and unrealized P&L."""
-
-    id: str
-    market_ticker: str
-    side: str
-    contracts: int
-    average_entry: float
-    current_price: float
-    unrealized_pnl: float
-    pct_change: float
-    opportunity_id: str | None
-
-
-def _make_kalshi_client() -> KalshiClient:
-    """Build an authenticated KalshiClient from current settings."""
-    settings = get_settings()
-    return KalshiClient(
-        api_key=settings.kalshi_api_key,
-        private_key_pem=settings.get_rsa_private_key(),
-    )
-
-
-def _enrich_position(pos: Position, current_price: float) -> EnrichedPosition:
-    """Compute unrealized P&L for an open position. Returns new object, no mutation."""
-    pnl = (current_price - pos.average_entry) * pos.contracts
-    cost = pos.average_entry * pos.contracts
-    if cost > 0:
-        pct = pnl / cost * 100
-    else:
-        pct = 0.0
-    return EnrichedPosition(
-        id=pos.id,
-        market_ticker=pos.market_ticker,
-        side=pos.side,
-        contracts=pos.contracts,
-        average_entry=pos.average_entry,
-        current_price=current_price,
-        unrealized_pnl=round(pnl, 4),
-        pct_change=round(pct, 2),
-        opportunity_id=pos.opportunity_id,
-    )
-
-
-async def _fetch_prices_for_positions(
-    client: KalshiClient,
-    positions: list[Position],
-) -> dict[str, float]:
-    """Fetch current bid prices for open positions, with TTL-based in-memory cache.
-
-    Lock is held for the full operation so concurrent SSE clients share a single
-    Kalshi fetch rather than firing duplicate requests.
-    """
-    async with _price_cache_lock:
-        now = time.time()
-        stale_tickers = {
-            p.market_ticker for p in positions
-            if p.market_ticker not in _price_cache
-            or now - _price_cache[p.market_ticker][1] > _PRICE_CACHE_TTL
-        }
-        stale = [p for p in positions if p.market_ticker in stale_tickers]
-        result: dict[str, float] = {
-            p.market_ticker: _price_cache[p.market_ticker][0]
-            for p in positions
-            if p.market_ticker not in stale_tickers
-        }
-        if not stale:
-            return result
-        markets = await asyncio.gather(
-            *[client.get_market(p.market_ticker) for p in stale],
-            return_exceptions=True,
-        )
-        fetch_time = time.time()
-        for p, market in zip(stale, markets):
-            if isinstance(market, Exception):
-                result[p.market_ticker] = p.current_price
-                continue
-            price = resolve_market_price(market, p.side) or p.current_price
-            _price_cache[p.market_ticker] = (price, fetch_time)
-            result[p.market_ticker] = price
-        return result
 
 
 def _pipeline_running(request: Request) -> bool:
@@ -506,9 +386,8 @@ async def daemon_status(request: Request):
     return {"available": True, **daemon.status_summary()}
 
 
-# app      → coliseum api     (dashboard only, no trading)
-# daemon_app → coliseum daemon (dashboard + trading daemon)
-# Must be instantiated AFTER all @router routes are defined so include_router
-# picks them up.
+# app        → coliseum api     (dashboard only, no trading)
+# daemon_app → coliseum daemon  (dashboard + trading daemon)
+# Must be instantiated AFTER all @router routes are defined.
 app = _make_app(_api_lifespan)
 daemon_app = _make_app(_daemon_lifespan)

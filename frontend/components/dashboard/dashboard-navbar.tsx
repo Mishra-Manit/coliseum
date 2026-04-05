@@ -4,8 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { BarChart2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { useConfig, useDaemonStatus } from "@/hooks/use-api";
-import { usePortfolioStream } from "@/hooks/use-portfolio-stream";
+import { useConfig, useDaemonStatus, usePortfolioState } from "@/hooks/use-api";
 import { SettingsModal } from "@/components/dashboard/settings-modal";
 import { FontSize } from "@/lib/typography";
 import { Muted, Base, Faint, BgTint, BorderTint } from "@/lib/styles";
@@ -13,7 +12,7 @@ import { Muted, Base, Faint, BgTint, BorderTint } from "@/lib/styles";
 export function DashboardNavbar() {
   const { data: config } = useConfig();
   const { data: daemon } = useDaemonStatus();
-  const { data: stream } = usePortfolioStream();
+  const { data: portfolio } = usePortfolioState();
   const pathname = usePathname();
 
   const paperMode =
@@ -22,9 +21,9 @@ export function DashboardNavbar() {
   const isOnline = daemon?.available ?? false;
   const isPaused = daemon?.paused ?? false;
 
-  const totalValue = stream?.portfolio?.total_value ?? 0;
-  const cashBalance = stream?.portfolio?.cash_balance ?? 0;
-  const openCount = stream?.open_positions?.length ?? 0;
+  const totalValue = portfolio?.portfolio?.total_value ?? 0;
+  const cashBalance = portfolio?.portfolio?.cash_balance ?? 0;
+  const openCount = portfolio?.open_positions?.length ?? 0;
 
   return (
     <nav className={`sticky top-0 z-50 h-11 border-b border-border ${Base.card} backdrop-blur-xl flex items-center px-5`}>
@@ -52,7 +51,7 @@ export function DashboardNavbar() {
 
       <div className="w-px h-4 bg-border mx-5 shrink-0" />
 
-      {/* Core stats only: NAV, CASH, POS */}
+      {/* Core stats: NAV, CASH, POS */}
       <div className="flex items-center gap-6 flex-1 min-w-0 overflow-hidden">
         <StatPill label="NAV" value={`$${totalValue.toFixed(2)}`} />
         <StatPill label="CASH" value={`$${cashBalance.toFixed(2)}`} />

@@ -18,7 +18,7 @@ export function useConfig() {
 
 export function usePortfolioState() {
   return useSWR<PortfolioState>("/api/state", fetcher, {
-    refreshInterval: 15000,
+    refreshInterval: 60000,
   });
 }
 

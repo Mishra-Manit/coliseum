@@ -2,8 +2,7 @@
 
 import { useState } from "react";
 import { DashboardNavbar } from "@/components/dashboard/dashboard-navbar";
-import { useChartData } from "@/hooks/use-api";
-import { usePortfolioStream } from "@/hooks/use-portfolio-stream";
+import { useChartData, usePortfolioState } from "@/hooks/use-api";
 import { LWPortfolioChart } from "@/components/chart/lw-portfolio-chart";
 import { WinRatePanel } from "@/components/chart/win-rate-panel";
 import type { Interval } from "@/lib/chart-utils";
@@ -12,10 +11,10 @@ import { Muted, Strong, Faint } from "@/lib/styles";
 
 function ChartSidebar() {
   const { data: chartData } = useChartData();
-  const { data: stream } = usePortfolioStream();
+  const { data: portfolio } = usePortfolioState();
 
   const stats = chartData?.stats;
-  const currentNav = stream?.portfolio?.total_value ?? stats?.current_nav ?? 0;
+  const currentNav = portfolio?.portfolio?.total_value ?? stats?.current_nav ?? 0;
   const totalPnl = stats?.total_pnl ?? 0;
   const isPositive = totalPnl >= 0;
   const startingNav = currentNav - totalPnl;
@@ -72,12 +71,12 @@ function ChartSidebar() {
 
 function ChartMain() {
   const { data: chartData } = useChartData();
-  const { data: stream } = usePortfolioStream();
+  const { data: portfolio } = usePortfolioState();
   const [interval, setInterval] = useState<Interval>("1D");
 
   const daily = chartData?.daily ?? [];
   const stats = chartData?.stats;
-  const currentNav = stream?.portfolio?.total_value ?? stats?.current_nav ?? 0;
+  const currentNav = portfolio?.portfolio?.total_value ?? stats?.current_nav ?? 0;
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden animate-fade-up stagger-2">
