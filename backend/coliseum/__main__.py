@@ -498,8 +498,8 @@ def main() -> int:
     parser_api.add_argument(
         "--port",
         type=int,
-        default=8000,
-        help="Port to bind to (default: 8000)",
+        default=9000,
+        help="Port to bind to (default: 9000)",
     )
     parser_api.add_argument(
         "--reload",
@@ -520,8 +520,8 @@ def main() -> int:
     parser_daemon.add_argument(
         "--port",
         type=int,
-        default=8000,
-        help="Port to bind dashboard to (default: 8000)",
+        default=9000,
+        help="Port to bind dashboard to (default: 9000)",
     )
     parser_daemon.add_argument(
         "--debug",

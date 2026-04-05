@@ -1,35 +1,49 @@
 """Historical safety rules for Scout market prefiltering."""
 
-SAFE_CATEGORIES: set[str] = {"Economics", "Entertainment"}
+SAFE_CATEGORIES: set[str] = {"Economics"}
 
 SAFE_EVENT_PREFIXES: set[str] = {
-    "KXHIGHLAX",
+    # Weather - unconditional
     "KXHIGHMIA",
     "KXHIGHPHIL",
-    "KXLOWTLAX",
     "KXLOWTMIA",
-    "KXHIGHTPHX",
-    "KXHIGHTMIN",
     "KXHIGHTDAL",
-    "KXHIGHTOKC",
-    "KXHIGHTHOU",
     "KXHIGHTSATX",
-    "KXBTC15M",
+    "KXLOWTAUS",
+    # Crypto 15-min - unconditional
     "KXETH15M",
+    "KXSOL15M",
+    # Sports - unconditional
+    "KXWBCGAME",
+    # Mentions - unconditional
     "KXPRESMENTION",
 }
 
 PRICE_GATED_EVENT_PREFIXES: dict[str, int] = {
-    "KXBTCD": 96,
+    # Crypto directional
     "KXETHD": 96,
-    "KXETH": 96,
-    "KXMLBSTGAME": 94,
-    "KXNASCARRACE": 94,
-    "KXHIGHCHI": 93,
-    "KXHIGHAUS": 93,
+    # Crypto 15-min (gate added after 1 loss at < 94c)
+    "KXBTC15M": 94,
+    # Weather - demoted from unconditional (losses added in latest data)
+    "KXHIGHLAX": 93,
+    "KXLOWTLAX": 93,
+    "KXHIGHTPHX": 94,
+    "KXHIGHTOKC": 94,
+    "KXHIGHTMIN": 96,
+    "KXHIGHTHOU": 95,
+    # Weather - existing entries with gates raised
+    "KXHIGHCHI": 94,
+    "KXHIGHAUS": 95,
+    # Weather - existing entries, gates unchanged
     "KXHIGHTATL": 94,
-    "KXHIGHNY": 95,
     "KXLOWTCHI": 94,
+    # Weather - new additions (promoted from watchlist)
+    "KXHIGHTLV": 96,
+    "KXHIGHTDC": 96,
+    "KXHIGHTSFO": 94,
+    # Sports
+    "KXMLBSTGAME": 94,
+    # Mentions
     "KXTRUMPMENTION": 94,
 }
 

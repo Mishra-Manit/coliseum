@@ -12,7 +12,7 @@ source venv/bin/activate
 python -m coliseum daemon
 ```
 
-Starts the trading daemon (heartbeat loop) and the dashboard API server together on port 8000. This is the only command needed for normal operation.
+Starts the trading daemon (heartbeat loop) and the dashboard API server together on port 9000. This is the only command needed for normal operation.
 
 ## One-shot pipeline (testing/debug)
 
@@ -28,7 +28,7 @@ Runs the full pipeline once (Guardian → Scout → Analyst → Trader) then exi
 python -m coliseum api
 ```
 
-Starts the FastAPI dashboard server on port 8000 with no trading daemon. Use this when testing the frontend against a live backend without triggering trades.
+Starts the FastAPI dashboard server on port 9000 with no trading daemon. Use this when testing the frontend against a live backend without triggering trades.
 
 ## Individual Agents
 

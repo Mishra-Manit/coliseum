@@ -114,13 +114,13 @@ alembic current
 python main.py
 
 # Or use uvicorn directly
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
+uvicorn main:app --reload --host 0.0.0.0 --port 9000
 ```
 
 The API will be available at:
-- **API**: http://localhost:8000
-- **API Docs (Swagger)**: http://localhost:8000/docs
-- **Health Check**: http://localhost:8000/health
+- **API**: http://localhost:9000
+- **API Docs (Swagger)**: http://localhost:9000/docs
+- **Health Check**: http://localhost:9000/health
 
 ### 6. Start Celery Worker (Optional)
 
@@ -149,7 +149,7 @@ python -c "from database import check_db_connection; print('DB Connected:', chec
 ### Test Health Endpoint
 
 ```bash
-curl http://localhost:8000/health
+curl http://localhost:9000/health
 ```
 
 Expected response:

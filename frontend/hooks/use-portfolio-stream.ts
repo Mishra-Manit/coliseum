@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import type { PortfolioStreamPayload } from "@/lib/types";
 
 const API_BASE =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:9000";
 const SSE_URL = `${API_BASE}/api/stream/portfolio`;
 const RECONNECT_DELAY_MS = 3000;
 

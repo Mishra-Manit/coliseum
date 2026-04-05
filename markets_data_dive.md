@@ -1,8 +1,8 @@
 # Markets Data Dive: Refreshed 100% Win-Rate Filters
 
 **Dataset**: `backend/monitoring/markets.csv`
-**Updated through**: Mar 30, 2026
-**Scope**: 1,910 completed trades from 1,997 tracked rows
+**Updated through**: Apr 4, 2026
+**Scope**: 2,927 completed trades from 2,992 tracked rows
 
 ---
 
@@ -10,47 +10,46 @@
 
 | Metric | Value |
 |--------|-------|
-| Total tracked rows | 1,997 |
-| Completed trades | 1,910 |
-| Wins (`close_price=100`) | 1,815 |
-| Losses (`close_price=0`) | 95 |
-| Overall win rate | 95.0% |
-| Average entry price | ~94.2c |
+| Total tracked rows | 2,992 |
+| Completed trades | 2,927 |
+| Wins (`close_price=100`) | 2,775 |
+| Losses (`close_price=0`) | 152 |
+| Overall win rate | 94.8% |
 
 ---
 
-## Where the 95 Losses Come From
+## Where the 152 Losses Come From
 
 ### By Category
 
 | Category | W | L | n | Win Rate |
 |----------|---|---|---|----------|
-| Climate and Weather | 674 | 33 | 707 | 95.3% |
-| Crypto | 658 | 27 | 685 | 96.1% |
-| Financials | 147 | 17 | 164 | 89.6% |
-| Mentions | 189 | 12 | 201 | 94.0% |
-| Politics | 11 | 3 | 14 | 78.6% |
-| Sports | 53 | 1 | 54 | 98.1% |
-| Science and Technology | 5 | 1 | 6 | 83.3% |
-| Economics | 35 | 0 | 35 | 100.0% |
-| Entertainment | 43 | 0 | 43 | 100.0% |
+| Climate and Weather | 986 | 53 | 1,039 | 94.9% |
+| Crypto | 1,024 | 43 | 1,067 | 95.97% |
+| Financials | 274 | 27 | 301 | 91.0% |
+| Mentions | 259 | 19 | 278 | 93.2% |
+| Sports | 53 | 1 | 54 | 98.2% |
+| Science and Technology | 23 | 2 | 25 | 92.0% |
+| Entertainment | 62 | 3 | 65 | 95.4% |
+| Politics | 24 | 3 | 27 | 88.9% |
+| Economics | 68 | 0 | 68 | 100.0% |
 
 ### Biggest Losing Prefixes
 
 | Prefix | W | L | Notes |
 |--------|---|---|-------|
-| `KXBTCD` | 394 | 13 | BTC directional still safe only at `96c+` |
-| `KXWTI` | 60 | 10 | Daily WTI remains the worst repeat offender |
-| `KXBTC` | 115 | 8 | BTC range still fails even at `96c` |
-| `KXHIGHDEN` | 39 | 5 | Denver highs remain unusable (lossy even at `96c`) |
-| `KXHIGHNY` | 39 | 5 | NYC highs still need the tight `95c+` gate |
-| `KXHIGHTBOS` | 26 | 4 | Boston still lossy at every gate through `96c` |
-| `KXETHD` | 62 | 4 | ETH directional still needs `96c+` |
-| `KXHIGHTLV` | 21 | 3 | Las Vegas still too risky |
-| `KXNBAMENTION` | 42 | 3 | announcer wording remains noisy at every gate |
-| `KXLOWTNYC` | 29 | 3 | NYC lows are not safe (lossy even at `96c`) |
-| `KXLOWTDEN` | 17 | 3 | Denver lows still fail |
-| `KXINX` | 26 | 3 | Index gap risk, lossy at every gate |
+| `KXBTCD` | 648 | 22 | BTC directional — now loses at 96c (165W/1L) |
+| `KXWTI` | 111 | 16 | Daily WTI structurally unsafe at every gate |
+| `KXHIGHTMIN` | 34 | 4 | Needs 96c gate (8W/0L at 96c) |
+| `KXHIGHTLV` | 33 | 4 | Needs 96c gate (12W/0L at 96c) |
+| `KXBTC` | 151 | 11 | BTC range fails at every gate |
+| `KXHIGHCHI` | 62 | 3 | Gate raised to 94c (43W/0L) |
+| `KXETHD` | 97 | 6 | ETH directional still safe at 96c (21W/0L) |
+| `KXHIGHTBOS` | 40 | 5 | Boston lossy at every gate through 96c |
+| `KXHIGHDEN` | 56 | 6 | Denver highs remain unusable |
+| `KXHIGHTDC` | 36 | 1 | Safe at 96c (12W/0L) |
+| `KXHIGHNY` | 56 | 7 | NYC highs now lose at 95c and 96c — fully rejected |
+| `KXNBAMENTION` | 42 | 3 | Wording variance; no safe gate |
 
 ---
 
@@ -58,182 +57,199 @@
 
 ### Event diversity matters more than trade count
 
-This refresh introduced an event diversity audit. A prefix with 18 trades from 2 events is not 18 independent observations — it is 2 observations with 9 correlated contracts each. Several prefixes from the previous filter had misleadingly high trade counts:
+A "trade" is one contract. An "event" is one distinct `event_ticker`. Multiple trades from the same event are correlated — they resolve together. Always check both.
 
-| Prefix | Trades | Events | Status |
-|--------|--------|--------|--------|
-| `KXSURVIVORMENTION` | 18 | 2 | Removed (2 TV episodes) |
-| `KXFEDMENTION` | 8 | 1 | Removed (1 Fed press conference) |
-| `KXJENSENMENTION` | 5 | 1 | Removed (1 appearance) |
-| `KXSCOTUSMENTION` | 4 | 2 | Removed |
-| `KXENTMENTION` | 3 | 3 | Removed (insufficient trades) |
-| `KXLOWTMIN` | 0 | 0 | Removed (no evidence) |
+### The KXBTCD break at 96c
 
-These may re-qualify as they accumulate more distinct events.
+The most critical change in this refresh: `KXBTCD` had 1 loss at `entry_price >= 96` (165W/1L/101 events). The prior safe bucket `KXBTCD @ 96c` (102W/0L at last refresh) is now broken. **KXBTCD is removed from the filter entirely.** There is no gate at which KXBTCD has zero losses with sufficient data.
 
-## 1. Category rules are still only safe for two buckets
+---
 
-Only these broad categories remain unconditional:
+## 1. Category rules — only Economics remains safe
 
-- `Economics` (35W, 0L)
-- `Entertainment` (43W, 0L)
+`Entertainment` had 3 losses (65n/62W/3L). It is removed from the safe-category list.
 
-Everything else is safer as exact prefix logic with price gates.
+| Category | W | L | n | Events | Status |
+|----------|---|---|---|--------|--------|
+| `Economics` | 68 | 0 | 68 | 34 | Safe (unconditional) |
+| `Entertainment` | 62 | 3 | 65 | 37 | Removed |
 
-## 2. Crypto needs a hard distinction between directional, range, and 15-min families
+---
+
+## 2. Crypto
 
 ### Directional crypto
 
-| Prefix / Rule | W | L | n | Events |
-|---------------|---|---|---|--------|
-| `KXBTCD` all | 394 | 13 | 407 | — |
-| `KXBTCD` @ `96+` | 102 | 0 | 102 | 60 |
-| `KXETHD` all | 62 | 4 | 66 | — |
-| `KXETHD` @ `96+` | 12 | 0 | 12 | 10 |
-| `KXETH` all | 25 | 1 | 26 | — |
-| `KXETH` @ `96+` | 5 | 0 | 5 | 5 |
+| Prefix / Rule | W | L | n | Events | Status |
+|---------------|---|---|---|--------|--------|
+| `KXBTCD` @ `96+` | 165 | **1** | 166 | 101 | **REMOVED — 1 loss at gate** |
+| `KXETHD` all | 97 | 6 | 103 | 46 | — |
+| `KXETHD` @ `96+` | 21 | 0 | 21 | 16 | Kept at 96c gate |
+| `KXETH` all | 34 | 1 | 35 | 22 | — |
+| `KXETH` @ `96+` | 6 | 0 | 6 | 6 | Below 8-trade minimum — removed |
 
-`KXETH` is kept at the conservative `96c` gate. While `94c+` shows 12W/0L, the tighter gate provides a larger margin of safety consistent with `KXBTCD` and `KXETHD`.
+`KXETH` was carried at a 96c gate since it had 5W/0L at last refresh. It now has only 6 trades at 96c — below the 8-trade minimum. The gate cannot be relaxed (no compelling evidence at lower gates: 9W/0L at 95c and 15W/0L at 94c, neither reaching the 20-trade/10-event bar required to lower an existing crypto gate). **KXETH is removed.**
 
-`KXSOLD` (10W/0L/3 events) was considered but rejected: structurally similar to `KXBTCD`/`KXETHD` (which need a `96c` gate), and insufficient event diversity to confidently allow it without one.
+### 15-minute crypto
 
-### Range / short-term crypto
+| Prefix | W | L | n | Events | Gate | Status |
+|--------|---|---|---|--------|------|--------|
+| `KXBTC15M` all | 15 | 1 | 16 | 16 | — | — |
+| `KXBTC15M` @ `94+` | 8 | 0 | 8 | 8 | 94c | Demoted from unconditional |
+| `KXETH15M` all | 15 | 0 | 15 | 15 | unconditional | Unchanged |
+| `KXSOL15M` all | 12 | 0 | 12 | 12 | unconditional | **NEW (promoted from watchlist)** |
 
-| Prefix / Rule | W | L | n | Events |
-|---------------|---|---|---|--------|
-| `KXBTC15M` all | 9 | 0 | 9 | 9 |
-| `KXETH15M` all | 10 | 0 | 10 | 10 |
-| `KXBTC` all | 115 | 8 | 123 | — |
-| `KXBTC` @ `96+` | 29 | 2 | 31 | — |
+`KXBTC15M` had 1 loss at < 94c. Its unconditional status is revoked; a 94c gate applies (8W/0L/8 events — exactly meets minimum thresholds).
 
-`KXBTC` range contracts remain fully blocked. They still lose at `96c`.
-
-15-minute crypto families resolve too quickly for meaningful flip risk. Each trade is a distinct event. `KXBTC15M` and `KXETH15M` remain in the filter.
-
-`KXSOL15M` (8W/0L/8 events) and `KXXRP15M` (7W/0L/7 events) are structurally identical to the proven 15-min families but excluded for conservatism pending more data.
+`KXSOL15M` now has 12W/0L across 12 distinct events, meeting both minimum thresholds. Added as unconditional.
 
 ### BTC path-risk caveat
 
-The Mar 27 stop-loss lesson remains valid: the historical filter measures hold-to-resolution, but live trades on multi-day BTC directional contracts can be forced out by drawdowns before settlement. Treat long-dated BTC directional contracts as operationally unsafe unless a separate horizon/cushion rule exists upstream.
+The path-risk lesson remains valid: live trades on multi-day BTC directional contracts can be forced out by drawdowns before settlement, independent of final resolution price. With KXBTCD now failing even at 96c, no BTC directional market should be traded.
 
-## 3. Weather: two strong cities added, six unchanged
+---
 
-### Unconditional-safe weather prefixes
+## 3. Weather
+
+### Previously unconditional — now price-gated
+
+Seven unconditional prefixes experienced losses in new data and require price gates:
+
+| Prefix | Gate | W@Gate | L@Gate | Events@Gate | Was |
+|--------|------|--------|--------|-------------|-----|
+| `KXHIGHLAX` | 93c | 55 | 0 | 24 | unconditional (1 loss at < 93c) |
+| `KXLOWTLAX` | 93c | 39 | 0 | 21 | unconditional (1 loss at < 93c) |
+| `KXHIGHTPHX` | 94c | 25 | 0 | 15 | unconditional (1 loss at < 94c) |
+| `KXHIGHTOKC` | 94c | 10 | 0 | 8 | unconditional (1 loss at < 94c) |
+| `KXHIGHTMIN` | 96c | 8 | 0 | 7 | unconditional (4 losses below 96c) |
+| `KXHIGHTHOU` | 95c | 8 | 0 | 7 | unconditional (1 loss at < 95c) |
+
+### Price gates raised
+
+| Prefix | Old Gate | New Gate | W@Gate | L@Gate | Events@Gate |
+|--------|----------|----------|--------|--------|-------------|
+| `KXHIGHCHI` | 93c | **94c** | 43 | 0 | 24 |
+| `KXHIGHAUS` | 93c | **95c** | 27 | 0 | 19 |
+
+Both had losses added in new data at their prior gates. `KXHIGHCHI @ 93c` now has 1 loss; `KXHIGHAUS @ 93c` has 1 loss. Gates raised accordingly.
+
+### Still unconditional
 
 | Prefix | W | L | n | Events |
 |--------|---|---|---|--------|
-| `KXHIGHLAX` | 51 | 0 | 51 | 21 |
-| `KXHIGHMIA` | 51 | 0 | 51 | 20 |
-| `KXLOWTLAX` | 30 | 0 | 30 | 15 |
-| `KXHIGHPHIL` | 26 | 0 | 26 | 15 |
-| `KXHIGHTPHX` | 26 | 0 | 26 | 15 |
-| `KXHIGHTMIN` | 24 | 0 | 24 | 16 |
-| `KXHIGHTDAL` | 24 | 0 | 24 | 12 |
-| `KXLOWTMIA` | 20 | 0 | 20 | 13 |
-| `KXHIGHTOKC` | 16 | 0 | 16 | 12 |
-| `KXHIGHTHOU` | 14 | 0 | 14 | 7 |
-| `KXHIGHTSATX` | 10 | 0 | 10 | 8 |
+| `KXHIGHMIA` | 62 | 0 | 62 | 25 |
+| `KXHIGHPHIL` | 34 | 0 | 34 | 20 |
+| `KXLOWTMIA` | 27 | 0 | 27 | 17 |
+| `KXHIGHTDAL` | 38 | 0 | 38 | 18 |
+| `KXHIGHTSATX` | 16 | 0 | 16 | 10 |
+| `KXLOWTAUS` | 19 | 0 | 19 | 11 |
 
-`KXHIGHLAX` (51W, 21 events) and `KXHIGHPHIL` (26W, 15 events) are strong new additions. `KXLOWTMIN` (0 trades) was removed — no evidence to keep it.
+`KXLOWTAUS` promoted from watchlist — now 19W/0L/11 events.
 
-`KXLOWTAUS` (9W/0L/6 events) was considered but excluded for conservatism.
+### Safe with price gates (pre-existing, gates unchanged)
 
-### Safe with price gates
+| Prefix | Gate | W | L | n | Events |
+|--------|------|---|---|---|--------|
+| `KXHIGHTATL` | 94c | 24 | 0 | 24 | 15 |
+| `KXLOWTCHI` | 94c | 25 | 0 | 25 | 13 |
+| `KXHIGHNY` | — | — | — | — | **REMOVED** |
 
-| Prefix | Safe Rule | W | L | n | Events |
-|--------|-----------|---|---|---|--------|
-| `KXHIGHCHI` | `entry_price >= 93` | 35 | 0 | 35 | 19 |
-| `KXHIGHAUS` | `entry_price >= 93` | 32 | 0 | 32 | 19 |
-| `KXHIGHNY` | `entry_price >= 95` | 17 | 0 | 17 | 12 |
-| `KXHIGHTATL` | `entry_price >= 94` | 16 | 0 | 16 | 11 |
-| `KXLOWTCHI` | `entry_price >= 94` | 16 | 0 | 16 | 9 |
+### New weather additions
 
-### Considered but not added
+Previously on watchlist or "considered" — now qualify:
 
-| Prefix | Gate | W | L | Events | Reason excluded |
-|--------|------|---|---|--------|-----------------|
-| `KXHIGHTSFO` | `>= 94` | 15 | 0 | 11 | Previously rejected for microclimate risk |
-| `KXHIGHTLV` | `>= 96` | 9 | 0 | 7 | Previously rejected, thin sample at tight gate |
-| `KXHIGHTDC` | `>= 96` | 9 | 0 | 7 | Northeast corridor risk, thin sample |
+| Prefix | Gate | W | L | Events | Reason added |
+|--------|------|---|---|--------|--------------|
+| `KXHIGHTLV` | 96c | 12 | 0 | 10 | Had 9W/7 events at last refresh; now 12W/10 events |
+| `KXHIGHTDC` | 96c | 12 | 0 | 9 | Had 9W/7 events at last refresh; now 12W/9 events |
+| `KXHIGHTSFO` | 94c | 29 | 0 | 16 | Strong data; microclimate risk now overridden by evidence |
+
+### KXHIGHNY removed
+
+`KXHIGHNY` was at a 95c gate (17W/0L/12 events at last refresh). New data: losses now present at 95c (26W/1L) and 96c (17W/1L). Fully rejected.
 
 ### Still reject
 
 `KXHIGHDEN`, `KXLOWTDEN`, `KXLOWTNYC`, `KXHIGHTBOS`, `KXHIGHTNOLA`, `KXHIGHTSEA`, `KXLOWTPHIL` still fail the zero-loss bar at any reasonable gate.
 
-## 4. Mentions: tightened to one proven prefix
+---
 
-### Safe without a gate
+## 4. Mentions
+
+### Safe without gate
 
 | Prefix | W | L | n | Events |
 |--------|---|---|---|--------|
 | `KXPRESMENTION` | 13 | 0 | 13 | 5 |
 
-### Safe only with a gate
+### Safe with gate
 
-| Prefix | Safe Rule | W | L | n | Events |
-|--------|-----------|---|---|---|--------|
-| `KXTRUMPMENTION` | `entry_price >= 94` | 11 | 0 | 11 | 5 |
+| Prefix | Gate | W | L | n | Events |
+|--------|------|---|---|---|--------|
+| `KXTRUMPMENTION` | 94c | 18 | 0 | 18 | 7 |
 
-### Removed from previous filter
+Both unchanged from prior refresh.
 
-| Prefix | Trades | Events | Reason |
-|--------|--------|--------|--------|
-| `KXSURVIVORMENTION` | 18 | 2 | Only 2 TV episodes — misleading n |
-| `KXFEDMENTION` | 8 | 1 | Only 1 Fed press conference |
-| `KXJENSENMENTION` | 5 | 1 | Only 1 appearance |
-| `KXSCOTUSMENTION` | 4 | 2 | Too thin |
-| `KXENTMENTION` | 3 | 3 | Too thin |
+---
 
-### Considered but not added
+## 5. Sports
 
-| Prefix | Gate | W | L | Events | Reason excluded |
-|--------|------|---|---|--------|-----------------|
-| `KXTRUMPSAY` | `>= 93` | 14 | 0 | 3 | Only 3 event periods, Trump-adjacent noise |
-| `KXTRUMPMENTIONB` | `>= 94` | 6 | 0 | 3 | Thin |
+| Prefix / Rule | W | L | n | Events | Status |
+|---------------|---|---|---|--------|--------|
+| `KXMLBSTGAME` @ 94c | 12 | 0 | 12 | 10 | Unchanged |
+| `KXWBCGAME` | 8 | 0 | 8 | 5 | **NEW** (promoted from watchlist) |
+| `KXNASCARRACE` @ 94c | 13 | 0 | 13 | 2 | **REMOVED** (only 2 events) |
 
-## 5. Sports unchanged
+`KXNASCARRACE` has been at 2 distinct race events for two refreshes. It fails the 5-event minimum and is removed.
 
-| Prefix / Rule | W | L | n | Events |
-|---------------|---|---|---|--------|
-| `KXMLBSTGAME` @ `94+` | 12 | 0 | 12 | 10 |
-| `KXNASCARRACE` @ `94+` | 12 | 0 | 12 | 2 |
+`KXWBCGAME` exactly meets the minimum thresholds (8 trades, 5 events). Added as unconditional.
 
-`KXNASCARRACE` has only 2 distinct race events. Retained from the original filter but flagged as thin — will strengthen or break as more races are tracked.
+---
 
-`KXWBCGAME` (8W/0L/5 events) was considered but excluded for conservatism.
-
-## 6. Financials not added
+## 6. Financials — still not added
 
 | Prefix / Rule | W | L | n | Events | Reason excluded |
 |---------------|---|---|---|--------|-----------------|
-| `KXWTIW` @ `94+` | 28 | 0 | 28 | 3 | Only 3 weekly events — misleading n |
+| `KXWTIW` @ 94c | 41 | 0 | 41 | 4 | Only 4 distinct weeks — not 41 independent observations |
 
-`KXWTIW >= 94` was previously listed as optional. Despite 28 winning trades, all come from only 3 distinct weeks. This is 3 observations, not 28. Daily WTI (`KXWTI`) remains structurally unsafe at every gate.
+`KXWTIW` grew to 41 winning trades at the 94c gate, but still only 4 distinct weekly events. This is 4 observations. Not added.
 
 ---
 
 ## Recommended Scout Filter Set
 
-### Core 100% filter set: 672W / 0L
+### Core 100% filter set: 688W / 0L
 
-| Rule Type | Rule |
-|-----------|------|
-| Category | `Economics` |
-| Category | `Entertainment` |
-| Crypto | `KXBTCD` and `entry_price >= 96` |
-| Crypto | `KXETHD` and `entry_price >= 96` |
-| Crypto | `KXETH` and `entry_price >= 96` |
-| Crypto | `KXBTC15M`, `KXETH15M` |
-| Sports | `KXMLBSTGAME` and `entry_price >= 94` |
-| Sports | `KXNASCARRACE` and `entry_price >= 94` |
-| Weather | `KXHIGHLAX`, `KXHIGHMIA`, `KXHIGHPHIL`, `KXLOWTLAX`, `KXLOWTMIA`, `KXHIGHTPHX`, `KXHIGHTMIN`, `KXHIGHTDAL`, `KXHIGHTOKC`, `KXHIGHTHOU`, `KXHIGHTSATX` |
-| Weather | `KXHIGHCHI` and `entry_price >= 93` |
-| Weather | `KXHIGHAUS` and `entry_price >= 93` |
-| Weather | `KXHIGHTATL` and `entry_price >= 94` |
-| Weather | `KXHIGHNY` and `entry_price >= 95` |
-| Weather | `KXLOWTCHI` and `entry_price >= 94` |
-| Mentions | `KXPRESMENTION` |
-| Mentions | `KXTRUMPMENTION` and `entry_price >= 94` |
+| Rule Type | Rule | W@Rule | Events |
+|-----------|------|--------|--------|
+| Category | `Economics` | 68 | 34 |
+| Weather | `KXHIGHMIA` (unconditional) | 62 | 25 |
+| Weather | `KXHIGHPHIL` (unconditional) | 34 | 20 |
+| Weather | `KXLOWTMIA` (unconditional) | 27 | 17 |
+| Weather | `KXHIGHTDAL` (unconditional) | 38 | 18 |
+| Weather | `KXHIGHTSATX` (unconditional) | 16 | 10 |
+| Weather | `KXLOWTAUS` (unconditional) | 19 | 11 |
+| Weather | `KXHIGHLAX` and `entry_price >= 93` | 55 | 24 |
+| Weather | `KXLOWTLAX` and `entry_price >= 93` | 39 | 21 |
+| Weather | `KXHIGHTPHX` and `entry_price >= 94` | 25 | 15 |
+| Weather | `KXHIGHTOKC` and `entry_price >= 94` | 10 | 8 |
+| Weather | `KXHIGHTMIN` and `entry_price >= 96` | 8 | 7 |
+| Weather | `KXHIGHTHOU` and `entry_price >= 95` | 8 | 7 |
+| Weather | `KXHIGHCHI` and `entry_price >= 94` | 43 | 24 |
+| Weather | `KXHIGHAUS` and `entry_price >= 95` | 27 | 19 |
+| Weather | `KXHIGHTATL` and `entry_price >= 94` | 24 | 15 |
+| Weather | `KXLOWTCHI` and `entry_price >= 94` | 25 | 13 |
+| Weather | `KXHIGHTLV` and `entry_price >= 96` | 12 | 10 |
+| Weather | `KXHIGHTDC` and `entry_price >= 96` | 12 | 9 |
+| Weather | `KXHIGHTSFO` and `entry_price >= 94` | 29 | 16 |
+| Crypto | `KXETHD` and `entry_price >= 96` | 21 | 16 |
+| Crypto | `KXETH15M` (unconditional) | 15 | 15 |
+| Crypto | `KXSOL15M` (unconditional) | 12 | 12 |
+| Crypto | `KXBTC15M` and `entry_price >= 94` | 8 | 8 |
+| Sports | `KXMLBSTGAME` and `entry_price >= 94` | 12 | 10 |
+| Sports | `KXWBCGAME` (unconditional) | 8 | 5 |
+| Mentions | `KXPRESMENTION` (unconditional) | 13 | 5 |
+| Mentions | `KXTRUMPMENTION` and `entry_price >= 94` | 18 | 7 |
 
 ---
 
@@ -242,10 +258,13 @@ The Mar 27 stop-loss lesson remains valid: the historical filter measures hold-t
 | Metric | Value |
 |--------|-------|
 | Win rate | 100.0% |
-| Qualifying trades | 672 |
+| Qualifying trades | 688 |
 | Losses | 0 |
-| Coverage of completed trades | 35.2% |
-| Average entry price | 94.7c |
+| Coverage of completed trades | 23.5% |
+| Previous qualifying trades | 672 |
+| Previous coverage | 35.2% |
+
+Coverage dropped because the dataset grew from 1,910 to 2,927 completed trades (+53%) while several previously-unconditional prefixes required gates. Absolute qualifying count increased slightly (+16).
 
 ---
 
@@ -253,33 +272,37 @@ The Mar 27 stop-loss lesson remains valid: the historical filter measures hold-t
 
 | Reject | Reason |
 |--------|--------|
-| `KXBTC` | still loses at `96c` (29W/2L) |
-| long-horizon `KXBTCD` live trades | path risk triggers stop losses before winning final print |
-| `KXWTI` | daily oil remains structurally unsafe at every gate |
-| `KXINX`, `KXINXU`, `KXNASDAQ100` | index gap risk, lossy at every gate |
-| `KXHIGHDEN`, `KXLOWTDEN`, `KXLOWTNYC` | weather variability remains too high |
-| `KXHIGHTBOS` | lossy at every gate through `96c` (7W/2L) |
-| `KXHIGHTNOLA`, `KXHIGHTSEA`, `KXLOWTPHIL` | insufficient safe sample or lossy at tight gates |
-| `KXNBAMENTION`, `KXMENTION`, `KXFIGHTMENTION`, `KXSNLMENTION`, `KXPERSONMENTION`, `KXVANCEMENTION` | wording variance |
+| `KXBTCD` | 1 loss at 96c gate (165W/1L at ≥96c) — previously safe zone is now broken |
+| `KXBTC` | BTC range fails at every gate |
+| `KXETH` | 96c gate too thin (6 trades); cannot relax below 96c for crypto structural reasons |
+| `KXWTI` | Daily oil structurally unsafe at every gate |
+| `KXINX`, `KXINXU`, `KXNASDAQ100` | Index gap risk, lossy at every gate |
+| `KXHIGHDEN`, `KXLOWTDEN`, `KXLOWTNYC` | Weather variability too high |
+| `KXHIGHTBOS` | Lossy through 96c |
+| `KXHIGHNY` | New losses at 95c and 96c gates — fully rejected |
+| `KXHIGHTNOLA`, `KXHIGHTSEA`, `KXLOWTPHIL` | Lossy at tight gates |
+| `KXNBAMENTION`, `KXMENTION`, `KXFIGHTMENTION`, `KXSNLMENTION`, `KXPERSONMENTION`, `KXVANCEMENTION` | Wording variance |
 
 ---
 
 ## Re-qualification Watchlist
 
-These prefixes have 100% win rates but were excluded for thin event diversity. They may re-qualify with more data:
+These prefixes have 100% win rates but were excluded for thin event diversity or structural concerns. May re-qualify with more data:
 
 | Prefix | Trades | Events | Needs |
 |--------|--------|--------|-------|
-| `KXSURVIVORMENTION` | 18 | 2 | More episodes |
-| `KXWTIW >= 94` | 28 | 3 | More weeks |
-| `KXHIGHTSFO >= 94` | 15 | 11 | Confidence on microclimate |
-| `KXTRUMPSAY >= 93` | 14 | 3 | More event periods |
-| `KXSOLD` | 10 | 3 | More events + gate determination |
-| `KXSOL15M` | 8 | 8 | More trades |
-| `KXFEDMENTION` | 8 | 1 | More Fed meetings |
-| `KXWBCGAME` | 8 | 5 | More games |
-| `KXLOWTAUS` | 9 | 6 | More days |
-| `KXXRP15M` | 7 | 7 | More trades |
+| `KXSURVIVORMENTION` | 29 | 4 | ≥5 distinct TV episodes |
+| `KXWTIW >= 94c` | 41 | 4 | ≥5 distinct weekly events |
+| `KXTRUMPSAY >= 93c` | 17 | 4 | ≥5 event periods |
+| `KXSOLD >= 96c` | 0 | 0 | Trades at ≥96c gate (structural risk same as KXBTCD/KXETHD) |
+| `KXNASCARRACE >= 94c` | 13 | 2 | ≥5 distinct race events (removed this refresh) |
+| `KXALBUMSALES >= 95c` | 13 | 6 | Confidence on category stability (Entertainment no longer safe) |
+| `KXHIGHTMIN >= 96c` | 8 | 7 | More data at 96c gate (currently minimum-threshold) |
+| `KXHIGHTHOU >= 95c` | 8 | 7 | More data at 95c gate (currently minimum-threshold) |
+| `KXBTC15M >= 94c` | 8 | 8 | More data at 94c gate (currently minimum-threshold) |
+| `KXHIGHTOKC >= 94c` | 10 | 8 | More data at 94c gate (currently minimum-threshold) |
+| `KXFEDMENTION` | 8 | 1 | More Fed meetings (still only 1 event) |
+| `KXXRP15M` | 7 | 7 | ≥8 trades |
 
 ---
 
@@ -294,50 +317,65 @@ The Scout prefilter remains an auditable allowlist:
 Implementation shape:
 
 ```python
-SAFE_CATEGORIES = {"Economics", "Entertainment"}
+SAFE_CATEGORIES = {"Economics"}
 
 SAFE_EVENT_PREFIXES = {
-    "KXHIGHLAX",
+    # Weather
     "KXHIGHMIA",
     "KXHIGHPHIL",
-    "KXLOWTLAX",
     "KXLOWTMIA",
-    "KXHIGHTPHX",
-    "KXHIGHTMIN",
     "KXHIGHTDAL",
-    "KXHIGHTOKC",
-    "KXHIGHTHOU",
     "KXHIGHTSATX",
-    "KXPRESMENTION",
-    "KXBTC15M",
+    "KXLOWTAUS",
+    # Crypto 15-min
     "KXETH15M",
+    "KXSOL15M",
+    # Sports
+    "KXWBCGAME",
+    # Mentions
+    "KXPRESMENTION",
 }
 
 PRICE_GATED_EVENT_PREFIXES = {
-    "KXBTCD": 96,
+    # Crypto
     "KXETHD": 96,
-    "KXETH": 96,
-    "KXMLBSTGAME": 94,
-    "KXNASCARRACE": 94,
-    "KXHIGHCHI": 93,
-    "KXHIGHAUS": 93,
+    "KXBTC15M": 94,
+    # Weather - demoted from unconditional
+    "KXHIGHLAX": 93,
+    "KXLOWTLAX": 93,
+    "KXHIGHTPHX": 94,
+    "KXHIGHTOKC": 94,
+    "KXHIGHTMIN": 96,
+    "KXHIGHTHOU": 95,
+    # Weather - gates raised
+    "KXHIGHCHI": 94,
+    "KXHIGHAUS": 95,
+    # Weather - unchanged gates
     "KXHIGHTATL": 94,
-    "KXHIGHNY": 95,
     "KXLOWTCHI": 94,
+    # Weather - new additions
+    "KXHIGHTLV": 96,
+    "KXHIGHTDC": 96,
+    "KXHIGHTSFO": 94,
+    # Sports
+    "KXMLBSTGAME": 94,
+    # Mentions
     "KXTRUMPMENTION": 94,
 }
 ```
-
-The BTC path-risk lesson should be implemented outside this file: add a separate live-trading guard for long holding windows or weak strike cushion on crypto directional markets.
 
 ---
 
 ## Bottom Line
 
-The historical shortlist was tightened from the previous iteration. Key changes:
+Key changes from the previous refresh (Mar 30, 2026 → Apr 4, 2026):
 
-1. **6 prefixes removed** for insufficient event diversity — `KXSURVIVORMENTION` (2 events), `KXFEDMENTION` (1 event), `KXJENSENMENTION` (1 event), `KXSCOTUSMENTION` (2 events), `KXENTMENTION` (3 trades), `KXLOWTMIN` (0 trades)
-2. **2 strong weather prefixes added** — `KXHIGHLAX` (51W/21 events), `KXHIGHPHIL` (26W/15 events)
-3. **No previously safe bucket broke** (all still 100% win rate)
-4. **Event diversity** is now tracked alongside trade count to prevent misleading confidence from correlated contracts
-5. Qualifying trades: **672W / 0L** at 35.2% coverage
+1. **KXBTCD removed** — the 96c gate broke (165W/1L). Previously safe BTC directional is no longer safe at any gate.
+2. **Entertainment category removed** — 3 losses accumulated (62W/3L).
+3. **KXHIGHNY removed** — losses now appear at 95c and 96c gates.
+4. **KXNASCARRACE removed** — only 2 distinct race events after two refreshes; fails 5-event minimum.
+5. **KXETH removed** — 96c gate below 8-trade minimum; cannot relax gate per structural rule.
+6. **7 unconditional prefixes demoted** to price-gated (KXHIGHLAX, KXLOWTLAX, KXHIGHTPHX, KXHIGHTOKC, KXHIGHTMIN, KXHIGHTHOU, KXBTC15M).
+7. **2 price gates raised** (KXHIGHCHI: 93c→94c, KXHIGHAUS: 93c→95c).
+8. **6 new entries added** — KXLOWTAUS, KXSOL15M, KXWBCGAME (unconditional) and KXHIGHTLV, KXHIGHTDC, KXHIGHTSFO (price-gated).
+9. Qualifying trades: **688W / 0L** at 23.5% coverage (was 672W/0L at 35.2%).
