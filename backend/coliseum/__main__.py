@@ -16,11 +16,10 @@ from coliseum.agents.guardian import run_guardian
 from coliseum.agents.scout import run_scout
 from coliseum.agents.trader import run_trader
 from coliseum.config import get_settings
-from coliseum.memory.learnings import LEARNINGS_SEED
 from coliseum.observability import initialize_logfire
 from coliseum.pipeline import run_pipeline
 from coliseum.runtime import bootstrap_runtime
-from coliseum.storage.state import load_state
+from coliseum.services.supabase.repositories.portfolio import load_state_from_db
 
 # Configure logging
 logging.basicConfig(
@@ -70,18 +69,6 @@ def cmd_init(args: argparse.Namespace) -> int:
     data_dir.mkdir(exist_ok=True)
     logger.info(f"Created data directory: {data_dir}")
 
-    subdirs = [
-        "opportunities",
-        "trades/buy",
-        "trades/close",
-        "memory/journal",
-    ]
-
-    for subdir in subdirs:
-        (data_dir / subdir).mkdir(parents=True, exist_ok=True)
-
-    logger.info("Created all subdirectories")
-
     config_path = data_dir / "config.yaml"
     if not config_path.exists():
         config_template = """# Coliseum Configuration
@@ -125,33 +112,6 @@ telegram_send_alerts: true
         logger.info(f"Created config template: {config_path}")
     else:
         logger.info(f"Config file already exists: {config_path}")
-
-    state_path = data_dir / "state.yaml"
-    if not state_path.exists():
-        state_template = """# Coliseum Portfolio State
-# This file is the single source of truth for the current system state.
-# Updated automatically by agents - do not edit manually.
-
-last_updated: null
-
-portfolio:
-  total_value: 100.00
-  cash_balance: 100.00
-  positions_value: 0.00
-
-open_positions: []
-"""
-        state_path.write_text(state_template)
-        logger.info(f"Created state template: {state_path}")
-    else:
-        logger.info(f"State file already exists: {state_path}")
-
-    learnings_path = data_dir / "memory" / "learnings.md"
-    if not learnings_path.exists():
-        learnings_path.write_text(LEARNINGS_SEED, encoding="utf-8")
-        logger.info(f"Created learnings seed: {learnings_path}")
-    else:
-        logger.info(f"Learnings file already exists: {learnings_path}")
 
     print(f"\n✓ Data directory initialized at {data_dir}")
     print("\nNext steps:")
@@ -242,7 +202,7 @@ def cmd_config(args: argparse.Namespace) -> int:
 @_cli_command("Status")
 def cmd_status(args: argparse.Namespace) -> int:
     """Display current portfolio status."""
-    state = load_state()
+    state = asyncio.run(load_state_from_db())
 
     print("\n=== Coliseum Portfolio Status ===\n")
 

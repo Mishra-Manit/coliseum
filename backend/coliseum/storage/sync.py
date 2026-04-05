@@ -16,7 +16,6 @@ from coliseum.storage.state import (
     PortfolioState,
     PortfolioStats,
     Position,
-    save_state,
 )
 
 logger = logging.getLogger(__name__)
@@ -309,7 +308,6 @@ async def sync_portfolio_from_kalshi(client: KalshiClient) -> PortfolioState:
         closed_positions=existing_state.closed_positions,
         seen_tickers=existing_state.seen_tickers,
     )
-    save_state(new_state)
     logger.info(
         "Synced portfolio: cash=$%.2f positions=%d",
         cash_balance,
