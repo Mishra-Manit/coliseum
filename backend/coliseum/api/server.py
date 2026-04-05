@@ -73,9 +73,9 @@ async def _daemon_lifespan(app: FastAPI):
     yield
     daemon._shutdown_event.set()
     try:
-        await asyncio.wait_for(task, timeout=10.0)
+        await asyncio.wait_for(task, timeout=120.0)
     except asyncio.TimeoutError:
-        logger.warning("Daemon did not stop within 10s timeout")
+        logger.warning("Daemon did not stop within 120s timeout — forcing exit")
 
 
 # ---------------------------------------------------------------------------

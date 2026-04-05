@@ -102,6 +102,7 @@ async def execute_working_order(
     contracts: int,
     initial_price_cents: int,
     config: Settings,
+    shutdown_event: asyncio.Event | None = None,
 ) -> OrderResult:
     """Execute limit order with place → wait → reprice → cancel strategy to avoid market orders."""
     client_order_id = f"trader_{uuid4().hex[:8]}"
@@ -142,8 +143,16 @@ async def execute_working_order(
                 order = await client.amend_order(order_id, price=current_price)
                 logger.info("Repriced order %s to %d¢ (attempt %d)", order_id, current_price, attempt)
 
-            # Wait for fill
-            await asyncio.sleep(check_interval)
+            # Wait for fill — interruptible if daemon is shutting down
+            if shutdown_event is not None:
+                try:
+                    await asyncio.wait_for(shutdown_event.wait(), timeout=check_interval)
+                    logger.info("Shutdown requested during order wait; exiting reprice loop for %s", order_id)
+                    return OrderResult(order_id=order_id, status="cancelled")
+                except asyncio.TimeoutError:
+                    pass
+            else:
+                await asyncio.sleep(check_interval)
 
             # Check status
             order = await client.get_order_status(order_id)
@@ -262,6 +271,7 @@ def get_agent(settings: Settings) -> Agent[TraderDependencies, TraderOutput]:
 async def run_trader(
     opportunity_id: str,
     settings: Settings | None = None,
+    shutdown_event: asyncio.Event | None = None,
 ) -> TraderOutput:
     """Execute or reject trade after validating recommendation, checking slippage, and verifying risk limits."""
     if settings is None:
@@ -327,6 +337,7 @@ async def run_trader(
                 try:
                     output = await _execute_trade(
                         client, opportunity, output, side, target_price, settings,
+                        shutdown_event=shutdown_event,
                     )
                 except Exception as exc:
                     logfire.error("Trade execution failed", opportunity_id=opportunity_id, error=str(exc))
@@ -355,6 +366,7 @@ async def _execute_trade(
     side: str,
     target_price: float,
     settings: Settings,
+    shutdown_event: asyncio.Event | None = None,
 ) -> TraderOutput:
     """Run slippage check, then execute or skip the trade. Returns updated output."""
     contracts = settings.trading.contracts
@@ -399,6 +411,7 @@ async def _execute_trade(
             contracts=contracts,
             initial_price_cents=initial_price_cents,
             config=settings,
+            shutdown_event=shutdown_event,
         )
         logfire.info(
             "Order result",

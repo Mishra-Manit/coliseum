@@ -1,5 +1,6 @@
 """Production pipeline orchestration: Guardian -> Scout -> (Analyst -> Trader) -> Guardian."""
 
+import asyncio
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -31,7 +32,7 @@ class CycleMetrics:
 logger = logging.getLogger("coliseum.pipeline")
 
 
-async def run_pipeline(settings: Settings) -> JournalCycleSummary:
+async def run_pipeline(settings: Settings, shutdown_event: asyncio.Event | None = None) -> JournalCycleSummary:
     """Run one full pipeline cycle: Guardian -> Scout -> (Analyst -> Trader) -> Guardian."""
     cycle_start = datetime.now(timezone.utc)
     summary = JournalCycleSummary(cycle_timestamp=cycle_start)
@@ -139,6 +140,7 @@ async def run_pipeline(settings: Settings) -> JournalCycleSummary:
                         trader_output = await run_trader(
                             opportunity_id=opp.id,
                             settings=settings,
+                            shutdown_event=shutdown_event,
                         )
                         metrics.trader_results[opp.market_ticker] = (
                             f"{trader_output.decision.action} ({trader_output.execution_status})"

@@ -85,7 +85,7 @@ class ColiseumDaemon:
         """Execute one full pipeline cycle with error tracking."""
         self._cycle_count += 1
         try:
-            await run_pipeline(self.settings)
+            await run_pipeline(self.settings, shutdown_event=self._shutdown_event)
             self._consecutive_failures = 0
             self._last_cycle_at = datetime.now(timezone.utc)
             logfire.info("pipeline cycle complete", cycle=self._cycle_count)
