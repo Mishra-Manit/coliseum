@@ -1,7 +1,7 @@
 """DB repository for opportunity persistence."""
 
 import logging
-from datetime import datetime, timezone
+from datetime import date, datetime, time, timezone
 from decimal import Decimal
 
 from sqlalchemy import select, update
@@ -406,3 +406,21 @@ async def get_entry_rationale_from_db(opportunity_id: str) -> str | None:
         row = result.scalar_one_or_none()
 
     return row
+
+
+async def list_opportunities_from_db(
+    start_date: date | None = None,
+) -> list[OpportunitySignal]:
+    """List all opportunities with analysis, newest first, with optional date filter."""
+    async with get_db_session() as session:
+        stmt = (
+            select(Opportunity, OpportunityAnalysis)
+            .outerjoin(OpportunityAnalysis, Opportunity.id == OpportunityAnalysis.opportunity_id)
+            .order_by(Opportunity.discovered_at.desc())
+        )
+        if start_date is not None:
+            start_dt = datetime.combine(start_date, time.min, tzinfo=timezone.utc)
+            stmt = stmt.where(Opportunity.discovered_at >= start_dt)
+        rows = (await session.execute(stmt)).all()
+
+    return [_to_opportunity_signal(opp, analysis) for opp, analysis in rows]

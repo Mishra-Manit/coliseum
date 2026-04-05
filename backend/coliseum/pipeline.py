@@ -11,11 +11,10 @@ from coliseum.agents.guardian import run_guardian
 from coliseum.agents.scout import run_scout
 from coliseum.agents.trader import run_trader
 from coliseum.config import Settings
-from coliseum.memory.journal import JournalCycleSummary, write_journal_entry
+from coliseum.memory.journal import JournalCycleSummary
 from coliseum.services.supabase.repositories.opportunities import mark_opportunity_failed_in_db
 from coliseum.services.supabase.repositories.portfolio import load_state_from_db
 from coliseum.services.supabase.repositories.run_cycles import save_run_cycle_to_db
-from coliseum.storage.files import find_opportunity_file_by_id, mark_opportunity_failed
 
 
 @dataclass
@@ -130,7 +129,6 @@ async def run_pipeline(settings: Settings) -> JournalCycleSummary:
                         logger.error("Analyst failed for %s: %s", opp.market_ticker, e)
                         await _mark_opportunity_failed(
                             opp.id,
-                            settings.trading.paper_mode,
                             failed_stage="analyst",
                             error_message=str(e),
                         )
@@ -159,7 +157,6 @@ async def run_pipeline(settings: Settings) -> JournalCycleSummary:
                         logfire.error("Trader failed", error=str(e))
                         await _mark_opportunity_failed(
                             opp.id,
-                            settings.trading.paper_mode,
                             failed_stage="trader",
                             error_message=str(e),
                         )
@@ -201,7 +198,6 @@ async def run_pipeline(settings: Settings) -> JournalCycleSummary:
 
 async def _mark_opportunity_failed(
     opportunity_id: str,
-    paper: bool,
     *,
     failed_stage: str,
     error_message: str,
@@ -215,22 +211,6 @@ async def _mark_opportunity_failed(
         )
     except Exception as e:
         logfire.error("DB mark-failed write failed", opportunity_id=opportunity_id, error=str(e))
-
-    try:
-        opp_file = find_opportunity_file_by_id(opportunity_id, paper=paper)
-        if opp_file:
-            mark_opportunity_failed(
-                opp_file,
-                failed_stage=failed_stage,
-                error_message=error_message,
-            )
-            logfire.info(
-                "Opportunity marked failed",
-                opportunity_id=opportunity_id,
-                failed_stage=failed_stage,
-            )
-    except Exception as e:
-        logger.error("Could not mark opportunity failed: %s", e)
 
 
 async def _finalize_summary(
@@ -271,9 +251,3 @@ async def _finalize_summary(
         )
     except Exception as e:
         logfire.error("Failed to write run_cycle to DB", error=str(e))
-
-    # Local file fallback
-    try:
-        write_journal_entry(summary)
-    except Exception as e:
-        logger.error("Failed to write journal entry: %s", e)
