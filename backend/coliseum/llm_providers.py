@@ -37,11 +37,7 @@ class FireworksModel(StrEnum):
 
 
 def get_model_string(model: OpenAIModel | AnthropicModel | FireworksModel) -> str:
-    """Get the API model string for any supported model.
-
-    For OpenAI models, uses the 'openai-responses:' prefix to leverage the
-    Responses API, which supports built-in tools like WebSearchTool.
-    """
+    """Get the API model string for any supported model."""
     if isinstance(model, OpenAIModel):
         return f"openai-responses:{model.value}"
     elif isinstance(model, AnthropicModel):

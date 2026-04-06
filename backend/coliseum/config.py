@@ -90,9 +90,6 @@ class Settings(BaseSettings):
     rsa_private_key: str = ""
     rsa_private_key_path: str = ""  # Alternative: path to PEM file
     openai_api_key: str = ""
-    openrouter_api_key: str = ""
-    fireworks_api_key: str = ""
-    anthropic_api_key: str = ""
     logfire_token: str = ""
 
     # Telegram
@@ -197,5 +194,19 @@ def get_settings() -> Settings:
     settings = Settings()
     settings.load_yaml_config()
     return settings
+
+
+def get_data_dir() -> Path:
+    """Get the data directory path from settings."""
+    settings = get_settings()
+    data_dir = settings.data_dir
+
+    if not data_dir.exists():
+        raise FileNotFoundError(
+            f"Data directory not found: {data_dir}. "
+            "Run 'python -m coliseum init' to create it."
+        )
+
+    return data_dir
 
 

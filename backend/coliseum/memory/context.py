@@ -6,7 +6,8 @@ from coliseum.memory.decisions import DecisionEntry
 from coliseum.services.supabase.repositories.decisions import load_recent_decisions_from_db
 from coliseum.services.supabase.repositories.learnings import load_learnings_from_db
 from coliseum.services.supabase.repositories.portfolio import load_state_from_db
-from coliseum.storage.state import PortfolioState, get_data_dir
+from coliseum.config import get_data_dir
+from coliseum.domain.portfolio import PortfolioState
 
 logger = logging.getLogger(__name__)
 
