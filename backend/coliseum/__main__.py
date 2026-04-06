@@ -18,7 +18,6 @@ from coliseum.agents.trader import run_trader
 from coliseum.config import get_settings
 from coliseum.observability import initialize_logfire
 from coliseum.pipeline import run_pipeline
-from coliseum.runtime import bootstrap_runtime
 from coliseum.services.supabase.repositories.portfolio import load_state_from_db
 
 # Configure logging
@@ -29,8 +28,6 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger(__name__)
-
-bootstrap_runtime()
 
 
 def _cli_command(label: str):
@@ -89,9 +86,7 @@ scout:
   min_volume: 1000
 
 guardian:
-  profit_target_pct: 0.70
-  stop_loss_pct: 0.10
-  max_hold_days: 5
+  stop_loss_price: 0.80
 
 execution:
   max_slippage_pct: 0.05

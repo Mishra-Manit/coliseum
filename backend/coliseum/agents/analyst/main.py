@@ -14,16 +14,10 @@ import logfire
 from coliseum.agents.analyst.recommender import run_recommender
 from coliseum.agents.analyst.researcher import run_researcher
 from coliseum.config import Settings
-from coliseum.storage.files import OpportunitySignal
+from coliseum.domain.opportunity import OpportunitySignal
 
 logger = logging.getLogger(__name__)
 
-
-__all__ = [
-    "run_analyst",
-    "run_researcher",
-    "run_recommender",
-]
 
 
 async def run_analyst(
