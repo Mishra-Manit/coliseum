@@ -89,7 +89,6 @@ class Settings(BaseSettings):
     kalshi_api_key: str = ""
     rsa_private_key: str = ""
     rsa_private_key_path: str = ""  # Alternative: path to PEM file
-    exa_api_key: str = ""
     openai_api_key: str = ""
     openrouter_api_key: str = ""
     fireworks_api_key: str = ""

@@ -171,18 +171,6 @@ def cmd_config(args: argparse.Namespace) -> int:
             rsa_status = "✗ Not set"
         print(f"  RSA Private Key: {rsa_status}")
 
-        if settings.exa_api_key:
-            exa_status = "✓ Set"
-        else:
-            exa_status = "✗ Not set"
-        print(f"  Exa AI: {exa_status}")
-
-        if settings.openrouter_api_key:
-            openrouter_status = "✓ Set"
-        else:
-            openrouter_status = "✗ Not set"
-        print(f"  OpenRouter: {openrouter_status}")
-
         if settings.logfire_token:
             logfire_status = "✓ Set"
         else:
