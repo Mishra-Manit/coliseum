@@ -3,7 +3,7 @@
 **ORM:** SQLAlchemy 2.0 (async, via `asyncpg`)
 **Connection:** Direct Postgres URL (not PostgREST)
 **Migrations:** Alembic
-**Config:** Stays local (`data/config.yaml`)
+**Config:** Stays local (`config.yaml`)
 
 ---
 
@@ -245,7 +245,7 @@ CREATE TABLE learnings (
 
 | File | Reason |
 |------|--------|
-| `data/config.yaml` | Operator-controlled settings, not agent state |
+| `config.yaml` | Operator-controlled settings, not agent state |
 | `data/memory/kalshi_mechanics.md` | Always passed as context; local keeps it fast and version-controlled |
 
 ---

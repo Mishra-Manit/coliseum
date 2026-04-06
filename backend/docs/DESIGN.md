@@ -587,7 +587,7 @@ Configuration: Set `LOGFIRE_TOKEN` in `.env`
 #### 1.1 Project Setup
 - [ ] Create `coliseum/` package structure (directories + `__init__.py` files)
 - [ ] Create `coliseum/__main__.py` with basic CLI skeleton (`init`, `run`, `status`)
-- [ ] Create `coliseum/config.py` to load `data/config.yaml` and `.env`
+- [ ] Create `coliseum/config.py` to load `config.yaml` and `.env`
 - [ ] Update `requirements.txt`:
   - Add: `apscheduler>=3.10.4`, `pyyaml>=6.0.1`, `cryptography>=42.0.0`
   - Remove: `celery`, `redis`, `flower`, `kombu` (no longer needed)
@@ -596,7 +596,7 @@ Configuration: Set `LOGFIRE_TOKEN` in `.env`
 - [ ] `state.py`: Implement `load_state()`, `save_state()` with atomic writes
 - [ ] `files.py`: Implement `save_opportunity()`, `save_recommendation()`, `log_trade()`
 - [ ] `queue.py`: Implement `queue_for_analyst()`, `get_pending()`
-- [ ] Create `data/config.yaml` template with all configuration options
+- [ ] Create `config.yaml` template with all configuration options
 - [ ] Create `data/state.yaml` initial template (empty portfolio)
 
 #### 1.3 Kalshi API Client (`coliseum/services/kalshi.py`)
@@ -974,7 +974,7 @@ OPENAI_API_KEY=your_api_key
 LOGFIRE_TOKEN=your_token
 ```
 
-**Note**: Trading configuration (risk limits, agent settings) is in `data/config.yaml`, not environment variables.
+**Note**: Trading configuration (risk limits, agent settings) is in `config.yaml`, not environment variables.
 
 ---
 

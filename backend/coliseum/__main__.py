@@ -66,7 +66,7 @@ def cmd_init(args: argparse.Namespace) -> int:
     data_dir.mkdir(exist_ok=True)
     logger.info(f"Created data directory: {data_dir}")
 
-    config_path = data_dir / "config.yaml"
+    config_path = Path("config.yaml").resolve()
     if not config_path.exists():
         config_template = """# Coliseum Configuration
 # This file contains operational parameters for the autonomous trading system.
@@ -111,7 +111,7 @@ telegram_send_alerts: true
     print(f"\n✓ Data directory initialized at {data_dir}")
     print("\nNext steps:")
     print("1. Copy .env.example to .env and add your API keys")
-    print("2. Review and customize data/config.yaml if needed")
+    print("2. Review and customize config.yaml if needed")
     print("3. Run 'python -m coliseum config' to verify configuration")
     print("4. Run 'python -m coliseum pipeline' to run the pipeline once\n")
 

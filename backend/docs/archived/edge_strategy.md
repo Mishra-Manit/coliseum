@@ -129,7 +129,7 @@ Representative files adjusted during decommissioning include:
 - `backend/coliseum/agents/trader/main.py`
 - `backend/coliseum/agents/trader/prompts.py`
 - `backend/coliseum/test_pipeline/run.py`
-- `backend/data/config.yaml`
+- `backend/config.yaml`
 - `backend/test_data/config.yaml`
 - `frontend/lib/types.ts`
 - `frontend/components/dashboard/opportunities-feed.tsx`

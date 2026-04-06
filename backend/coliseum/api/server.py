@@ -178,7 +178,7 @@ def _enrich_position(pos: Position) -> EnrichedPosition:
 @router.get("/api/config")
 async def get_config():
     """Return the full config.yaml contents."""
-    return _load_yaml(get_settings().data_dir / "config.yaml")
+    return _load_yaml(get_settings().config_file_path)
 
 
 @router.get("/api/state")

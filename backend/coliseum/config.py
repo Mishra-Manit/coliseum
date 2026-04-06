@@ -81,6 +81,7 @@ class Settings(BaseSettings):
 
     # Paths
     data_dir: Path = Path("data")
+    config_file_path: Path = Path("config.yaml")
 
     # Database
     supabase_db_url: str = ""  # postgresql+asyncpg://... set via SUPABASE_DB_URL in .env
@@ -119,6 +120,12 @@ class Settings(BaseSettings):
         """Resolve data directory to absolute path."""
         return v.resolve()
 
+    @field_validator("config_file_path", mode="after")
+    @classmethod
+    def resolve_config_file_path(cls, v: Path) -> Path:
+        """Resolve config file path to absolute path."""
+        return v.resolve()
+
     def get_rsa_private_key(self) -> str:
         """Get RSA private key from either direct value or file path."""
         # If direct key is provided, use it
@@ -139,7 +146,7 @@ class Settings(BaseSettings):
 
     def load_yaml_config(self) -> None:
         """Load and merge YAML configuration."""
-        config_path = self.data_dir / "config.yaml"
+        config_path = self.config_file_path
 
         if not config_path.exists():
             logger.warning(

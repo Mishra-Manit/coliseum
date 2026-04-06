@@ -2,7 +2,7 @@
 
 ## Spec Version
 
-- Current version: `1.8.0`
+- Current version: `1.8.1`
 - Versioning scheme: `MAJOR.MINOR.PATCH` (semantic versioning)
 
 > **CRITICAL**: Always activate the venv before running backend code:
@@ -48,8 +48,8 @@ backend/
 │   │   └── sync.py          # Legacy/local reconciliation helpers being replaced
 ├── alembic/                 # Alembic migration environment
 ├── alembic.ini              # Alembic configuration
+├── config.yaml              # Trading config (risk limits, schedules)
 ├── data/
-│   ├── config.yaml          # Trading config (risk limits, schedules)
 │   ├── state.yaml           # Legacy local state file (being phased out)
 │   └── opportunities/       # Legacy local opportunity files (being phased out)
 └── requirements.txt
@@ -79,7 +79,7 @@ alembic upgrade head --sql                # Preview migration SQL without applyi
 **Configuration:**
 ```python
 from coliseum.config import get_settings
-settings = get_settings()  # Singleton, loads .env + data/config.yaml
+settings = get_settings()  # Singleton, loads .env + config.yaml
 ```
 
 **LLM Models:**
@@ -118,7 +118,7 @@ async with get_db_session() as session:
 4. **RSA key for Kalshi**: Set `RSA_PRIVATE_KEY_PATH` in .env
 5. **Alembic required for schema changes**: After any structural change to `backend/coliseum/services/supabase/models.py`, generate an Alembic migration and keep `online_db.md` in sync
 6. **Never hand-write Alembic migrations**: Always use `alembic revision --autogenerate -m "description"` to generate migration files, then review the output. Never create migration files manually.
-7. **Pipeline test always in paper mode**: After any backend pipeline change, validate by running `python -m coliseum pipeline`. **Never** set `trading.paper_mode: false` when testing — doing so places real-money orders on Kalshi. Confirm `paper_mode: true` in `backend/data/config.yaml` before every test run.
+7. **Pipeline test always in paper mode**: After any backend pipeline change, validate by running `python -m coliseum pipeline`. **Never** set `trading.paper_mode: false` when testing — doing so places real-money orders on Kalshi. Confirm `paper_mode: true` in `backend/config.yaml` before every test run.
 8. **Use the correct Supabase Postgres URL**: `SUPABASE_DB_URL` must be a working Postgres connection string in `.env` before running Alembic commands
 
 ## Bash Guidelines
