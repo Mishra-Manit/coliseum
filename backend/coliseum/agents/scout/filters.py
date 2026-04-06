@@ -5,7 +5,6 @@ SAFE_CATEGORIES: set[str] = {"Economics"}
 SAFE_EVENT_PREFIXES: set[str] = {
     # Weather - unconditional
     "KXHIGHMIA",
-    "KXHIGHPHIL",
     "KXLOWTMIA",
     "KXHIGHTDAL",
     "KXHIGHTSATX",
@@ -13,8 +12,10 @@ SAFE_EVENT_PREFIXES: set[str] = {
     # Crypto 15-min - unconditional
     "KXETH15M",
     "KXSOL15M",
+    "KXXRP15M",
     # Sports - unconditional
     "KXWBCGAME",
+    "KXMLBSTGAME",
     # Mentions - unconditional
     "KXPRESMENTION",
 }
@@ -24,27 +25,25 @@ PRICE_GATED_EVENT_PREFIXES: dict[str, int] = {
     "KXETHD": 96,
     # Crypto 15-min (gate added after 1 loss at < 94c)
     "KXBTC15M": 94,
-    # Weather - demoted from unconditional (losses added in latest data)
-    "KXHIGHLAX": 93,
+    # Weather - demoted from unconditional (losses added in prior data)
+    "KXHIGHLAX": 96,  # raised from 93c: stop-loss triggered Apr 6; 93c gate broken
     "KXLOWTLAX": 93,
     "KXHIGHTPHX": 94,
     "KXHIGHTOKC": 94,
     "KXHIGHTMIN": 96,
     "KXHIGHTHOU": 95,
-    # Weather - existing entries with gates raised
+    # Weather - existing entries with gates unchanged
     "KXHIGHCHI": 94,
-    "KXHIGHAUS": 95,
-    # Weather - existing entries, gates unchanged
-    "KXHIGHTATL": 94,
     "KXLOWTCHI": 94,
-    # Weather - new additions (promoted from watchlist)
+    # Weather - new additions (promoted from watchlist in prior refresh)
     "KXHIGHTLV": 96,
     "KXHIGHTDC": 96,
     "KXHIGHTSFO": 94,
     # Sports
-    "KXMLBSTGAME": 94,
+    # KXMLBSTGAME promoted to unconditional (22W/0L at all prices)
     # Mentions
     "KXTRUMPMENTION": 94,
+    "KXTRUMPSAY": 94,  # promoted from watchlist: 21W/0L/5 events at 94c gate
 }
 
 
