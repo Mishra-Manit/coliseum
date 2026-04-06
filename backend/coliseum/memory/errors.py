@@ -7,7 +7,6 @@ from pathlib import Path
 
 from pydantic import BaseModel, Field
 
-from coliseum.config import get_data_dir
 from coliseum.memory._io import append_jsonl, load_recent_jsonl
 
 logger = logging.getLogger(__name__)
@@ -26,7 +25,8 @@ class ErrorEntry(BaseModel):
 
 def _get_errors_path() -> Path:
     """Get the errors JSONL file path."""
-    return get_data_dir() / "memory" / "errors.jsonl"
+    backend_root = Path(__file__).resolve().parents[2]
+    return backend_root / "logs" / "memory" / "errors.jsonl"
 
 
 def log_error(entry: ErrorEntry) -> None:

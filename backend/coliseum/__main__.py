@@ -60,12 +60,7 @@ def _init_logfire() -> None:
 
 @_cli_command("Initialization")
 def cmd_init(args: argparse.Namespace) -> int:
-    """Initialize data directory structure and configuration files."""
-    data_dir = Path("data").resolve()
-
-    data_dir.mkdir(exist_ok=True)
-    logger.info(f"Created data directory: {data_dir}")
-
+    """Initialize configuration files."""
     config_path = Path("config.yaml").resolve()
     if not config_path.exists():
         config_template = """# Coliseum Configuration
@@ -108,7 +103,7 @@ telegram_send_alerts: true
     else:
         logger.info(f"Config file already exists: {config_path}")
 
-    print(f"\n✓ Data directory initialized at {data_dir}")
+    print("\n✓ Coliseum initialization complete")
     print("\nNext steps:")
     print("1. Copy .env.example to .env and add your API keys")
     print("2. Review and customize config.yaml if needed")
@@ -125,7 +120,6 @@ def cmd_config(args: argparse.Namespace) -> int:
         settings = get_settings()
 
         print("\n=== Coliseum Configuration ===\n")
-        print(f"Data Directory: {settings.data_dir}\n")
 
         print("Trading:")
         print(f"  Paper Mode: {settings.trading.paper_mode}\n")
@@ -358,7 +352,6 @@ def cmd_daemon(args: argparse.Namespace) -> int:
     else:
         daemon_mode = "LIVE TRADING"
     print(f"Mode: {daemon_mode}")
-    print(f"Data Directory: {settings.data_dir}")
     print(f"Heartbeat Interval: {settings.daemon.heartbeat_interval_minutes}m")
     print(f"Guardian Interval: {settings.daemon.guardian_interval_minutes}m")
     print(f"Max Consecutive Failures: {settings.daemon.max_consecutive_failures}")
@@ -393,8 +386,7 @@ def cmd_pipeline(args: argparse.Namespace) -> int:
         pipeline_mode = "PAPER TRADING"
     else:
         pipeline_mode = "LIVE TRADING"
-    print(f"Mode: {pipeline_mode}")
-    print(f"Data Directory: {settings.data_dir}\n")
+    print(f"Mode: {pipeline_mode}\n")
 
     print("Running full pipeline once (Guardian -> Scout -> Analyst -> Trader)...\n")
     asyncio.run(run_pipeline(settings))
@@ -419,7 +411,7 @@ def main() -> int:
 
     parser_init = subparsers.add_parser(
         "init",
-        help="Initialize data directory and configuration files",
+        help="Initialize configuration files",
     )
     parser_init.set_defaults(func=cmd_init)
 

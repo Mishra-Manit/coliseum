@@ -344,7 +344,7 @@ async def run_trader(
                     opportunity_id=opportunity_id,
                     trader_decision=output.decision.action,
                     trader_tldr=output.tldr,
-                    status="skipped" if output.decision.action == "REJECT" else None,
+                    status="skipped" if output.decision.action == "REJECT" else "traded",
                 )
             except Exception as e:
                 logfire.error("DB write failed for trader decision", opportunity_id=opportunity_id, error=str(e))

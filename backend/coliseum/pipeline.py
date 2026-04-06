@@ -81,7 +81,14 @@ async def run_pipeline(settings: Settings, shutdown_event: asyncio.Event | None 
 
         # Step 2: Scout
         with logfire.span("scout"):
-            scout_output = await run_scout(settings=settings)
+            try:
+                scout_output = await run_scout(settings=settings)
+            except Exception as e:
+                errors.append(f"Scout: {e}")
+                logfire.error("Scout failed", error=str(e))
+                summary.scout_summary = f"Failed: {e}"
+                await _finalize_summary(summary, cycle_start, errors, metrics)
+                return summary
 
             if not scout_output or not scout_output.opportunities:
                 if scout_output:

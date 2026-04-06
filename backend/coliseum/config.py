@@ -80,7 +80,6 @@ class Settings(BaseSettings):
     """Main configuration class."""
 
     # Paths
-    data_dir: Path = Path("data")
     config_file_path: Path = Path("config.yaml")
 
     # Database
@@ -114,12 +113,6 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    @field_validator("data_dir", mode="after")
-    @classmethod
-    def resolve_data_dir(cls, v: Path) -> Path:
-        """Resolve data directory to absolute path."""
-        return v.resolve()
-
     @field_validator("config_file_path", mode="after")
     @classmethod
     def resolve_config_file_path(cls, v: Path) -> Path:
@@ -149,10 +142,7 @@ class Settings(BaseSettings):
         config_path = self.config_file_path
 
         if not config_path.exists():
-            logger.warning(
-                f"Config file not found: {config_path}. "
-                "Using defaults. Run 'python -m coliseum init' to create it."
-            )
+            logger.warning(f"Config file not found: {config_path}. Using defaults.")
             return
 
         try:
@@ -202,18 +192,5 @@ def get_settings() -> Settings:
     settings.load_yaml_config()
     return settings
 
-
-def get_data_dir() -> Path:
-    """Get the data directory path from settings."""
-    settings = get_settings()
-    data_dir = settings.data_dir
-
-    if not data_dir.exists():
-        raise FileNotFoundError(
-            f"Data directory not found: {data_dir}. "
-            "Run 'python -m coliseum init' to create it."
-        )
-
-    return data_dir
 
 
