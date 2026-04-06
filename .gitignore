@@ -82,6 +82,7 @@ yarn-error.log*
 .claude/
 .cursor/
 .factory/
+.pi/
 .zed/
 *.swp
 *.swo
