@@ -1,12 +1,12 @@
 """Context assemblers: load memory and format it for injection into agent prompts."""
 
 import logging
+from pathlib import Path
 
 from coliseum.memory.decisions import DecisionEntry
 from coliseum.services.supabase.repositories.decisions import load_recent_decisions_from_db
 from coliseum.services.supabase.repositories.learnings import load_learnings_from_db
 from coliseum.services.supabase.repositories.portfolio import load_state_from_db
-from coliseum.config import get_data_dir
 from coliseum.domain.portfolio import PortfolioState
 
 logger = logging.getLogger(__name__)
@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 def load_kalshi_mechanics() -> str:
     """Load the Kalshi platform mechanics reference document."""
-    path = get_data_dir() / "memory" / "kalshi_mechanics.md"
+    path = Path(__file__).parent.parent.parent / "kalshi_mechanics.md"
     return path.read_text(encoding="utf-8")
 
 
