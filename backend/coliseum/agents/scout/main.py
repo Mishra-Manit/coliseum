@@ -8,7 +8,7 @@ import logfire
 from pydantic_ai import Agent, RunContext
 
 from coliseum.agents.agent_factory import create_agent
-from coliseum.agents.shared_tools import register_get_current_time, _strip_cite_tokens
+from coliseum.agents.shared_tools import register_get_current_time, strip_cite_tokens
 from coliseum.config import Settings, get_settings
 from coliseum.memory.context import build_scout_context
 from coliseum.services.kalshi.client import KalshiClient
@@ -19,7 +19,7 @@ from coliseum.services.supabase.repositories.seen_tickers import (
     add_seen_ticker_to_db,
     get_seen_tickers_from_db,
 )
-from coliseum.storage.files import generate_opportunity_id
+from coliseum.domain.opportunity import generate_opportunity_id
 
 from .filters import passes_filter
 from .models import ScoutDependencies, ScoutOutput
@@ -294,10 +294,10 @@ async def run_scout(
             # Strip citation tokens leaked by the OpenAI Responses API structured output
             cleaned_opps = [
                 opp.model_copy(update={
-                    "rationale": _strip_cite_tokens(opp.rationale),
-                    "resolution_source": _strip_cite_tokens(opp.resolution_source),
-                    "evidence_bullets": [_strip_cite_tokens(b) for b in opp.evidence_bullets],
-                    "remaining_risks": [_strip_cite_tokens(r) for r in opp.remaining_risks],
+                    "rationale": strip_cite_tokens(opp.rationale),
+                    "resolution_source": strip_cite_tokens(opp.resolution_source),
+                    "evidence_bullets": [strip_cite_tokens(b) for b in opp.evidence_bullets],
+                    "remaining_risks": [strip_cite_tokens(r) for r in opp.remaining_risks],
                 })
                 for opp in output.opportunities
             ]

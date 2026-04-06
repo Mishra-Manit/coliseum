@@ -2,7 +2,7 @@
 
 from coliseum.config import Settings
 from coliseum.memory.context import build_trader_context, load_kalshi_mechanics
-from coliseum.storage.files import OpportunitySignal
+from coliseum.domain.opportunity import OpportunitySignal
 
 def build_trader_system_prompt(settings: Settings) -> str:
     """Build the system prompt for the Trader agent."""

@@ -3,7 +3,7 @@
 from pydantic import BaseModel, Field
 
 from coliseum.config import Settings
-from coliseum.storage.files import OpportunitySignal
+from coliseum.domain.opportunity import OpportunitySignal
 
 
 class ScoutDependencies(BaseModel):

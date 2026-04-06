@@ -11,15 +11,12 @@ from coliseum.config import Settings, get_settings
 from coliseum.services.kalshi import KalshiClient
 from coliseum.services.telegram import TelegramClient
 from coliseum.services.kalshi.config import KalshiConfig
-from coliseum.storage.files import (
-    TradeClose,
-    generate_close_id,
-)
+from coliseum.domain.trade import TradeClose, generate_close_id
 from coliseum.services.supabase.repositories.opportunities import get_entry_rationale_from_db
 from coliseum.services.supabase.repositories.portfolio import load_state_from_db, save_closed_position_to_db, sync_portfolio_to_db
 from coliseum.services.supabase.repositories.trades import save_trade_close_to_db
-from coliseum.storage.state import ClosedPosition, PortfolioState, Position
-from coliseum.storage.sync import (
+from coliseum.domain.portfolio import ClosedPosition, PortfolioState, Position
+from coliseum.services.kalshi.sync import (
     extract_fill_count,
     extract_fill_price,
     fetch_market_side_price,

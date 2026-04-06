@@ -16,7 +16,7 @@ from coliseum.services.supabase.repositories.learnings import (
     load_learnings_from_db,
 )
 from coliseum.services.supabase.repositories.opportunities import get_opportunity_body_from_db
-from coliseum.storage.state import ClosedPosition
+from coliseum.domain.portfolio import ClosedPosition
 
 logger = logging.getLogger(__name__)
 

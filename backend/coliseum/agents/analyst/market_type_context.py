@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from coliseum.storage.files import OpportunitySignal
+from coliseum.domain.opportunity import OpportunitySignal
 
 
 def _slug(ticker: str) -> str:

@@ -10,7 +10,7 @@ from pydantic_ai import Agent, RunContext
 logger = logging.getLogger(__name__)
 
 
-def _strip_cite_tokens(text: str) -> str:
+def strip_cite_tokens(text: str) -> str:
     """Strip OpenAI Responses API citation tokens that leak when structured output is used.
 
     Handles formats with Unicode separator characters between parts, e.g.:

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 
-from coliseum.storage.files import OpportunitySignal
+from coliseum.domain.opportunity import OpportunitySignal
 
 
 def parse_opportunity_sections(opp: OpportunitySignal, markdown_body: str) -> dict | None:

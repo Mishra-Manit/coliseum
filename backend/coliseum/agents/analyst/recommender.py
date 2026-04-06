@@ -20,7 +20,7 @@ from coliseum.services.supabase.repositories.opportunities import (
     get_opportunity_body_from_db,
     update_opportunity_recommendation,
 )
-from coliseum.storage.files import OpportunitySignal
+from coliseum.domain.opportunity import OpportunitySignal
 
 logger = logging.getLogger(__name__)
 

@@ -25,11 +25,8 @@ from coliseum.config import Settings, get_settings
 from coliseum.services.kalshi.client import KalshiClient
 from coliseum.services.kalshi.config import KalshiConfig
 from coliseum.services.telegram import TelegramClient, create_telegram_client
-from coliseum.storage.files import (
-    OpportunitySignal,
-    TradeExecution,
-    generate_trade_id,
-)
+from coliseum.domain.opportunity import OpportunitySignal
+from coliseum.domain.trade import TradeExecution, generate_trade_id
 from coliseum.memory.decisions import DecisionEntry
 from coliseum.services.supabase.repositories.opportunities import (
     load_opportunity_from_db,
@@ -42,7 +39,7 @@ from coliseum.services.supabase.repositories.portfolio import (
     load_state_from_db,
     update_portfolio_after_trade_in_db,
 )
-from coliseum.storage.state import Position
+from coliseum.domain.portfolio import Position
 
 logger = logging.getLogger(__name__)
 

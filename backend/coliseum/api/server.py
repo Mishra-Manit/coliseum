@@ -28,7 +28,7 @@ from coliseum.services.supabase.repositories.trades import (
     list_trade_closes_from_db,
 )
 from coliseum.services.supabase.repositories.run_cycles import list_run_cycles_from_db
-from coliseum.storage.state import Position
+from coliseum.domain.portfolio import Position
 
 logger = logging.getLogger(__name__)
 _DAEMON_OFFLINE: dict[str, Any] = {
@@ -123,10 +123,6 @@ def _load_yaml(path: Path) -> dict[str, Any]:
         return yaml.safe_load(f) or {}
 
 
-def _get_data_dir() -> Path:
-    """Return the configured data directory used by CLI and storage helpers."""
-    return get_settings().data_dir
-
 
 def _get_start_date() -> date | None:
     """Read dashboard_display.start_date from config, or None if unset."""
@@ -182,7 +178,7 @@ def _enrich_position(pos: Position) -> EnrichedPosition:
 @router.get("/api/config")
 async def get_config():
     """Return the full config.yaml contents."""
-    return _load_yaml(_get_data_dir() / "config.yaml")
+    return _load_yaml(get_settings().data_dir / "config.yaml")
 
 
 @router.get("/api/state")

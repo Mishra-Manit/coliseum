@@ -3,7 +3,7 @@
 import logging
 
 from coliseum.services.supabase.repositories.opportunities import load_opportunity_from_db
-from coliseum.storage.files import OpportunitySignal
+from coliseum.domain.opportunity import OpportunitySignal
 
 logger = logging.getLogger(__name__)
 

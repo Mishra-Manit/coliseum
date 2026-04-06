@@ -15,11 +15,11 @@ from coliseum.agents.analyst.shared import (
     format_opportunity_header,
     load_opportunity,
 )
-from coliseum.agents.shared_tools import _strip_cite_tokens
+from coliseum.agents.shared_tools import strip_cite_tokens
 from coliseum.config import Settings
 from coliseum.memory.context import build_analyst_context
 from coliseum.services.supabase.repositories.opportunities import update_opportunity_research
-from coliseum.storage.files import OpportunitySignal
+from coliseum.domain.opportunity import OpportunitySignal
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +58,7 @@ async def run_researcher(
     agent = get_agent()
     result = await agent.run(prompt, deps=deps)
     output = result.output
-    output = ResearcherOutput(synthesis=_strip_cite_tokens(output.synthesis))
+    output = ResearcherOutput(synthesis=strip_cite_tokens(output.synthesis))
 
     duration = time.time() - start_time
     completed_at = datetime.now(timezone.utc)
