@@ -2,13 +2,13 @@
 
 import logging
 from datetime import date, datetime, time, timezone
-from decimal import Decimal
 
 from sqlalchemy import select, update
 
+from coliseum.domain.mappers import db_to_opportunity, opportunity_to_db, to_float
+from coliseum.domain.opportunity import OpportunitySignal
 from coliseum.services.supabase.db import get_db_session
 from coliseum.services.supabase.models import Opportunity, OpportunityAnalysis
-from coliseum.storage.files import OpportunitySignal
 
 logger = logging.getLogger(__name__)
 
@@ -19,41 +19,7 @@ async def save_opportunity_to_db(
     paper: bool = False,
 ) -> None:
     """Upsert an Opportunity and its OpportunityAnalysis in a single transaction."""
-    if opportunity.subtitle:
-        subtitle = opportunity.subtitle
-    else:
-        subtitle = None
-
-    opp_row = Opportunity(
-        id=opportunity.id,
-        market_ticker=opportunity.market_ticker,
-        event_ticker=opportunity.event_ticker,
-        event_title=opportunity.event_title,
-        market_title=opportunity.market_title,
-        subtitle=subtitle,
-        yes_price=Decimal(str(opportunity.yes_price)),
-        no_price=Decimal(str(opportunity.no_price)),
-        close_time=opportunity.close_time,
-        discovered_at=opportunity.discovered_at,
-        status=opportunity.status,
-        outcome_status=opportunity.outcome_status,
-        risk_level=opportunity.risk_level,
-        paper=paper,
-    )
-
-    if opportunity.resolution_source:
-        resolution_source = opportunity.resolution_source
-    else:
-        resolution_source = None
-
-    analysis_row = OpportunityAnalysis(
-        opportunity_id=opportunity.id,
-        rationale=opportunity.rationale,
-        resolution_source=resolution_source,
-        evidence_bullets=opportunity.evidence_bullets,
-        remaining_risks=opportunity.remaining_risks,
-        scout_sources=opportunity.scout_sources,
-    )
+    opp_row, analysis_row = opportunity_to_db(opportunity, paper=paper)
 
     async with get_db_session() as session:
         await session.merge(opp_row)
@@ -156,63 +122,6 @@ async def mark_opportunity_failed_in_db(
         logger.info("Marked opportunity %s as failed at stage '%s'", opportunity_id, failed_stage)
 
 
-def _d2f(v: Decimal | None, default: float = 0.0) -> float:
-    """Convert Decimal to float, with default for None."""
-    if v is not None:
-        return float(v)
-    return default
-
-
-def _to_opportunity_signal(
-    opp: Opportunity,
-    analysis: OpportunityAnalysis | None,
-) -> OpportunitySignal:
-    """Map an Opportunity + optional OpportunityAnalysis row into an OpportunitySignal."""
-    if analysis:
-        rationale = analysis.rationale
-        resolution_source = analysis.resolution_source or ""
-        evidence_bullets = analysis.evidence_bullets
-        remaining_risks = analysis.remaining_risks
-        scout_sources = analysis.scout_sources
-        research_duration_seconds = analysis.research_duration_seconds
-        trader_tldr = analysis.trader_tldr or ""
-    else:
-        rationale = ""
-        resolution_source = ""
-        evidence_bullets = []
-        remaining_risks = []
-        scout_sources = []
-        research_duration_seconds = None
-        trader_tldr = ""
-
-    return OpportunitySignal(
-        id=opp.id,
-        market_ticker=opp.market_ticker,
-        event_ticker=opp.event_ticker,
-        event_title=opp.event_title,
-        market_title=opp.market_title,
-        subtitle=opp.subtitle or "",
-        yes_price=_d2f(opp.yes_price),
-        no_price=_d2f(opp.no_price),
-        close_time=opp.close_time,
-        discovered_at=opp.discovered_at,
-        status=opp.status,
-        outcome_status=opp.outcome_status,
-        risk_level=opp.risk_level,
-        action=opp.action,
-        trader_decision=opp.trader_decision or "",
-        research_completed_at=opp.research_completed_at,
-        recommendation_completed_at=opp.recommendation_completed_at,
-        rationale=rationale,
-        resolution_source=resolution_source,
-        evidence_bullets=evidence_bullets,
-        remaining_risks=remaining_risks,
-        scout_sources=scout_sources,
-        research_duration_seconds=research_duration_seconds,
-        trader_tldr=trader_tldr,
-    )
-
-
 async def update_opportunity_trader_decision(
     opportunity_id: str,
     trader_decision: str,
@@ -268,7 +177,7 @@ async def load_opportunity_from_db(opportunity_id: str) -> OpportunitySignal:
         )
         analysis = analysis_result.scalar_one_or_none()
 
-    return _to_opportunity_signal(opp, analysis)
+    return db_to_opportunity(opp, analysis)
 
 
 async def load_opportunity_by_ticker_from_db(market_ticker: str) -> OpportunitySignal | None:
@@ -291,7 +200,7 @@ async def load_opportunity_by_ticker_from_db(market_ticker: str) -> OpportunityS
         )
         analysis = analysis_result.scalar_one_or_none()
 
-    return _to_opportunity_signal(opp, analysis)
+    return db_to_opportunity(opp, analysis)
 
 
 async def get_opportunity_body_from_db(opportunity_id: str) -> str:
@@ -311,8 +220,8 @@ async def get_opportunity_body_from_db(opportunity_id: str) -> str:
         )
         analysis = analysis_result.scalar_one_or_none()
 
-    yes_price = _d2f(opp.yes_price)
-    no_price = _d2f(opp.no_price)
+    yes_price = to_float(opp.yes_price)
+    no_price = to_float(opp.no_price)
 
     if opp.event_title:
         event_line = f"**Event**: {opp.event_title}\n"
@@ -423,4 +332,4 @@ async def list_opportunities_from_db(
             stmt = stmt.where(Opportunity.discovered_at >= start_dt)
         rows = (await session.execute(stmt)).all()
 
-    return [_to_opportunity_signal(opp, analysis) for opp, analysis in rows]
+    return [db_to_opportunity(opp, analysis) for opp, analysis in rows]
