@@ -74,14 +74,14 @@ function ChartMain() {
   const { data: portfolio } = usePortfolioState();
   const [interval, setInterval] = useState<Interval>("1D");
 
-  const daily = chartData?.daily ?? [];
+  const series = chartData?.series ?? [];
   const stats = chartData?.stats;
   const currentNav = portfolio?.portfolio?.total_value ?? stats?.current_nav ?? 0;
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden animate-fade-up stagger-2">
       <LWPortfolioChart
-        data={daily}
+        data={series}
         interval={interval}
         onIntervalChange={setInterval}
         currentNav={currentNav}

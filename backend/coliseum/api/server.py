@@ -2,7 +2,6 @@
 
 import asyncio
 import logging
-from collections import defaultdict
 from contextlib import asynccontextmanager
 from datetime import date
 from pathlib import Path
@@ -28,6 +27,7 @@ from coliseum.services.supabase.repositories.trades import (
     list_trades_from_db,
     list_trade_closes_from_db,
 )
+from coliseum.services.supabase.repositories.run_cycles import list_run_cycles_from_db
 from coliseum.storage.state import Position
 
 logger = logging.getLogger(__name__)
@@ -274,68 +274,68 @@ async def get_ledger(limit: int = 100):
 
 @router.get("/api/chart")
 async def get_chart_data():
-    """Return portfolio chart data: daily P&L, cumulative NAV, and stats."""
+    """Return portfolio chart data from run_cycle snapshots and trade closes."""
     start_date = _get_start_date()
-    raw_entries = await list_trade_closes_from_db(start_date=start_date)
+    cycles = await list_run_cycles_from_db(start_date=start_date)
 
-    daily_map: dict[str, dict[str, Any]] = defaultdict(
-        lambda: {"pnl": 0.0, "trades": 0, "wins": 0, "losses": 0}
-    )
-    for entry in raw_entries:
-        day = entry["closed_at"][:10]
-        pnl = entry["pnl"]
-        daily_map[day]["pnl"] += pnl
-        daily_map[day]["trades"] += 1
-        if pnl >= 0:
-            daily_map[day]["wins"] += 1
-        else:
-            daily_map[day]["losses"] += 1
+    if not cycles:
+        try:
+            state = await load_state_from_db()
+            current_nav = round(float(state.portfolio.total_value), 2)
+        except Exception:
+            current_nav = 0.0
+        return {
+            "series": [],
+            "stats": {
+                "current_nav": current_nav,
+                "initial_nav": current_nav,
+                "total_pnl": 0.0,
+                "total_trades": 0,
+                "winning_trades": 0,
+                "losing_trades": 0,
+                "win_rate": 0.0,
+                "best_day": 0.0,
+                "worst_day": 0.0,
+            },
+        }
 
-    try:
-        state = await load_state_from_db()
-        current_nav = float(state.portfolio.total_value)
-    except Exception:
-        current_nav = 1000.0
+    initial_nav = cycles[0]["total_value"]
+    current_nav = cycles[-1]["total_value"]
 
-    total_pnl = sum(e["pnl"] for e in raw_entries)
-    initial_nav = current_nav - total_pnl
+    series: list[dict[str, Any]] = [
+        {
+            "timestamp": c["cycle_at"],
+            "nav": round(c["total_value"], 2),
+            "cash": round(c["cash_balance"], 2),
+            "positions_value": round(c["positions_value"], 2),
+        }
+        for c in cycles
+    ]
 
-    sorted_dates = sorted(daily_map.keys())
-    cumulative = 0.0
-    daily: list[dict[str, Any]] = []
-    for day in sorted_dates:
-        d = daily_map[day]
-        cumulative += d["pnl"]
-        daily.append(
-            {
-                "date": day,
-                "pnl": round(d["pnl"], 4),
-                "cumulative_pnl": round(cumulative, 4),
-                "nav": round(initial_nav + cumulative, 4),
-                "trades": d["trades"],
-                "wins": d["wins"],
-                "losses": d["losses"],
-            }
-        )
+    closes = await list_trade_closes_from_db(start_date=start_date)
+    total_trades = len(closes)
+    winning_trades = sum(1 for c in closes if c["pnl"] >= 0)
+    losing_trades = total_trades - winning_trades
 
-    total_trades = sum(d["trades"] for d in daily)
-    winning_trades = sum(d["wins"] for d in daily)
-    losing_trades = sum(d["losses"] for d in daily)
-    daily_pnls = [d["pnl"] for d in daily]
+    daily_pnl_map: dict[str, float] = {}
+    for c in closes:
+        day = c["closed_at"][:10]
+        daily_pnl_map[day] = daily_pnl_map.get(day, 0.0) + c["pnl"]
+    daily_pnls = list(daily_pnl_map.values())
 
     stats = {
-        "total_pnl": round(total_pnl, 4),
-        "win_rate": round(winning_trades / total_trades, 4) if total_trades > 0 else 0.0,
+        "current_nav": round(current_nav, 2),
+        "initial_nav": round(initial_nav, 2),
+        "total_pnl": round(current_nav - initial_nav, 2),
         "total_trades": total_trades,
         "winning_trades": winning_trades,
         "losing_trades": losing_trades,
-        "best_day": round(max(daily_pnls), 4) if daily_pnls else 0.0,
-        "worst_day": round(min(daily_pnls), 4) if daily_pnls else 0.0,
-        "current_nav": round(current_nav, 4),
-        "initial_nav": round(initial_nav, 4),
+        "win_rate": round(winning_trades / total_trades, 4) if total_trades > 0 else 0.0,
+        "best_day": round(max(daily_pnls), 2) if daily_pnls else 0.0,
+        "worst_day": round(min(daily_pnls), 2) if daily_pnls else 0.0,
     }
 
-    return {"daily": daily, "stats": stats}
+    return {"series": series, "stats": stats}
 
 
 # ---------------------------------------------------------------------------

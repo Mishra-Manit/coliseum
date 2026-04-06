@@ -16,6 +16,10 @@ export interface LWHistPoint {
 const HIST_GREEN = "rgba(22, 163, 74, 0.65)";
 const HIST_RED = "rgba(220, 38, 38, 0.65)";
 
+function toDateKey(iso: string): string {
+  return iso.slice(0, 10);
+}
+
 function isoWeekMonday(dateStr: string): string {
   const [y, m, d] = dateStr.split("-").map(Number);
   const date = new Date(y, m - 1, d);
@@ -25,52 +29,63 @@ function isoWeekMonday(dateStr: string): string {
   return date.toISOString().split("T")[0];
 }
 
-function aggregateByPeriod(
-  daily: ChartDataPoint[],
-  interval: Exclude<Interval, "1D">
-): ChartDataPoint[] {
-  const periodKey = (date: string): string => {
-    const [y, m] = date.split("-");
-    if (interval === "1W") return isoWeekMonday(date);
-    return `${y}-${m}-01`;
-  };
+function periodKey(dateStr: string, interval: Interval): string {
+  if (interval === "1D") return dateStr;
+  if (interval === "1W") return isoWeekMonday(dateStr);
+  const [y, m] = dateStr.split("-");
+  return `${y}-${m}-01`;
+}
 
-  const groups = new Map<string, ChartDataPoint>();
-  for (const point of daily) {
-    const key = periodKey(point.date);
-    const existing = groups.get(key);
+interface BucketAccumulator {
+  date: string;
+  firstNav: number;
+  lastNav: number;
+}
+
+/**
+ * Downsample a time-series of NAV snapshots into period buckets.
+ * Each bucket keeps the last NAV value (for the area chart) and computes
+ * the period PnL as (lastNav - firstNav) for the histogram.
+ */
+function bucketize(
+  series: ChartDataPoint[],
+  interval: Interval,
+): { area: LWPoint[]; hist: LWHistPoint[] } {
+  if (series.length === 0) return { area: [], hist: [] };
+
+  const buckets = new Map<string, BucketAccumulator>();
+
+  for (const point of series) {
+    const dayStr = toDateKey(point.timestamp);
+    const key = periodKey(dayStr, interval);
+    const existing = buckets.get(key);
     if (!existing) {
-      groups.set(key, { ...point, date: key });
+      buckets.set(key, { date: key, firstNav: point.nav, lastNav: point.nav });
     } else {
-      groups.set(key, {
-        ...existing,
-        cumulative_pnl: point.cumulative_pnl,
-        pnl: existing.pnl + point.pnl,
-        trades: existing.trades + point.trades,
-        wins: existing.wins + point.wins,
-        losses: existing.losses + point.losses,
-        nav: point.nav,
-      });
+      existing.lastNav = point.nav;
     }
   }
 
-  return Array.from(groups.values()).sort((a, b) =>
-    a.date.localeCompare(b.date)
+  const sorted = Array.from(buckets.values()).sort((a, b) =>
+    a.date.localeCompare(b.date),
   );
+
+  const area: LWPoint[] = sorted.map((b) => ({ time: b.date, value: b.lastNav }));
+  const hist: LWHistPoint[] = sorted.map((b) => {
+    const pnl = b.lastNav - b.firstNav;
+    return {
+      time: b.date,
+      value: Math.round(pnl * 100) / 100,
+      color: pnl >= 0 ? HIST_GREEN : HIST_RED,
+    };
+  });
+
+  return { area, hist };
 }
 
 export function getChartSeries(
-  daily: ChartDataPoint[],
-  interval: Interval
+  series: ChartDataPoint[],
+  interval: Interval,
 ): { area: LWPoint[]; hist: LWHistPoint[] } {
-  const points =
-    interval === "1D" ? daily : aggregateByPeriod(daily, interval);
-  return {
-    area: points.map((p) => ({ time: p.date, value: p.nav })),
-    hist: points.map((p) => ({
-      time: p.date,
-      value: p.pnl,
-      color: p.pnl >= 0 ? HIST_GREEN : HIST_RED,
-    })),
-  };
+  return bucketize(series, interval);
 }
