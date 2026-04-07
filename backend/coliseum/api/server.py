@@ -292,6 +292,10 @@ async def get_chart_data():
                 "win_rate": 0.0,
                 "best_day": 0.0,
                 "worst_day": 0.0,
+                "realized_pnl": 0.0,
+                "best_trade": 0.0,
+                "worst_trade": 0.0,
+                "avg_trade": 0.0,
             },
         }
 
@@ -309,9 +313,11 @@ async def get_chart_data():
     ]
 
     closes = await list_trade_closes_from_db(start_date=start_date)
-    total_trades = len(closes)
-    winning_trades = sum(1 for c in closes if c["pnl"] >= 0)
+    close_pnls = [c["pnl"] for c in closes]
+    total_trades = len(close_pnls)
+    winning_trades = sum(1 for pnl in close_pnls if pnl >= 0)
     losing_trades = total_trades - winning_trades
+    realized_pnl = sum(close_pnls)
 
     daily_pnl_map: dict[str, float] = {}
     for c in closes:
@@ -329,6 +335,10 @@ async def get_chart_data():
         "win_rate": round(winning_trades / total_trades, 4) if total_trades > 0 else 0.0,
         "best_day": round(max(daily_pnls), 2) if daily_pnls else 0.0,
         "worst_day": round(min(daily_pnls), 2) if daily_pnls else 0.0,
+        "realized_pnl": round(realized_pnl, 2),
+        "best_trade": round(max(close_pnls), 2) if close_pnls else 0.0,
+        "worst_trade": round(min(close_pnls), 2) if close_pnls else 0.0,
+        "avg_trade": round(realized_pnl / total_trades, 2) if total_trades > 0 else 0.0,
     }
 
     return {"series": series, "stats": stats}
