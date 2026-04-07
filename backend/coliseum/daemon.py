@@ -9,7 +9,6 @@ import logfire
 
 from coliseum.agents.guardian import run_guardian
 from coliseum.config import Settings
-from coliseum.memory.errors import ErrorEntry, detect_recurring_error, log_error
 from coliseum.pipeline import run_pipeline
 from coliseum.services.telegram import TelegramClient
 
@@ -106,15 +105,6 @@ class ColiseumDaemon:
                 e,
                 exc_info=True,
             )
-            self._log_error(
-                component="pipeline",
-                error=str(e),
-                resolution="auto_retry"
-                if self._consecutive_failures
-                < self.settings.daemon.max_consecutive_failures
-                else "paused",
-                attempts=self._consecutive_failures,
-            )
             if (
                 self._consecutive_failures
                 >= self.settings.daemon.max_consecutive_failures
@@ -154,11 +144,6 @@ class ColiseumDaemon:
                 )
             except Exception as e:
                 logger.error("Guardian intercycle failed: %s", e)
-                self._log_error(
-                    component="guardian_intercycle",
-                    error=str(e),
-                    resolution="skipped",
-                )
 
         leftover = remaining_seconds - elapsed_in_gap
         if leftover > 0 and not self._shutdown_event.is_set():
@@ -241,13 +226,6 @@ class ColiseumDaemon:
             )
             return
 
-        recurring, pattern_desc = detect_recurring_error(hours=1, threshold=3)
-        pattern_line = (
-            f"Recurring pattern: {pattern_desc}"
-            if recurring
-            else "No recurring pattern detected"
-        )
-
         uptime_h = 0.0
         if self._started_at:
             uptime_h = (
@@ -263,7 +241,6 @@ class ColiseumDaemon:
             "COLISEUM ALERT\n\n"
             f"Daemon paused after {self._consecutive_failures} consecutive failures.\n"
             f"Last error: {error}\n"
-            f"{pattern_line}\n"
             f"Uptime: {uptime_h:.1f}h | Cycles completed: {self._cycle_count}\n"
             f"Last success: {last_success}\n\n"
             "Action: Pipeline paused. Manual intervention required or daemon will retry after next heartbeat interval."
@@ -282,27 +259,6 @@ class ColiseumDaemon:
                         logfire.warn("telegram escalation alert failed", error=result.error)
             except Exception as exc:
                 logfire.error("failed to send telegram escalation alert", error=str(exc))
-
-    def _log_error(
-        self,
-        component: str,
-        error: str,
-        resolution: str,
-        attempts: int = 1,
-        details: str = "",
-    ) -> None:
-        """Log an error to the persistent error history."""
-        try:
-            entry = ErrorEntry(
-                component=component,
-                error=error,
-                resolution=resolution,
-                attempts=attempts,
-                details=details,
-            )
-            log_error(entry)
-        except Exception as e:
-            logger.warning("Failed to log error to memory: %s", e)
 
     def status_summary(self) -> dict:
         """Return a snapshot of daemon state for diagnostics."""
