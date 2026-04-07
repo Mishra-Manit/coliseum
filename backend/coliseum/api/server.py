@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from fastapi import APIRouter, FastAPI, HTTPException, Request
+from fastapi import APIRouter, FastAPI, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -16,6 +16,16 @@ from coliseum.config import get_settings
 from coliseum.daemon import ColiseumDaemon
 from coliseum.observability import initialize_logfire
 from coliseum.pipeline import run_pipeline
+from coliseum.api.chart_export import (
+    ChartExportBusyError,
+    ChartExportDependencyError,
+    ChartExportError,
+    ChartExportNoDataError,
+    ChartExportService,
+    ChartExportTimeoutError,
+    ExportFormat,
+    ExportQuality,
+)
 from coliseum.api.parsing import parse_opportunity_sections
 from coliseum.services.supabase.repositories.portfolio import load_state_from_db
 from coliseum.services.supabase.repositories.opportunities import (
@@ -83,6 +93,7 @@ async def _daemon_lifespan(app: FastAPI):
 # ---------------------------------------------------------------------------
 
 router = APIRouter()
+chart_export_service = ChartExportService()
 
 _CORS_ORIGINS = [
     "http://localhost:3000",
@@ -332,6 +343,47 @@ async def get_chart_data():
     }
 
     return {"series": series, "stats": stats}
+
+
+@router.get("/api/chart/export")
+async def export_chart(
+    format: ExportFormat = Query(default="mp4"),
+    quality: ExportQuality = Query(default="balanced"),
+):
+    """Export the chart animation as a downloadable media file."""
+    start_date = _get_start_date()
+    cycles = await list_run_cycles_from_db(start_date=start_date)
+
+    try:
+        export = await asyncio.to_thread(
+            chart_export_service.export,
+            cycles,
+            format,
+            quality,
+        )
+    except ChartExportBusyError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except ChartExportNoDataError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ChartExportTimeoutError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="Chart export timed out after quality fallback. Please try again.",
+        ) from exc
+    except ChartExportDependencyError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    except ChartExportError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    return Response(
+        content=export.content,
+        media_type=export.media_type,
+        headers={
+            "Content-Disposition": f'attachment; filename="{export.filename}"',
+            "X-Export-Quality": export.quality_used,
+            "X-Export-Cache": "hit" if export.cache_hit else "miss",
+        },
+    )
 
 
 # ---------------------------------------------------------------------------
