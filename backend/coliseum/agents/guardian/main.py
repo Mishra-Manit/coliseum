@@ -14,6 +14,10 @@ from coliseum.services.kalshi.config import KalshiConfig
 from coliseum.domain.trade import TradeClose, generate_close_id
 from coliseum.services.supabase.repositories.opportunities import get_entry_rationale_from_db
 from coliseum.services.supabase.repositories.portfolio import load_state_from_db, save_closed_position_to_db, sync_portfolio_to_db
+from coliseum.services.supabase.repositories.portfolio_snapshots import (
+    get_realized_pnl_from_db,
+    save_portfolio_snapshot_to_db,
+)
 from coliseum.services.supabase.repositories.trades import save_trade_close_to_db
 from coliseum.domain.portfolio import ClosedPosition, PortfolioState, Position
 from coliseum.services.kalshi.sync import (
@@ -307,8 +311,17 @@ async def reconcile_closed_positions(
             total_value=float(updated_state.portfolio.total_value),
             open_positions=updated_state.open_positions,
         )
+
+        realized_pnl = await get_realized_pnl_from_db()
+        await save_portfolio_snapshot_to_db(
+            cash_balance=float(updated_state.portfolio.cash_balance),
+            positions_value=float(updated_state.portfolio.positions_value),
+            total_value=float(updated_state.portfolio.total_value),
+            open_positions=len(updated_state.open_positions),
+            realized_pnl=realized_pnl,
+        )
     except Exception as e:
-        logfire.error("DB portfolio sync failed after reconciliation", error=str(e))
+        logfire.error("DB portfolio sync or snapshot write failed after reconciliation", error=str(e))
 
     return updated_state, stats, newly_closed
 

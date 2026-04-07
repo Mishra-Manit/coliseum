@@ -23,6 +23,9 @@ from coliseum.services.supabase.repositories.opportunities import (
     get_opportunity_body_from_db,
     list_opportunities_from_db,
 )
+from coliseum.services.supabase.repositories.portfolio_snapshots import (
+    list_portfolio_snapshots_from_db,
+)
 from coliseum.services.supabase.repositories.trades import (
     list_trades_from_db,
     list_trade_closes_from_db,
@@ -270,11 +273,32 @@ async def get_ledger(limit: int = 100):
 
 @router.get("/api/chart")
 async def get_chart_data():
-    """Return portfolio chart data from run_cycle snapshots and trade closes."""
+    """Return portfolio chart data from portfolio snapshots and trade closes."""
     start_date = _get_start_date()
+    snapshots = await list_portfolio_snapshots_from_db(start_date=start_date)
     cycles = await list_run_cycles_from_db(start_date=start_date)
 
-    if not cycles:
+    legacy_series = [
+        {
+            "snapshot_at": c["cycle_at"],
+            "total_value": c["total_value"],
+            "cash_balance": c["cash_balance"],
+            "positions_value": c["positions_value"],
+        }
+        for c in cycles
+    ]
+
+    if snapshots:
+        first_snapshot_at = snapshots[0]["snapshot_at"]
+        snapshots = [
+            s for s in legacy_series
+            if s["snapshot_at"] < first_snapshot_at
+        ] + snapshots
+    else:
+        # Temporary fallback while snapshot history is being populated.
+        snapshots = legacy_series
+
+    if not snapshots:
         try:
             state = await load_state_from_db()
             current_nav = round(float(state.portfolio.total_value), 2)
@@ -299,17 +323,17 @@ async def get_chart_data():
             },
         }
 
-    initial_nav = cycles[0]["total_value"]
-    current_nav = cycles[-1]["total_value"]
+    initial_nav = snapshots[0]["total_value"]
+    current_nav = snapshots[-1]["total_value"]
 
     series: list[dict[str, Any]] = [
         {
-            "timestamp": c["cycle_at"],
-            "nav": round(c["total_value"], 2),
-            "cash": round(c["cash_balance"], 2),
-            "positions_value": round(c["positions_value"], 2),
+            "timestamp": s["snapshot_at"],
+            "nav": round(s["total_value"], 2),
+            "cash": round(s["cash_balance"], 2),
+            "positions_value": round(s["positions_value"], 2),
         }
-        for c in cycles
+        for s in snapshots
     ]
 
     closes = await list_trade_closes_from_db(start_date=start_date)
