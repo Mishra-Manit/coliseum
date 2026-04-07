@@ -10,6 +10,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
       value={{
         revalidateOnFocus: true,
         revalidateOnReconnect: true,
+        keepPreviousData: true,
         errorRetryCount: 3,
       }}
     >

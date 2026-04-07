@@ -62,6 +62,7 @@ class DashboardDisplayConfig(BaseModel):
     """Dashboard display filtering parameters."""
 
     start_date: str | None = None
+    cache_ttl_seconds: int = 300
 
     @field_validator("start_date", mode="after")
     @classmethod
