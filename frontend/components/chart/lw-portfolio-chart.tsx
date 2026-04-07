@@ -2,8 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { IChartApi, ISeriesApi } from "lightweight-charts";
+import { Download, Loader2 } from "lucide-react";
 import type { ChartDataPoint } from "@/lib/types";
 import { getChartSeries, type Interval } from "@/lib/chart-utils";
+import { downloadChartExport } from "@/lib/api";
 import { RangeSwitcher } from "./range-switcher";
 import { FontSize } from "@/lib/typography";
 import { Muted } from "@/lib/styles";
@@ -39,6 +41,8 @@ export function LWPortfolioChart({
   const areaSeriesRef = useRef<ISeriesApi<"Area"> | null>(null);
   const histSeriesRef = useRef<ISeriesApi<"Histogram"> | null>(null);
   const [chartsReady, setChartsReady] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!mainRef.current || !histRef.current) return;
@@ -204,6 +208,30 @@ export function LWPortfolioChart({
 
   const isEmpty = data.length === 0;
 
+  const handleExport = async () => {
+    if (isExporting || isEmpty) return;
+    setExportError(null);
+    setIsExporting(true);
+
+    try {
+      const { blob, filename } = await downloadChartExport("mp4", "balanced");
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = objectUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(objectUrl);
+    } catch (error) {
+      setExportError(
+        error instanceof Error ? error.message : "Chart export failed"
+      );
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   return (
     <div className="flex flex-col h-full min-h-0">
       {/* Chart toolbar */}
@@ -222,7 +250,32 @@ export function LWPortfolioChart({
             </span>
           )}
         </div>
-        <RangeSwitcher value={interval} onChange={onIntervalChange} />
+        <div className="flex items-center gap-3">
+          {exportError && (
+            <span
+              className={`${FontSize.small} font-mono text-red-400 tracking-[0.08em]`}
+            >
+              {exportError}
+            </span>
+          )}
+          <button
+            onClick={handleExport}
+            disabled={isExporting || isEmpty}
+            title={isEmpty ? "No chart data to export" : "Download MP4"}
+            className={`h-7 w-7 inline-flex items-center justify-center border border-border rounded transition-colors ${
+              isExporting || isEmpty
+                ? "text-muted-foreground/50 cursor-not-allowed"
+                : `${Muted.mutedText} ${Muted.mutedTextHover}`
+            }`}
+          >
+            {isExporting ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Download className="h-3.5 w-3.5" />
+            )}
+          </button>
+          <RangeSwitcher value={interval} onChange={onIntervalChange} />
+        </div>
       </div>
 
       {/* Area chart -- takes 65% of the chart area */}
