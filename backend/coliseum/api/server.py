@@ -8,9 +8,20 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from fastapi import APIRouter, FastAPI, HTTPException, Request
+from fastapi import APIRouter, FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
 from pydantic import BaseModel
+
+from coliseum.api.chart_export import (
+    ChartExportBusyError,
+    ChartExportDependencyError,
+    ChartExportNoDataError,
+    ChartExportService,
+    ChartExportTimeoutError,
+    ExportFormat,
+    ExportQuality,
+)
 
 from coliseum.api.cache import get_or_compute, invalidate_all
 from coliseum.api.parsing import parse_opportunity_sections
@@ -35,6 +46,8 @@ from coliseum.services.supabase.repositories.trades import (
 )
 
 logger = logging.getLogger(__name__)
+
+_chart_export_service = ChartExportService()
 
 _DAEMON_OFFLINE: dict[str, Any] = {
     "available": False,
@@ -386,6 +399,47 @@ async def get_ledger(limit: int = 100):
 async def get_chart_data():
     """Return portfolio chart data from snapshots and trade closes."""
     return await get_or_compute("chart", _cache_ttl(), _build_chart)
+
+
+# ---------------------------------------------------------------------------
+# Chart export
+# ---------------------------------------------------------------------------
+
+
+@router.get("/api/chart/export")
+async def export_chart(
+    format: ExportFormat = Query("mp4"),
+    quality: ExportQuality = Query("balanced"),
+):
+    """Render and return a portfolio NAV animation as a downloadable MP4."""
+    chart_data = await get_or_compute("chart", _cache_ttl(), _build_chart)
+    cycles = [
+        {"total_value": pt["nav"], "cycle_at": pt["timestamp"]}
+        for pt in chart_data.get("series", [])
+    ]
+
+    try:
+        result = await asyncio.to_thread(
+            _chart_export_service.export, cycles, format, quality
+        )
+    except ChartExportNoDataError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    except ChartExportBusyError as exc:
+        raise HTTPException(status_code=429, detail=str(exc))
+    except ChartExportDependencyError as exc:
+        raise HTTPException(status_code=501, detail=str(exc))
+    except ChartExportTimeoutError as exc:
+        raise HTTPException(status_code=504, detail=str(exc))
+
+    return Response(
+        content=result.content,
+        media_type=result.media_type,
+        headers={
+            "Content-Disposition": f'attachment; filename="{result.filename}"',
+            "X-Quality-Used": result.quality_used,
+            "X-Cache-Hit": str(result.cache_hit).lower(),
+        },
+    )
 
 
 # ---------------------------------------------------------------------------
