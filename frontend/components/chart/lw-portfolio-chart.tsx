@@ -211,6 +211,10 @@ export function LWPortfolioChart({
       })),
     );
 
+    histChartRef.current?.applyOptions({
+      timeScale: { timeVisible: interval === "1D" },
+    });
+
     if (areaData.length > 0) {
       mainChartRef.current?.timeScale().fitContent();
       histChartRef.current?.timeScale().fitContent();
