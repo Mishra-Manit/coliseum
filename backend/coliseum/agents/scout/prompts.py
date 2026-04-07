@@ -198,6 +198,8 @@ rationale (required):
 
 outcome_status (required):
   Exactly one of: CONFIRMED | NEAR-DECIDED | STRONGLY FAVORED
+  Use exact spelling and punctuation. Do NOT use underscores or alternate casing
+  (e.g., STRONGLY_FAVORED is invalid).
 
 risk_level (required):
   Exactly one of: NEGLIGIBLE | LOW
@@ -226,7 +228,7 @@ Field-Level:
 - [ ] status: exactly "pending"
 
 Content:
-- [ ] outcome_status is one of CONFIRMED | NEAR-DECIDED | STRONGLY FAVORED
+- [ ] outcome_status is one of CONFIRMED | NEAR-DECIDED | STRONGLY FAVORED (exact string; no underscores)
 - [ ] risk_level is one of NEGLIGIBLE | LOW
 - [ ] evidence_bullets has 2-4 items, each with a specific number
 - [ ] scout_sources has at least 1 real https:// URL
