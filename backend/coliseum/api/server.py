@@ -3,7 +3,7 @@
 import asyncio
 import logging
 from contextlib import asynccontextmanager
-from datetime import date
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -134,6 +134,14 @@ def _get_start_date() -> date | None:
     if raw is None:
         return None
     return date.fromisoformat(raw)
+
+
+def _parse_iso_timestamp(value: str) -> datetime:
+    """Parse ISO timestamp into a timezone-aware datetime."""
+    parsed = datetime.fromisoformat(value)
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=timezone.utc)
+    return parsed
 
 
 # ---------------------------------------------------------------------------
@@ -289,10 +297,10 @@ async def get_chart_data():
     ]
 
     if snapshots:
-        first_snapshot_at = snapshots[0]["snapshot_at"]
+        first_snapshot_at = _parse_iso_timestamp(snapshots[0]["snapshot_at"])
         snapshots = [
             s for s in legacy_series
-            if s["snapshot_at"] < first_snapshot_at
+            if _parse_iso_timestamp(s["snapshot_at"]) < first_snapshot_at
         ] + snapshots
     else:
         # Temporary fallback while snapshot history is being populated.

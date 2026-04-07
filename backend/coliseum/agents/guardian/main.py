@@ -304,24 +304,49 @@ async def reconcile_closed_positions(
         closed_positions=new_state.closed_positions + newly_closed,
         seen_tickers=new_state.seen_tickers,
     )
+    sync_open_positions = len(updated_state.open_positions)
+    sync_total_value = float(updated_state.portfolio.total_value)
+    sync_cycle_at = datetime.now(timezone.utc).isoformat()
+
     try:
         await sync_portfolio_to_db(
             cash_balance=float(updated_state.portfolio.cash_balance),
             positions_value=float(updated_state.portfolio.positions_value),
-            total_value=float(updated_state.portfolio.total_value),
+            total_value=sync_total_value,
             open_positions=updated_state.open_positions,
         )
+    except Exception as e:
+        stats.warnings += 1
+        logfire.error(
+            "DB portfolio sync failed after reconciliation",
+            error=str(e),
+            open_positions=sync_open_positions,
+            total_value=sync_total_value,
+            cycle_at=sync_cycle_at,
+        )
+        return updated_state, stats, newly_closed
 
-        realized_pnl = await get_realized_pnl_from_db()
+    realized_pnl = await get_realized_pnl_from_db()
+    snapshot_cycle_at = datetime.now(timezone.utc).isoformat()
+    try:
         await save_portfolio_snapshot_to_db(
             cash_balance=float(updated_state.portfolio.cash_balance),
             positions_value=float(updated_state.portfolio.positions_value),
-            total_value=float(updated_state.portfolio.total_value),
-            open_positions=len(updated_state.open_positions),
+            total_value=sync_total_value,
+            open_positions=sync_open_positions,
             realized_pnl=realized_pnl,
         )
     except Exception as e:
-        logfire.error("DB portfolio sync or snapshot write failed after reconciliation", error=str(e))
+        stats.warnings += 1
+        logfire.warn(
+            "Portfolio snapshot append failed after successful sync",
+            error=str(e),
+            open_positions=sync_open_positions,
+            total_value=sync_total_value,
+            realized_pnl=realized_pnl,
+            cycle_at=snapshot_cycle_at,
+            snapshot_write_failed=1,
+        )
 
     return updated_state, stats, newly_closed
 
