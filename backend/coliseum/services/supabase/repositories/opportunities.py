@@ -13,6 +13,17 @@ from coliseum.services.supabase.models import Opportunity, OpportunityAnalysis
 logger = logging.getLogger(__name__)
 
 
+def _map_trader_decision_to_action(trader_decision: str) -> str | None:
+    """Map Trader decision enums to normalized opportunity action values."""
+    if trader_decision == "EXECUTE_BUY_YES":
+        return "BUY_YES"
+    if trader_decision == "EXECUTE_BUY_NO":
+        return "BUY_NO"
+    if trader_decision == "REJECT":
+        return "ABSTAIN"
+    return None
+
+
 async def save_opportunity_to_db(
     opportunity: OpportunitySignal,
     *,
@@ -130,6 +141,9 @@ async def update_opportunity_trader_decision(
 ) -> None:
     """Persist trader decision and summary for an opportunity."""
     opp_values: dict[str, str] = {"trader_decision": trader_decision}
+    action = _map_trader_decision_to_action(trader_decision)
+    if action is not None:
+        opp_values["action"] = action
     if status is not None:
         opp_values["status"] = status
 

@@ -22,7 +22,9 @@ from coliseum.services.supabase.repositories.run_cycles import save_run_cycle_to
 class CycleMetrics:
     """Structured metrics collected during a pipeline cycle for DB persistence."""
 
+    # Open position count from the latest Guardian run in the cycle.
     guardian_synced: int = 0
+    # Total positions closed across Guardian runs in the cycle.
     guardian_closed: int = 0
     scout_scanned: int = 0
     scout_found: int = 0
@@ -44,7 +46,7 @@ async def run_pipeline(settings: Settings, shutdown_event: asyncio.Event | None 
         with logfire.span("guardian pre-trade"):
             try:
                 guardian_result = await run_guardian(settings=settings)
-                metrics.guardian_synced += guardian_result.positions_synced
+                metrics.guardian_synced = guardian_result.positions_synced
                 metrics.guardian_closed += guardian_result.reconciliation.newly_closed
                 summary.guardian_summary = (
                     f"Synced {guardian_result.positions_synced} positions, "
@@ -186,7 +188,7 @@ async def run_pipeline(settings: Settings, shutdown_event: asyncio.Event | None 
         with logfire.span("guardian post-trade"):
             try:
                 guardian_result = await run_guardian(settings=settings)
-                metrics.guardian_synced += guardian_result.positions_synced
+                metrics.guardian_synced = guardian_result.positions_synced
                 metrics.guardian_closed += guardian_result.reconciliation.newly_closed
                 summary.guardian_summary += (
                     f" | Post-trade: synced {guardian_result.positions_synced}, "

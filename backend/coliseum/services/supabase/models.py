@@ -175,7 +175,6 @@ class Decision(Base):
     reasoning: Mapped[str] = mapped_column(Text, nullable=False)
     tldr: Mapped[str | None] = mapped_column(Text, nullable=True)
     execution_status: Mapped[str] = mapped_column(Text, nullable=False)
-    outcome: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
 class RunCycle(Base):

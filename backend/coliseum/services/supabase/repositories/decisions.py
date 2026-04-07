@@ -26,7 +26,6 @@ async def save_decision_to_db(entry: DecisionEntry) -> None:
         reasoning=entry.reasoning,
         tldr=entry.tldr if entry.tldr else None,
         execution_status=entry.execution_status,
-        outcome=entry.outcome,
     )
 
     async with get_db_session() as session:
@@ -58,7 +57,6 @@ async def load_recent_decisions_from_db(hours: int = 24) -> list[DecisionEntry]:
             reasoning=row.reasoning,
             tldr=row.tldr or "",
             execution_status=row.execution_status,
-            outcome=row.outcome,
         )
         for row in rows
     ]

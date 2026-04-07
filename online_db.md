@@ -150,22 +150,6 @@ CREATE TABLE portfolio_state (
 );
 ```
 
----
-
-### `portfolio_snapshots`
-New table. Appended every Guardian cycle. Powers PnL chart over time.
-
-```sql
-CREATE TABLE portfolio_snapshots (
-    id              SERIAL PRIMARY KEY,
-    total_value     NUMERIC(12,2) NOT NULL,
-    cash_balance    NUMERIC(12,2) NOT NULL,
-    positions_value NUMERIC(12,2) NOT NULL,
-    open_positions  INT NOT NULL,
-    realized_pnl    NUMERIC(12,2) NOT NULL,                -- SUM(closed_positions.pnl) at snapshot time
-    snapshot_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-```
 
 ---
 
@@ -182,7 +166,7 @@ CREATE TABLE seen_tickers (
 ---
 
 ### `decisions`
-Replaces `data/memory/decisions.jsonl`. Guardian back-fills `outcome` after resolution.
+Replaces `data/memory/decisions.jsonl`.
 
 ```sql
 CREATE TABLE decisions (
@@ -196,8 +180,7 @@ CREATE TABLE decisions (
     confidence       NUMERIC(5,4) NOT NULL,
     reasoning        TEXT NOT NULL,
     tldr             TEXT,
-    execution_status TEXT NOT NULL,
-    outcome          TEXT                                  -- NULL until Guardian fills post-resolution
+    execution_status TEXT NOT NULL
 );
 ```
 
@@ -211,7 +194,7 @@ CREATE TABLE run_cycles (
     id               SERIAL PRIMARY KEY,
     cycle_at         TIMESTAMPTZ NOT NULL,
     duration_seconds INT NOT NULL,
-    guardian_synced  INT NOT NULL DEFAULT 0,
+    guardian_synced  INT NOT NULL DEFAULT 0,              -- open positions from the latest Guardian pass in the cycle
     guardian_closed  INT NOT NULL DEFAULT 0,
     scout_scanned    INT NOT NULL DEFAULT 0,
     scout_found      INT NOT NULL DEFAULT 0,
