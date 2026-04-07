@@ -150,6 +150,22 @@ CREATE TABLE portfolio_state (
 );
 ```
 
+---
+
+### `portfolio_snapshots`
+Appended every successful Guardian reconciliation. This is the operational ledger for live portfolio state and powers the PnL chart timeline.
+
+```sql
+CREATE TABLE portfolio_snapshots (
+    id              SERIAL PRIMARY KEY,
+    total_value     NUMERIC(12,2) NOT NULL,
+    cash_balance    NUMERIC(12,2) NOT NULL,
+    positions_value NUMERIC(12,2) NOT NULL,
+    open_positions  INT NOT NULL,
+    realized_pnl    NUMERIC(12,2) NOT NULL,
+    snapshot_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+```
 
 ---
 
@@ -187,7 +203,7 @@ CREATE TABLE decisions (
 ---
 
 ### `run_cycles`
-Replaces `data/memory/journal/*.md`. One row per daemon cycle.
+Replaces `data/memory/journal/*.md`. One row per full pipeline cycle for execution telemetry (not the live state ledger).
 
 ```sql
 CREATE TABLE run_cycles (

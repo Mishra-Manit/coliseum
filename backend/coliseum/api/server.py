@@ -3,7 +3,7 @@
 import asyncio
 import logging
 from contextlib import asynccontextmanager
-from datetime import date
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -32,6 +32,9 @@ from coliseum.services.supabase.repositories.opportunities import (
     load_opportunity_from_db,
     get_opportunity_body_from_db,
     list_opportunities_from_db,
+)
+from coliseum.services.supabase.repositories.portfolio_snapshots import (
+    list_portfolio_snapshots_from_db,
 )
 from coliseum.services.supabase.repositories.trades import (
     list_trades_from_db,
@@ -142,6 +145,14 @@ def _get_start_date() -> date | None:
     if raw is None:
         return None
     return date.fromisoformat(raw)
+
+
+def _parse_iso_timestamp(value: str) -> datetime:
+    """Parse ISO timestamp into a timezone-aware datetime."""
+    parsed = datetime.fromisoformat(value)
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=timezone.utc)
+    return parsed
 
 
 # ---------------------------------------------------------------------------
@@ -281,11 +292,32 @@ async def get_ledger(limit: int = 100):
 
 @router.get("/api/chart")
 async def get_chart_data():
-    """Return portfolio chart data from run_cycle snapshots and trade closes."""
+    """Return portfolio chart data from portfolio snapshots and trade closes."""
     start_date = _get_start_date()
+    snapshots = await list_portfolio_snapshots_from_db(start_date=start_date)
     cycles = await list_run_cycles_from_db(start_date=start_date)
 
-    if not cycles:
+    legacy_series = [
+        {
+            "snapshot_at": c["cycle_at"],
+            "total_value": c["total_value"],
+            "cash_balance": c["cash_balance"],
+            "positions_value": c["positions_value"],
+        }
+        for c in cycles
+    ]
+
+    if snapshots:
+        first_snapshot_at = _parse_iso_timestamp(snapshots[0]["snapshot_at"])
+        snapshots = [
+            s for s in legacy_series
+            if _parse_iso_timestamp(s["snapshot_at"]) < first_snapshot_at
+        ] + snapshots
+    else:
+        # Temporary fallback while snapshot history is being populated.
+        snapshots = legacy_series
+
+    if not snapshots:
         try:
             state = await load_state_from_db()
             current_nav = round(float(state.portfolio.total_value), 2)
@@ -303,32 +335,42 @@ async def get_chart_data():
                 "win_rate": 0.0,
                 "best_day": 0.0,
                 "worst_day": 0.0,
+                "avg_day": 0.0,
+                "realized_pnl": 0.0,
             },
         }
 
-    initial_nav = cycles[0]["total_value"]
-    current_nav = cycles[-1]["total_value"]
+    initial_nav = snapshots[0]["total_value"]
+    current_nav = snapshots[-1]["total_value"]
 
     series: list[dict[str, Any]] = [
         {
-            "timestamp": c["cycle_at"],
-            "nav": round(c["total_value"], 2),
-            "cash": round(c["cash_balance"], 2),
-            "positions_value": round(c["positions_value"], 2),
+            "timestamp": s["snapshot_at"],
+            "nav": round(s["total_value"], 2),
+            "cash": round(s["cash_balance"], 2),
+            "positions_value": round(s["positions_value"], 2),
         }
-        for c in cycles
+        for s in snapshots
     ]
 
     closes = await list_trade_closes_from_db(start_date=start_date)
-    total_trades = len(closes)
-    winning_trades = sum(1 for c in closes if c["pnl"] >= 0)
+    close_pnls = [c["pnl"] for c in closes]
+    total_trades = len(close_pnls)
+    winning_trades = sum(1 for pnl in close_pnls if pnl >= 0)
     losing_trades = total_trades - winning_trades
+    realized_pnl = sum(close_pnls)
 
-    daily_pnl_map: dict[str, float] = {}
-    for c in closes:
-        day = c["closed_at"][:10]
-        daily_pnl_map[day] = daily_pnl_map.get(day, 0.0) + c["pnl"]
-    daily_pnls = list(daily_pnl_map.values())
+    daily_nav_map: dict[str, dict[str, float]] = {}
+    for s in snapshots:
+        day = s["snapshot_at"][:10]
+        nav = float(s["total_value"])
+        day_bucket = daily_nav_map.get(day)
+        if day_bucket is None:
+            daily_nav_map[day] = {"first": nav, "last": nav}
+        else:
+            day_bucket["last"] = nav
+
+    daily_pnls = [v["last"] - v["first"] for v in daily_nav_map.values()]
 
     stats = {
         "current_nav": round(current_nav, 2),
@@ -340,6 +382,8 @@ async def get_chart_data():
         "win_rate": round(winning_trades / total_trades, 4) if total_trades > 0 else 0.0,
         "best_day": round(max(daily_pnls), 2) if daily_pnls else 0.0,
         "worst_day": round(min(daily_pnls), 2) if daily_pnls else 0.0,
+        "avg_day": round(sum(daily_pnls) / len(daily_pnls), 2) if daily_pnls else 0.0,
+        "realized_pnl": round(realized_pnl, 2),
     }
 
     return {"series": series, "stats": stats}

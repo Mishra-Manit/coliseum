@@ -3,12 +3,12 @@ import type { ChartDataPoint } from "./types";
 export type Interval = "1D" | "1W" | "1M";
 
 export interface LWPoint {
-  time: string;
+  time: number;
   value: number;
 }
 
 export interface LWHistPoint {
-  time: string;
+  time: number;
   value: number;
   color: string;
 }
@@ -16,65 +16,88 @@ export interface LWHistPoint {
 const HIST_GREEN = "rgba(22, 163, 74, 0.65)";
 const HIST_RED = "rgba(220, 38, 38, 0.65)";
 
-function toDateKey(iso: string): string {
-  return iso.slice(0, 10);
-}
-
-function isoWeekMonday(dateStr: string): string {
-  const [y, m, d] = dateStr.split("-").map(Number);
-  const date = new Date(y, m - 1, d);
-  const day = date.getDay();
-  const diff = day === 0 ? -6 : 1 - day;
-  date.setDate(date.getDate() + diff);
-  return date.toISOString().split("T")[0];
-}
-
-function periodKey(dateStr: string, interval: Interval): string {
-  if (interval === "1D") return dateStr;
-  if (interval === "1W") return isoWeekMonday(dateStr);
-  const [y, m] = dateStr.split("-");
-  return `${y}-${m}-01`;
-}
+const HOUR_MS = 60 * 60 * 1000;
+const DAY_MS = 24 * HOUR_MS;
 
 interface BucketAccumulator {
-  date: string;
+  time: number;
   firstNav: number;
   lastNav: number;
 }
 
-/**
- * Downsample a time-series of NAV snapshots into period buckets.
- * Each bucket keeps the last NAV value (for the area chart) and computes
- * the period PnL as (lastNav - firstNav) for the histogram.
- */
+function toUnixSeconds(ms: number): number {
+  return Math.floor(ms / 1000);
+}
+
+function parseTimestamp(iso: string): number {
+  return new Date(iso).getTime();
+}
+
+function getCutoffMs(latestMs: number, interval: Interval): number {
+  if (interval === "1D") return latestMs - DAY_MS;
+  if (interval === "1W") return latestMs - 7 * DAY_MS;
+  return latestMs - 30 * DAY_MS;
+}
+
+function getBucketMs(timestampMs: number, interval: Interval): number {
+  if (interval === "1D") {
+    return Math.floor(timestampMs / HOUR_MS) * HOUR_MS;
+  }
+  return Math.floor(timestampMs / DAY_MS) * DAY_MS;
+}
+
+function getFilteredSeries(
+  series: ChartDataPoint[],
+  interval: Interval,
+): ChartDataPoint[] {
+  if (series.length === 0) return [];
+
+  const sorted = [...series].sort(
+    (a, b) => parseTimestamp(a.timestamp) - parseTimestamp(b.timestamp),
+  );
+
+  const latestMs = parseTimestamp(sorted[sorted.length - 1].timestamp);
+  const cutoffMs = getCutoffMs(latestMs, interval);
+
+  return sorted.filter((point) => parseTimestamp(point.timestamp) >= cutoffMs);
+}
+
 function bucketize(
   series: ChartDataPoint[],
   interval: Interval,
 ): { area: LWPoint[]; hist: LWHistPoint[] } {
   if (series.length === 0) return { area: [], hist: [] };
 
-  const buckets = new Map<string, BucketAccumulator>();
+  const buckets = new Map<number, BucketAccumulator>();
 
   for (const point of series) {
-    const dayStr = toDateKey(point.timestamp);
-    const key = periodKey(dayStr, interval);
-    const existing = buckets.get(key);
+    const timestampMs = parseTimestamp(point.timestamp);
+    const bucketMs = getBucketMs(timestampMs, interval);
+    const existing = buckets.get(bucketMs);
+
     if (!existing) {
-      buckets.set(key, { date: key, firstNav: point.nav, lastNav: point.nav });
-    } else {
-      existing.lastNav = point.nav;
+      buckets.set(bucketMs, {
+        time: toUnixSeconds(bucketMs),
+        firstNav: point.nav,
+        lastNav: point.nav,
+      });
+      continue;
     }
+
+    existing.lastNav = point.nav;
   }
 
-  const sorted = Array.from(buckets.values()).sort((a, b) =>
-    a.date.localeCompare(b.date),
-  );
+  const sorted = Array.from(buckets.values()).sort((a, b) => a.time - b.time);
 
-  const area: LWPoint[] = sorted.map((b) => ({ time: b.date, value: b.lastNav }));
-  const hist: LWHistPoint[] = sorted.map((b) => {
-    const pnl = b.lastNav - b.firstNav;
+  const area: LWPoint[] = sorted.map((bucket) => ({
+    time: bucket.time,
+    value: bucket.lastNav,
+  }));
+
+  const hist: LWHistPoint[] = sorted.map((bucket) => {
+    const pnl = bucket.lastNav - bucket.firstNav;
     return {
-      time: b.date,
+      time: bucket.time,
       value: Math.round(pnl * 100) / 100,
       color: pnl >= 0 ? HIST_GREEN : HIST_RED,
     };
@@ -87,5 +110,6 @@ export function getChartSeries(
   series: ChartDataPoint[],
   interval: Interval,
 ): { area: LWPoint[]; hist: LWHistPoint[] } {
-  return bucketize(series, interval);
+  const filtered = getFilteredSeries(series, interval);
+  return bucketize(filtered, interval);
 }

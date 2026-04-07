@@ -152,6 +152,20 @@ class PortfolioState(Base):
     )
 
 
+class PortfolioSnapshot(Base):
+    __tablename__ = "portfolio_snapshots"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    total_value: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    cash_balance: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    positions_value: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    open_positions: Mapped[int] = mapped_column(Integer, nullable=False)
+    realized_pnl: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    snapshot_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, server_default=text("now()")
+    )
+
+
 class SeenTicker(Base):
     __tablename__ = "seen_tickers"
 

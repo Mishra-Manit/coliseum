@@ -8,34 +8,32 @@ interface WinRatePanelProps {
   stats: ChartStats;
 }
 
-function computeAvgTrade(stats: ChartStats): string {
-  if (stats.total_trades === 0) return "$0.00";
-  const avg = stats.total_pnl / stats.total_trades;
-  if (avg >= 0) return `+$${avg.toFixed(2)}`;
-  return `-$${Math.abs(avg).toFixed(2)}`;
+function formatDayAmount(value: number): string {
+  if (value >= 0) return `+$${value.toFixed(2)}`;
+  return `-$${Math.abs(value).toFixed(2)}`;
 }
 
 function formatBestDay(value: number): string {
   if (value <= 0) return "--";
-  return `+$${value.toFixed(2)}`;
+  return formatDayAmount(value);
 }
 
 function formatWorstDay(value: number): string {
   if (value >= 0) return "--";
-  return `-$${Math.abs(value).toFixed(2)}`;
+  return formatDayAmount(value);
 }
 
 export function WinRatePanel({ stats }: WinRatePanelProps) {
   const winPct = stats.win_rate * 100;
   const winsLabel = `${stats.winning_trades}W / ${stats.losing_trades}L`;
 
-  const avgTrade = computeAvgTrade(stats);
+  const avgDay = formatDayAmount(stats.avg_day);
   const avgTrend =
-    stats.total_trades > 0
-      ? stats.total_pnl >= 0
-        ? "positive" as const
-        : "negative" as const
-      : "neutral" as const;
+    stats.avg_day > 0
+      ? ("positive" as const)
+      : stats.avg_day < 0
+        ? ("negative" as const)
+        : ("neutral" as const);
 
   return (
     <div className="flex flex-col gap-4">
@@ -59,19 +57,15 @@ export function WinRatePanel({ stats }: WinRatePanelProps) {
         />
         <StatCard
           value={formatBestDay(stats.best_day)}
-          label="Best"
+          label="Best Day"
           trend={stats.best_day > 0 ? "positive" : "neutral"}
         />
         <StatCard
           value={formatWorstDay(stats.worst_day)}
-          label="Worst"
+          label="Worst Day"
           trend={stats.worst_day < 0 ? "negative" : "neutral"}
         />
-        <StatCard
-          value={avgTrade}
-          label="Avg"
-          trend={avgTrend}
-        />
+        <StatCard value={avgDay} label="Avg Day" trend={avgTrend} />
       </div>
     </div>
   );

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { IChartApi, ISeriesApi } from "lightweight-charts";
+import type { IChartApi, ISeriesApi, UTCTimestamp } from "lightweight-charts";
 import { Download, Loader2 } from "lucide-react";
 import type { ChartDataPoint } from "@/lib/types";
 import { getChartSeries, type Interval } from "@/lib/chart-utils";
@@ -197,8 +197,19 @@ export function LWPortfolioChart({
 
     const { area: areaData, hist: histData } = getChartSeries(data, interval);
 
-    areaSeriesRef.current.setData(areaData);
-    histSeriesRef.current.setData(histData);
+    areaSeriesRef.current.setData(
+      areaData.map((point) => ({
+        time: point.time as UTCTimestamp,
+        value: point.value,
+      })),
+    );
+    histSeriesRef.current.setData(
+      histData.map((point) => ({
+        time: point.time as UTCTimestamp,
+        value: point.value,
+        color: point.color,
+      })),
+    );
 
     if (areaData.length > 0) {
       mainChartRef.current?.timeScale().fitContent();

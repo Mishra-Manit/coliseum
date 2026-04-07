@@ -1,4 +1,4 @@
-"""DB repository for pipeline run cycle persistence."""
+"""DB repository for pipeline-cycle telemetry persistence."""
 
 import logging
 from datetime import date, datetime, time, timezone
@@ -28,7 +28,7 @@ async def save_run_cycle_to_db(
     open_positions: int = 0,
     errors: list[str] | None = None,
 ) -> None:
-    """Persist a pipeline cycle's structured metrics to the run_cycles table."""
+    """Persist a pipeline cycle summary row to the run_cycles telemetry table."""
     row = RunCycle(
         cycle_at=cycle_at,
         duration_seconds=int(duration_seconds),
@@ -55,7 +55,7 @@ async def save_run_cycle_to_db(
 async def list_run_cycles_from_db(
     start_date: date | None = None,
 ) -> list[dict]:
-    """Return run cycle NAV snapshots ordered by time, for charting."""
+    """Return run cycle telemetry rows ordered by time (legacy chart fallback)."""
     async with get_db_session() as session:
         stmt = (
             select(

@@ -230,7 +230,7 @@ async def _finalize_summary(
     errors: list[str],
     metrics: CycleMetrics,
 ) -> None:
-    """Populate portfolio snapshot, duration, errors, and persist cycle data."""
+    """Populate cycle summary fields and persist pipeline telemetry."""
     summary.duration_seconds = (datetime.now(timezone.utc) - cycle_start).total_seconds()
     summary.errors = errors
 
