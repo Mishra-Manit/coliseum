@@ -104,7 +104,8 @@ export function LWPortfolioChart({
           visible: false,
           borderVisible: false,
           fixLeftEdge: true,
-          fixRightEdge: true,
+          fixRightEdge: false,
+          rightOffset: 5,
         },
         localization: { priceFormatter: navFormatter },
       });
@@ -118,7 +119,8 @@ export function LWPortfolioChart({
         timeScale: {
           borderVisible: false,
           fixLeftEdge: true,
-          fixRightEdge: true,
+          fixRightEdge: false,
+          rightOffset: 5,
           timeVisible: false,
         },
         rightPriceScale: {
