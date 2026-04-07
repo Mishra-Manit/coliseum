@@ -11,6 +11,7 @@ EnvironmentFile=/home/manitmishra/coliseum-backend/backend/.env
 ExecStart=/home/manitmishra/coliseum-backend/backend/venv/bin/python -m coliseum daemon
 Restart=on-failure
 RestartSec=60
+TimeoutStopSec=300
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=coliseum

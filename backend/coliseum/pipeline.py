@@ -34,6 +34,11 @@ class CycleMetrics:
 logger = logging.getLogger("coliseum.pipeline")
 
 
+def _shutdown_requested(shutdown_event: asyncio.Event | None) -> bool:
+    """Check if a graceful shutdown has been requested."""
+    return shutdown_event is not None and shutdown_event.is_set()
+
+
 async def run_pipeline(settings: Settings, shutdown_event: asyncio.Event | None = None) -> JournalCycleSummary:
     """Run one full pipeline cycle: Guardian -> Scout -> (Analyst -> Trader) -> Guardian."""
     cycle_start = datetime.now(timezone.utc)
@@ -60,6 +65,14 @@ async def run_pipeline(settings: Settings, shutdown_event: asyncio.Event | None 
             except Exception as e:
                 errors.append(f"Guardian: {e}")
                 logfire.error("Guardian failed", error=str(e))
+
+        if _shutdown_requested(shutdown_event):
+            logger.info("Shutdown requested after pre-trade Guardian, exiting pipeline")
+            summary.scout_summary = "Skipped (shutdown)"
+            summary.analyst_summary = "N/A"
+            summary.trader_summary = "N/A"
+            await _finalize_summary(summary, cycle_start, errors, metrics)
+            return summary
 
         # Pre-trade cash gate: skip Scout/Analyst/Trader if we can't afford to trade
         # In paper mode, bypass the cash check since no real funds are at risk
@@ -116,11 +129,26 @@ async def run_pipeline(settings: Settings, shutdown_event: asyncio.Event | None 
             )
             logfire.info("Scout complete", markets_scanned=scout_output.markets_scanned, opportunities=total)
 
+        if _shutdown_requested(shutdown_event):
+            logger.info("Shutdown requested after Scout, exiting pipeline")
+            summary.analyst_summary = "Skipped (shutdown)"
+            summary.trader_summary = "Skipped (shutdown)"
+            await _finalize_summary(summary, cycle_start, errors, metrics)
+            return summary
+
         analyst_summaries: list[str] = []
         trader_summaries: list[str] = []
 
         # Step 3+4: For each opportunity, Analyst then Trader
         for i, opp in enumerate(opportunities, 1):
+            if _shutdown_requested(shutdown_event):
+                logger.info(
+                    "Shutdown requested, skipping remaining %d/%d opportunities",
+                    total - i + 1,
+                    total,
+                )
+                break
+
             with logfire.span("opportunity {ticker}", ticker=opp.market_ticker, opportunity_id=opp.id, index=i, total=total):
                 with logfire.span("analyst", opportunity_id=opp.id):
                     try:
@@ -143,6 +171,10 @@ async def run_pipeline(settings: Settings, shutdown_event: asyncio.Event | None 
                             error_message=str(e),
                         )
                         continue
+
+                if _shutdown_requested(shutdown_event):
+                    logger.info("Shutdown requested after Analyst for %s, skipping Trader", opp.market_ticker)
+                    break
 
                 with logfire.span("trader", opportunity_id=opp.id):
                     try:
@@ -183,6 +215,11 @@ async def run_pipeline(settings: Settings, shutdown_event: asyncio.Event | None 
             summary.trader_summary = "N/A"
 
         logfire.info("All opportunities processed", count=total)
+
+        if _shutdown_requested(shutdown_event):
+            logger.info("Shutdown requested, skipping post-trade Guardian")
+            await _finalize_summary(summary, cycle_start, errors, metrics)
+            return summary
 
         # Step 5: Guardian (post-trade)
         with logfire.span("guardian post-trade"):
