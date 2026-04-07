@@ -18,4 +18,3 @@ class DecisionEntry(BaseModel):
     reasoning: str = ""
     tldr: str = ""
     execution_status: str = ""
-    outcome: str | None = None
