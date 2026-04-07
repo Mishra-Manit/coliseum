@@ -1,14 +1,17 @@
 """DB repository for portfolio state and position persistence."""
 
 import logging
+from datetime import datetime, timezone
 
 from sqlalchemy import delete, select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from coliseum.domain.mappers import (
     closed_position_to_db,
     db_to_portfolio_state,
     portfolio_stats_to_db,
-    position_to_db,
+    to_decimal,
 )
 from coliseum.domain.portfolio import ClosedPosition, PortfolioState, Position
 from coliseum.services.supabase.db import get_db_session
@@ -38,20 +41,69 @@ async def load_state_from_db() -> PortfolioState:
     return db_to_portfolio_state(portfolio_row, open_rows, closed_rows)
 
 
+def _build_open_position_values(position: Position, *, updated_at: datetime) -> dict[str, object]:
+    """Convert a domain Position to insert values for open_positions upserts."""
+    return {
+        "id": position.id,
+        "market_ticker": position.market_ticker,
+        "side": position.side,
+        "contracts": position.contracts,
+        "average_entry": to_decimal(position.average_entry),
+        "current_price": to_decimal(position.current_price),
+        "opportunity_id": position.opportunity_id,
+        "updated_at": updated_at,
+    }
+
+
+async def _upsert_open_positions(
+    session: AsyncSession,
+    positions: list[Position],
+) -> None:
+    """Upsert open positions by id while preserving created_at."""
+    if not positions:
+        return
+
+    updated_at = datetime.now(timezone.utc)
+    values = [
+        _build_open_position_values(position, updated_at=updated_at)
+        for position in positions
+    ]
+    stmt = pg_insert(DBOpenPosition).values(values)
+    stmt = stmt.on_conflict_do_update(
+        index_elements=[DBOpenPosition.id],
+        set_={
+            "market_ticker": stmt.excluded.market_ticker,
+            "side": stmt.excluded.side,
+            "contracts": stmt.excluded.contracts,
+            "average_entry": stmt.excluded.average_entry,
+            "current_price": stmt.excluded.current_price,
+            "opportunity_id": stmt.excluded.opportunity_id,
+            "updated_at": stmt.excluded.updated_at,
+        },
+    )
+    await session.execute(stmt)
+
+
 async def sync_portfolio_to_db(
     cash_balance: float,
     positions_value: float,
     total_value: float,
     open_positions: list[Position],
 ) -> None:
-    """Bulk-replace open positions and update portfolio state singleton."""
+    """Upsert live open positions, prune stale rows, and update portfolio singleton."""
     portfolio_row = portfolio_stats_to_db(cash_balance, positions_value, total_value)
-    position_rows = [position_to_db(pos) for pos in open_positions]
+    open_position_ids = [position.id for position in open_positions]
 
     async with get_db_session() as session:
-        await session.execute(delete(DBOpenPosition))
-        for row in position_rows:
-            session.add(row)
+        await _upsert_open_positions(session, open_positions)
+
+        if open_position_ids:
+            await session.execute(
+                delete(DBOpenPosition).where(~DBOpenPosition.id.in_(open_position_ids))
+            )
+        else:
+            await session.execute(delete(DBOpenPosition))
+
         await session.merge(portfolio_row)
         await session.commit()
 
@@ -68,12 +120,11 @@ async def update_portfolio_after_trade_in_db(
     positions_value: float,
     total_value: float,
 ) -> None:
-    """Add a new open position and update portfolio balances after a trade."""
-    position_row = position_to_db(position)
+    """Upsert a traded position and update portfolio balances after a trade."""
     portfolio_row = portfolio_stats_to_db(cash_balance, positions_value, total_value)
 
     async with get_db_session() as session:
-        await session.merge(position_row)
+        await _upsert_open_positions(session, [position])
         await session.merge(portfolio_row)
         await session.commit()
 

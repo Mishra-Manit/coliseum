@@ -71,7 +71,8 @@ CREATE TABLE open_positions (
     average_entry   NUMERIC(5,4) NOT NULL,
     current_price   NUMERIC(5,4) NOT NULL,
     opportunity_id  TEXT REFERENCES opportunities(id),
-    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),    -- first time Coliseum persisted the position
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()     -- last portfolio reconciliation/update
 );
 ```
 
