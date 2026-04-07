@@ -142,10 +142,8 @@ export interface ChartStats {
   win_rate: number;
   best_day: number;
   worst_day: number;
+  avg_day: number;
   realized_pnl: number;
-  best_trade: number;
-  worst_trade: number;
-  avg_trade: number;
 }
 
 export interface ChartResponse {

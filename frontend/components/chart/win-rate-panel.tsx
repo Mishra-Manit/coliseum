@@ -8,33 +8,32 @@ interface WinRatePanelProps {
   stats: ChartStats;
 }
 
-function formatTradeAmount(value: number): string {
+function formatDayAmount(value: number): string {
   if (value >= 0) return `+$${value.toFixed(2)}`;
   return `-$${Math.abs(value).toFixed(2)}`;
 }
 
-function formatBestTrade(value: number): string {
+function formatBestDay(value: number): string {
   if (value <= 0) return "--";
-  return formatTradeAmount(value);
+  return formatDayAmount(value);
 }
 
-function formatWorstTrade(value: number): string {
+function formatWorstDay(value: number): string {
   if (value >= 0) return "--";
-  return formatTradeAmount(value);
+  return formatDayAmount(value);
 }
 
 export function WinRatePanel({ stats }: WinRatePanelProps) {
   const winPct = stats.win_rate * 100;
   const winsLabel = `${stats.winning_trades}W / ${stats.losing_trades}L`;
 
-  const avgTrade =
-    stats.total_trades > 0 ? formatTradeAmount(stats.avg_trade) : "$0.00";
+  const avgDay = formatDayAmount(stats.avg_day);
   const avgTrend =
-    stats.total_trades > 0
-      ? stats.avg_trade >= 0
-        ? ("positive" as const)
-        : ("negative" as const)
-      : ("neutral" as const);
+    stats.avg_day > 0
+      ? ("positive" as const)
+      : stats.avg_day < 0
+        ? ("negative" as const)
+        : ("neutral" as const);
 
   return (
     <div className="flex flex-col gap-4">
@@ -57,16 +56,16 @@ export function WinRatePanel({ stats }: WinRatePanelProps) {
           trend="neutral"
         />
         <StatCard
-          value={formatBestTrade(stats.best_trade)}
-          label="Best Trade"
-          trend={stats.best_trade > 0 ? "positive" : "neutral"}
+          value={formatBestDay(stats.best_day)}
+          label="Best Day"
+          trend={stats.best_day > 0 ? "positive" : "neutral"}
         />
         <StatCard
-          value={formatWorstTrade(stats.worst_trade)}
-          label="Worst Trade"
-          trend={stats.worst_trade < 0 ? "negative" : "neutral"}
+          value={formatWorstDay(stats.worst_day)}
+          label="Worst Day"
+          trend={stats.worst_day < 0 ? "negative" : "neutral"}
         />
-        <StatCard value={avgTrade} label="Avg Trade" trend={avgTrend} />
+        <StatCard value={avgDay} label="Avg Day" trend={avgTrend} />
       </div>
     </div>
   );

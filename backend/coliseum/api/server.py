@@ -316,10 +316,8 @@ async def get_chart_data():
                 "win_rate": 0.0,
                 "best_day": 0.0,
                 "worst_day": 0.0,
+                "avg_day": 0.0,
                 "realized_pnl": 0.0,
-                "best_trade": 0.0,
-                "worst_trade": 0.0,
-                "avg_trade": 0.0,
             },
         }
 
@@ -343,11 +341,17 @@ async def get_chart_data():
     losing_trades = total_trades - winning_trades
     realized_pnl = sum(close_pnls)
 
-    daily_pnl_map: dict[str, float] = {}
-    for c in closes:
-        day = c["closed_at"][:10]
-        daily_pnl_map[day] = daily_pnl_map.get(day, 0.0) + c["pnl"]
-    daily_pnls = list(daily_pnl_map.values())
+    daily_nav_map: dict[str, dict[str, float]] = {}
+    for s in snapshots:
+        day = s["snapshot_at"][:10]
+        nav = float(s["total_value"])
+        day_bucket = daily_nav_map.get(day)
+        if day_bucket is None:
+            daily_nav_map[day] = {"first": nav, "last": nav}
+        else:
+            day_bucket["last"] = nav
+
+    daily_pnls = [v["last"] - v["first"] for v in daily_nav_map.values()]
 
     stats = {
         "current_nav": round(current_nav, 2),
@@ -359,10 +363,8 @@ async def get_chart_data():
         "win_rate": round(winning_trades / total_trades, 4) if total_trades > 0 else 0.0,
         "best_day": round(max(daily_pnls), 2) if daily_pnls else 0.0,
         "worst_day": round(min(daily_pnls), 2) if daily_pnls else 0.0,
+        "avg_day": round(sum(daily_pnls) / len(daily_pnls), 2) if daily_pnls else 0.0,
         "realized_pnl": round(realized_pnl, 2),
-        "best_trade": round(max(close_pnls), 2) if close_pnls else 0.0,
-        "worst_trade": round(min(close_pnls), 2) if close_pnls else 0.0,
-        "avg_trade": round(realized_pnl / total_trades, 2) if total_trades > 0 else 0.0,
     }
 
     return {"series": series, "stats": stats}
