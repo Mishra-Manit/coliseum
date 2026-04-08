@@ -2,7 +2,7 @@
 
 ## Spec Version
 
-- Current version: `1.8.1`
+- Current version: `1.9.0`
 - Versioning scheme: `MAJOR.MINOR.PATCH` (semantic versioning)
 
 > **CRITICAL**: Always activate the venv before running backend code:
@@ -24,34 +24,48 @@ backend/
 │   ├── llm_providers.py     # Model enums: OpenAIModel, AnthropicModel, FireworksModel
 │   ├── observability.py     # Logfire initialization
 │   ├── pipeline.py          # Full pipeline orchestration
+│   ├── runtime.py           # Runtime utilities
 │   ├── daemon.py            # Long-lived autonomous daemon with heartbeat loop
 │   ├── memory/              # Prompt memory + journal/error helpers
+│   │   ├── context.py       # Kalshi mechanics loader
+│   │   ├── decisions.py     # Decision memory helpers
+│   │   ├── enums.py         # Memory-related enums
+│   │   ├── journal.py       # Journal/error helpers
+│   │   └── _io.py           # I/O utilities
 │   ├── agents/
-│   │   ├── agent_factory.py # Agent construction helpers
+│   │   ├── agent_factory.py # Agent construction helpers (OpenAI Responses API + WebSearchTool)
 │   │   ├── shared_tools.py  # Tools shared across agents
 │   │   ├── scout/           # Market discovery agent
+│   │   │   ├── main.py      # Scout orchestration
+│   │   │   ├── researcher.py # Scout web research (uses WebSearchTool)
+│   │   │   ├── filters.py   # Market filtering logic
+│   │   │   ├── models.py    # Scout data models
+│   │   │   └── prompts.py   # Scout prompts
 │   │   ├── analyst/         # Research + recommendation agent
-│   │   │   ├── researcher/  # Web research sub-agent
-│   │   │   └── recommender/ # Flip-risk recommendation sub-agent
+│   │   │   ├── main.py      # Analyst orchestration
+│   │   │   ├── researcher.py # Analyst web research (uses WebSearchTool)
+│   │   │   ├── recommender.py # Flip-risk recommendation sub-agent
+│   │   │   ├── market_type_context.py # Market-type-specific context
+│   │   │   ├── models.py    # Analyst data models
+│   │   │   ├── shared.py    # Shared analyst utilities
+│   │   │   └── prompts.py   # Analyst prompts
 │   │   ├── trader/          # Trade execution agent
 │   │   └── guardian/        # Position monitoring agent
 │   ├── api/
-│   │   └── server.py        # FastAPI dashboard server
+│   │   ├── server.py        # FastAPI dashboard server
+│   │   ├── cache.py         # API caching
+│   │   ├── chart_export.py  # Chart export utilities
+│   │   └── parsing.py       # API response parsing
 │   ├── services/
 │   │   ├── supabase/        # SQLAlchemy models + async DB session
+│   │   │   ├── db.py        # Async DB session (get_db_session)
+│   │   │   ├── models.py    # SQLAlchemy ORM models
+│   │   │   └── repositories/ # Data access layer
 │   │   ├── kalshi/          # Kalshi API client
-│   │   ├── exa/             # Exa AI web search client
 │   │   └── telegram/        # Telegram notifications
-│   ├── storage/
-│   │   ├── state.py         # Legacy/local portfolio helpers being replaced
-│   │   ├── files.py         # Legacy/local opportunity file ops being replaced
-│   │   └── sync.py          # Legacy/local reconciliation helpers being replaced
 ├── alembic/                 # Alembic migration environment
 ├── alembic.ini              # Alembic configuration
 ├── config.yaml              # Trading config (risk limits, schedules)
-├── data/
-│   ├── state.yaml           # Legacy local state file (being phased out)
-│   └── opportunities/       # Legacy local opportunity files (being phased out)
 └── requirements.txt
 ```
 
