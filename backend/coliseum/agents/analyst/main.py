@@ -14,6 +14,7 @@ from coliseum.agents.analyst.recommender import run_recommender
 from coliseum.agents.analyst.researcher import run_researcher
 from coliseum.agents.analyst.shared import load_opportunity
 from coliseum.agents.x_sentiment.main import run_x_sentiment
+from coliseum.agents.x_sentiment.models import XSentimentOutput
 from coliseum.config import Settings
 from coliseum.domain.opportunity import OpportunitySignal
 from coliseum.services.supabase.repositories.opportunities import append_x_sentiment_to_research
