@@ -2,8 +2,10 @@
 
 import asyncio
 import logging
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from typing import ParamSpec, TypeVar
 
 import logfire
 
@@ -32,6 +34,33 @@ class CycleMetrics:
     trader_results: dict[str, str] = field(default_factory=dict)
 
 logger = logging.getLogger("coliseum.pipeline")
+
+P = ParamSpec("P")
+T = TypeVar("T")
+
+_TRANSIENT_MARKERS = ("status_code: 500", "status_code: 502", "status_code: 503", "status_code: 429", "temporarily unavailable", "rate limit")
+
+
+async def _retry_transient(
+    fn: Callable[P, Awaitable[T]],
+    *args: P.args,
+    _max_retries: int = 2,
+    _base_delay: float = 5.0,
+    **kwargs: P.kwargs,
+) -> T:
+    """Call fn with retries on transient provider errors (500/502/503/429)."""
+    for attempt in range(_max_retries + 1):
+        try:
+            return await fn(*args, **kwargs)
+        except Exception as exc:
+            lowered = str(exc).lower()
+            is_transient = any(m in lowered for m in _TRANSIENT_MARKERS)
+            if not is_transient or attempt == _max_retries:
+                raise
+            delay = _base_delay * (2 ** attempt)
+            logger.warning("Transient error (attempt %d/%d), retrying in %.0fs: %s", attempt + 1, _max_retries, delay, exc)
+            await asyncio.sleep(delay)
+    raise RuntimeError("unreachable")
 
 
 def _shutdown_requested(shutdown_event: asyncio.Event | None) -> bool:
@@ -153,7 +182,8 @@ async def run_pipeline(settings: Settings, shutdown_event: asyncio.Event | None 
                 with logfire.span("analyst", opportunity_id=opp.id):
                     try:
                         logger.info("Analyst starting for %s (%d/%d)", opp.market_ticker, i, total)
-                        analyzed = await run_analyst(
+                        analyzed = await _retry_transient(
+                            run_analyst,
                             opportunity_id=opp.id,
                             settings=settings,
                         )
@@ -178,7 +208,8 @@ async def run_pipeline(settings: Settings, shutdown_event: asyncio.Event | None 
 
                 with logfire.span("trader", opportunity_id=opp.id):
                     try:
-                        trader_output = await run_trader(
+                        trader_output = await _retry_transient(
+                            run_trader,
                             opportunity_id=opp.id,
                             settings=settings,
                             shutdown_event=shutdown_event,
