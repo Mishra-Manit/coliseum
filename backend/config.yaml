@@ -1,5 +1,8 @@
 # Coliseum Configuration
 
+llm:
+  provider: "xai"
+
 trading:
   paper_mode: false
   contracts: 5

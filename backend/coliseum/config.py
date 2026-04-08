@@ -4,6 +4,7 @@ import logging
 from datetime import date as date_type
 from functools import lru_cache
 from pathlib import Path
+from typing import Literal
 
 import yaml
 from pydantic import BaseModel, Field, field_validator
@@ -12,6 +13,12 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from coliseum.runtime import bootstrap_runtime
 
 logger = logging.getLogger(__name__)
+
+
+class LlmConfig(BaseModel):
+    """LLM provider selection."""
+
+    provider: Literal["openai", "xai"] = "openai"
 
 
 class TradingConfig(BaseModel):
@@ -91,6 +98,7 @@ class Settings(BaseSettings):
     rsa_private_key: str = ""
     rsa_private_key_path: str = ""  # Alternative: path to PEM file
     openai_api_key: str = ""
+    xai_api_key: str = ""
     logfire_token: str = ""
 
     # Telegram
@@ -99,6 +107,7 @@ class Settings(BaseSettings):
     telegram_send_alerts: bool = True
 
     # Nested configuration sections
+    llm: LlmConfig = Field(default_factory=LlmConfig)
     trading: TradingConfig = Field(default_factory=TradingConfig)
     scout: ScoutConfig = Field(default_factory=ScoutConfig)
     guardian: GuardianConfig = Field(default_factory=GuardianConfig)
@@ -158,6 +167,7 @@ class Settings(BaseSettings):
                 self.telegram_send_alerts = yaml_config["telegram_send_alerts"]
 
             for section_name in [
+                "llm",
                 "trading",
                 "scout",
                 "guardian",

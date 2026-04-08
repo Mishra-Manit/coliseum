@@ -21,6 +21,7 @@ class AnthropicModel(StrEnum):
     CLAUDE_SONNET_4_5 = "claude-sonnet-4-5"
     CLAUDE_HAIKU_4_5 = "claude-haiku-4-5"
 
+
 class FireworksModel(StrEnum):
     """Fireworks AI models available via API."""
 
@@ -36,7 +37,17 @@ class FireworksModel(StrEnum):
     KIMI_K_2_5 = "accounts/fireworks/models/kimi-k2p5"
 
 
-def get_model_string(model: OpenAIModel | AnthropicModel | FireworksModel) -> str:
+class GrokModel(StrEnum):
+    """xAI Grok models available via API."""
+
+    GROK_4_20_REASONING = "grok-4.20-0309-reasoning"
+    GROK_4_20_NON_REASONING = "grok-4.20-0309-non-reasoning"
+    GROK_4_1_FAST_REASONING = "grok-4-1-fast-reasoning"
+    GROK_4_1_FAST_NON_REASONING = "grok-4-1-fast-non-reasoning"
+    GROK_4_20_MULTI_AGENT = "grok-4.20-multi-agent-0309"
+
+
+def get_model_string(model: OpenAIModel | AnthropicModel | FireworksModel | GrokModel) -> str:
     """Get the API model string for any supported model."""
     if isinstance(model, OpenAIModel):
         return f"openai-responses:{model.value}"
@@ -44,4 +55,6 @@ def get_model_string(model: OpenAIModel | AnthropicModel | FireworksModel) -> st
         return f"anthropic:{model.value}"
     elif isinstance(model, FireworksModel):
         return f"fireworks:{model.value}"
+    elif isinstance(model, GrokModel):
+        return f"xai:{model.value}"
     return model.value

@@ -10,7 +10,7 @@ python-dotenv>=1.2.1,<2.0.0
 pyyaml>=6.0.3,<7.0.0
 
 # AI Agent Framework
-pydantic-ai-slim[anthropic,openai,logfire]>=1.72.0,<2.0.0
+pydantic-ai-slim[anthropic,openai,xai,logfire]>=1.72.0,<2.0.0
 
 # Cryptography (Kalshi Trading API)
 cryptography>=46.0.3,<47.0.0

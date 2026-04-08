@@ -6,7 +6,8 @@ from pydantic_ai import Agent, WebSearchTool
 from pydantic_ai.models.openai import OpenAIResponsesModel, OpenAIResponsesModelSettings
 from pydantic_ai.profiles.openai import openai_model_profile
 
-from coliseum.agents.agent_factory import _get_provider
+from coliseum.agents.agent_factory import _get_openai_provider, create_agent
+from coliseum.config import get_settings
 from coliseum.llm_providers import OpenAIModel
 
 _WEB_RESEARCHER_PROMPT = """\
@@ -49,22 +50,31 @@ def get_web_researcher() -> Agent[None, str]:
     """Return the singleton web researcher agent, creating it on first call."""
     global _web_researcher
     if _web_researcher is None:
-        provider = _get_provider()
-        model_name = OpenAIModel.GPT_5_2
-        profile = replace(
-            openai_model_profile(model_name),
-            openai_supports_encrypted_reasoning_content=False,
-        )
-        model = OpenAIResponsesModel(model_name, provider=provider, profile=profile)
-        model_settings = OpenAIResponsesModelSettings(
-            timeout=120,
-            openai_reasoning_effort='low',
-        )
-        _web_researcher = Agent(
-            model=model,
-            output_type=str,
-            system_prompt=_WEB_RESEARCHER_PROMPT,
-            model_settings=model_settings,
-            builtin_tools=[WebSearchTool()],
-        )
+        settings = get_settings()
+        if settings.llm.provider == "xai":
+            _web_researcher = create_agent(
+                prompt=_WEB_RESEARCHER_PROMPT,
+                output_type=str,
+                builtin_tools=[WebSearchTool()],
+                prepend_mechanics=False,
+            )
+        else:
+            provider = _get_openai_provider()
+            model_name = OpenAIModel.GPT_5_2
+            profile = replace(
+                openai_model_profile(model_name),
+                openai_supports_encrypted_reasoning_content=False,
+            )
+            model = OpenAIResponsesModel(model_name, provider=provider, profile=profile)
+            model_settings = OpenAIResponsesModelSettings(
+                timeout=120,
+                openai_reasoning_effort='low',
+            )
+            _web_researcher = Agent(
+                model=model,
+                output_type=str,
+                system_prompt=_WEB_RESEARCHER_PROMPT,
+                model_settings=model_settings,
+                builtin_tools=[WebSearchTool()],
+            )
     return _web_researcher

@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-import traceback
 from datetime import datetime
 from typing import Any, Literal
 from uuid import uuid4
@@ -43,10 +42,7 @@ class KalshiClient:
         else:
             auth_status = "disabled"
 
-        stack = "".join(traceback.format_stack())
-        logger.info(
-            f"Initialized KalshiClient (auth={auth_status})\nCall stack:\n{stack}"
-        )
+        logger.info(f"Initialized KalshiClient (auth={auth_status})")
 
     async def __aenter__(self) -> KalshiClient:
         limits = httpx.Limits(
