@@ -31,6 +31,7 @@ def _create_agent() -> Agent[AnalystDependencies, RecommenderOutput]:
         output_type=RecommenderOutput,
         deps_type=AnalystDependencies,
         use_responses_api=False,
+        max_tokens=2048,
     )
 
 

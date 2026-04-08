@@ -31,6 +31,7 @@ def _create_agent() -> Agent[AnalystDependencies, ResearcherOutput]:
         deps_type=AnalystDependencies,
         reasoning_effort="medium",
         builtin_tools=[WebSearchTool()],
+        max_tokens=4096,
     )
 
 
