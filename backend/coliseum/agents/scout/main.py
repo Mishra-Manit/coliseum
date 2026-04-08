@@ -9,6 +9,7 @@ from pydantic_ai import Agent, RunContext
 
 from coliseum.agents.agent_factory import create_agent
 from coliseum.agents.shared_tools import register_get_current_time, strip_cite_tokens
+from coliseum.agents.x_sentiment.main import run_x_sentiment
 from coliseum.config import Settings, get_settings
 from coliseum.memory.context import build_scout_context
 from coliseum.services.kalshi.client import KalshiClient
@@ -51,6 +52,21 @@ def _register_research_tool(agent: Agent[ScoutDependencies, ScoutOutput]) -> Non
         return result.output
 
 
+def _register_x_sentiment_tool(agent: Agent[ScoutDependencies, ScoutOutput]) -> None:
+    """Register the X sentiment analysis tool on the Scout agent."""
+
+    @agent.tool
+    async def search_x_sentiment(ctx: RunContext[ScoutDependencies], topic: str) -> str:
+        """Search X (Twitter) for public sentiment on a prediction market topic.
+
+        Pass a natural-language topic with the expected outcome. Returns structured
+        sentiment (CONFIRMS/CONTRADICTS/MIXED/INSUFFICIENT) plus key posts.
+        Unverified opinion only — always cross-reference with web research.
+        """
+        output = await run_x_sentiment(topic)
+        return output.model_dump_json()
+
+
 def _register_tools(agent: Agent[ScoutDependencies, ScoutOutput]) -> None:
     """Register tools with the Scout agent."""
 
@@ -60,6 +76,7 @@ def _register_tools(agent: Agent[ScoutDependencies, ScoutOutput]) -> None:
 
     register_get_current_time(agent)
     _register_research_tool(agent)
+    _register_x_sentiment_tool(agent)
 
 
 def _side_is_tradeable(

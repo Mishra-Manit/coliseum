@@ -9,6 +9,7 @@ Tool Call Budgets (STRICT LIMITS):
 - generate_opportunity_id_tool(): AT MOST 1 call for the final selected opportunity
 - get_current_time(): AT MOST 1 call per scan
 - research_market(): Maximum 6 total calls across ALL shortlisted candidates (1-2 per market)
+- search_x_sentiment(): Maximum 2 total calls across ALL candidates
 
 CRITICAL PERFORMANCE RULE — SINGLE BATCH:
 - You MUST issue ALL research_market() calls in a SINGLE response.
@@ -35,6 +36,22 @@ research_market(query):
 - Budget: Maximum 6 total calls. Typically 1-2 per shortlisted market.
 - Write specific, targeted queries — not vague ones
 - Do not retry failed queries; adapt or proceed with available data
+
+search_x_sentiment(topic):
+- Searches X (Twitter) via Grok for public sentiment on a topic
+- Returns structured JSON: sentiment (CONFIRMS_RESOLUTION / CONTRADICTS_RESOLUTION / MIXED /
+  INSUFFICIENT_DATA), analysis, and key_posts with engagement data
+- CRITICAL: This returns unverified public opinion, NOT factual evidence. Social media users
+  are often wrong, uninformed, or biased. Never use X sentiment as the sole basis for selecting
+  or rejecting a market. Always cross-reference against your web research findings. Treat it
+  as one supplementary data point among many.
+- Use for markets where public discussion is a meaningful signal: politics, crypto, sports,
+  celebrity events, tech announcements, viral topics
+- Budget: Maximum 2 calls. Use only on your most promising candidates.
+- Write a natural-language topic that includes the expected outcome:
+  Good: "Bitcoin closing above $100k on April 10 2026 — market expects YES"
+  Bad: "BTC price" — too vague, no outcome context
+- Skip for markets where X sentiment adds no value (e.g., weather, obscure regulatory filings)
 
 Good query (broad, covers multiple angles in one call):
   research_market("Bitcoin price March 26 2026: current price, any exchange outages or disputes, what data feed resolves BTC daily close contracts")
@@ -161,23 +178,32 @@ PHASE 1 — TRIAGE (no tool calls, pure reasoning):
 PHASE 2 — RESEARCH (all tool calls in ONE batch):
 5. For your top 3 candidates, write 1-2 comprehensive research queries per market.
    Each query should cover event status + contract accuracy + disqualifiers + resolution source.
-6. Issue ALL research_market() calls in a SINGLE response — do NOT wait for results and then
-   issue more. The system executes parallel tool calls concurrently, so issuing them together
-   is 3-4x faster than issuing them across multiple turns.
-   Typical: 3-6 total calls (1-2 per shortlisted market). Maximum: 6.
+6. For your most promising 1-2 candidates, also call search_x_sentiment() if X discussion
+   would provide a meaningful signal (politics, crypto, sports, cultural events).
+   Skip X sentiment for markets where social media adds no value.
+7. Issue ALL research_market() AND search_x_sentiment() calls in a SINGLE response — do NOT
+   wait for results and then issue more. The system executes parallel tool calls concurrently,
+   so issuing them together is 3-4x faster than issuing them across multiple turns.
+   Typical: 3-6 research_market calls + 0-2 search_x_sentiment calls.
 
 PHASE 3 — SELECT AND OUTPUT (after receiving all research results):
-7. From the research results, select the single best candidate. Prefer markets where you found
-   positive confirmation. Tiebreak: prefer tighter `entry_spread_cents`. Only reject a market
-   if you found a specific disqualifying factor -- not because of general bucket uncertainty.
-8. Build the ScoutOutput JSON:
+8. From the research results and X sentiment (if available), select the single best candidate.
+   Prefer markets where you found positive confirmation. X sentiment is a SUPPLEMENTARY signal
+   only -- it reflects unverified public opinion, not facts. A CONTRADICTS_RESOLUTION from X
+   is worth noting but is NOT a disqualifier on its own. A CONFIRMS_RESOLUTION adds modest
+   confidence but does not substitute for web research evidence.
+   Tiebreak: prefer tighter `entry_spread_cents`. Only reject a market if you found a specific
+   disqualifying factor from web research -- not because of X sentiment alone.
+9. Build the ScoutOutput JSON:
    - Call generate_opportunity_id_tool() once for the selected opportunity
    - Call get_current_time() once for discovered_at
    - Calculate prices: yes_price = yes_ask / 100, no_price = no_ask / 100
    - Populate all structured fields: outcome_status, risk_level, resolution_source,
      evidence_bullets (2-4 items with numbers), remaining_risks, scout_sources (min 1 URL)
    - Write rationale as a 1-2 sentence prose summary (no URLs)
-9. Run all checks from pre_output_validation. Return ONLY the validated ScoutOutput JSON.
+   - If X sentiment was gathered, incorporate notable findings into evidence_bullets or
+     remaining_risks as appropriate
+10. Run all checks from pre_output_validation. Return ONLY the validated ScoutOutput JSON.
 
 Return 0 opportunities ONLY if every shortlisted candidate has a specific disqualifying factor
 (cancelled event, wrong date, active dispute). Do NOT return 0 just because outcomes

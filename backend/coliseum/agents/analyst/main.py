@@ -1,45 +1,91 @@
 """Analyst Agent: Orchestration layer for Researcher + Recommender pipeline.
 
-This module orchestrates the two-agent pipeline:
-- Researcher: Conducts research, appends to opportunity file
-- Recommender: Makes trade decisions based on research, appends recommendation
-
-All stages write to a single opportunity file.
+This module orchestrates the three-stage pipeline:
+- Researcher + X Sentiment: Run in parallel for speed
+- Recommender: Makes trade decisions based on combined research
 """
 
+import asyncio
 import logging
 
 import logfire
 
 from coliseum.agents.analyst.recommender import run_recommender
 from coliseum.agents.analyst.researcher import run_researcher
+from coliseum.agents.analyst.shared import load_opportunity
+from coliseum.agents.x_sentiment.main import run_x_sentiment
 from coliseum.config import Settings
 from coliseum.domain.opportunity import OpportunitySignal
+from coliseum.services.supabase.repositories.opportunities import append_x_sentiment_to_research
 
 logger = logging.getLogger(__name__)
 
+
+def _build_x_sentiment_topic(opportunity: OpportunitySignal) -> str:
+    """Build a natural-language topic string from the opportunity for X search."""
+    price_pct = round(opportunity.yes_price * 100)
+    parts = [opportunity.market_title]
+    if opportunity.subtitle:
+        parts.append(f"- {opportunity.subtitle}")
+    parts.append(f"\u2014 market expects YES at {price_pct}%")
+    return " ".join(parts)
+
+
+async def _run_x_sentiment_safe(
+    opportunity: OpportunitySignal,
+) -> XSentimentOutput | None:
+    """Run X sentiment with error handling so it never blocks the pipeline."""
+    try:
+        topic = _build_x_sentiment_topic(opportunity)
+        return await run_x_sentiment(topic)
+    except Exception as e:
+        logfire.warning(
+            "X sentiment failed, continuing without it",
+            opportunity_id=opportunity.id,
+            error=str(e),
+        )
+        logger.warning("X sentiment failed for %s: %s", opportunity.id, e)
+        return None
 
 
 async def run_analyst(
     opportunity_id: str,
     settings: Settings,
 ) -> OpportunitySignal:
-    """Run full Analyst pipeline: Researcher + Recommender.
-
-    This is the main entry point that orchestrates both agents sequentially:
-    1. Researcher conducts research and appends to opportunity file
-    2. Recommender evaluates research and appends recommendation
-    """
+    """Run full Analyst pipeline: (Researcher + X Sentiment) in parallel, then Recommender."""
     logger.info("Analyst starting: %s", opportunity_id)
     with logfire.span("analyst pipeline", opportunity_id=opportunity_id):
-        with logfire.span("researcher", opportunity_id=opportunity_id):
-            logger.info("Researcher starting")
-            await run_researcher(
+        opportunity = await load_opportunity(opportunity_id)
+
+        with logfire.span("research phase", opportunity_id=opportunity_id):
+            logger.info("Research phase starting (web + X sentiment in parallel)")
+
+            researcher_task = run_researcher(
                 opportunity_id=opportunity_id,
                 settings=settings,
             )
-            logfire.info("Research complete")
-            logger.info("Researcher complete")
+            x_sentiment_task = _run_x_sentiment_safe(opportunity)
+
+            _, x_sentiment_output = await asyncio.gather(
+                researcher_task,
+                x_sentiment_task,
+            )
+
+            if x_sentiment_output is not None:
+                try:
+                    await append_x_sentiment_to_research(
+                        opportunity_id=opportunity_id,
+                        x_sentiment_markdown=x_sentiment_output.to_markdown(),
+                    )
+                except Exception as e:
+                    logfire.error(
+                        "Failed to persist X sentiment",
+                        opportunity_id=opportunity_id,
+                        error=str(e),
+                    )
+
+            logfire.info("Research phase complete")
+            logger.info("Research phase complete")
 
         with logfire.span("recommender", opportunity_id=opportunity_id):
             logger.info("Recommender starting")

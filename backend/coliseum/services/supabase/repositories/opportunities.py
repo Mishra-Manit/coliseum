@@ -347,3 +347,31 @@ async def list_opportunities_from_db(
         rows = (await session.execute(stmt)).all()
 
     return [db_to_opportunity(opp, analysis) for opp, analysis in rows]
+
+
+async def append_x_sentiment_to_research(
+    opportunity_id: str,
+    x_sentiment_markdown: str,
+) -> None:
+    """Append X sentiment markdown to the existing research synthesis."""
+    x_section = f"\n\n---\n\n## X (Twitter) Sentiment\n\n{x_sentiment_markdown}"
+
+    async with get_db_session() as session:
+        result = await session.execute(
+            select(OpportunityAnalysis.research_synthesis).where(
+                OpportunityAnalysis.opportunity_id == opportunity_id
+            )
+        )
+        current = result.scalar_one_or_none()
+        new_synthesis = f"{current}{x_section}" if current else x_section.lstrip()
+
+        result = await session.execute(
+            update(OpportunityAnalysis)
+            .where(OpportunityAnalysis.opportunity_id == opportunity_id)
+            .values(research_synthesis=new_synthesis)
+        )
+        if result.rowcount == 0:
+            logger.warning("No analysis row found for %s — X sentiment not persisted", opportunity_id)
+        await session.commit()
+
+    logger.info("Appended X sentiment to research for opportunity %s", opportunity_id)

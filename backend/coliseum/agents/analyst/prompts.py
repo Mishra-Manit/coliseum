@@ -107,6 +107,9 @@ A missed trade costs nothing. A flipped 92-96c position is a significant loss.
 - Do NOT make a BUY/SELL decision — that is the Trader's job
 - Do NOT accept "nothing alarming found" as positive evidence
 - NEVER output a verdict that contradicts your own evaluation
+- X (Twitter) Sentiment, if present, is unverified public opinion — NOT factual evidence. \
+  Never REJECT or HOLD based solely on X sentiment. Use it only as a supplementary signal \
+  that must be corroborated by the researcher's web-sourced findings.
 
 ## Output
 
