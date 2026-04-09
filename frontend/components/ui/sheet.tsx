@@ -25,7 +25,7 @@ const sideClasses = {
 
 function getSheetAnimation(side: keyof typeof sideClasses, reducedMotion: boolean) {
   if (reducedMotion) {
-    return { opacity: 1, x: 0, y: 0 };
+    return { opacity: 0, x: 0, y: 0 };
   }
 
   switch (side) {
@@ -130,7 +130,7 @@ function SheetContent({
   const shouldReduceMotion = useReducedMotion() ?? false;
 
   return (
-    <SheetPortal>
+    <SheetPortal forceMount>
       <SheetOverlay />
       <SheetPrimitive.Content
         forceMount
@@ -143,7 +143,8 @@ function SheetContent({
           animate={open ? { opacity: 1, x: 0, y: 0 } : getSheetAnimation(side, shouldReduceMotion)}
           transition={shouldReduceMotion ? { duration: 0 } : sheetTransition}
           className={cn(
-            "bg-background pointer-events-auto absolute flex flex-col gap-4 shadow-2xl shadow-black/15",
+            "bg-background absolute flex flex-col gap-4 shadow-2xl shadow-black/15",
+            open ? "pointer-events-auto" : "pointer-events-none",
             sideClasses[side],
             className,
           )}

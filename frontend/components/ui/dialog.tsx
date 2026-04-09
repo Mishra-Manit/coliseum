@@ -104,7 +104,7 @@ function DialogContent({
   const shouldReduceMotion = useReducedMotion() ?? false;
 
   return (
-    <DialogPortal>
+    <DialogPortal forceMount>
       <DialogOverlay />
       <DialogPrimitive.Content
         forceMount
@@ -125,7 +125,8 @@ function DialogContent({
           }
           transition={shouldReduceMotion ? { duration: 0 } : dialogTransition}
           className={cn(
-            "bg-card pointer-events-auto relative w-full max-w-lg shadow-2xl shadow-black/15",
+            "bg-card relative w-full max-w-lg shadow-2xl shadow-black/15",
+            open ? "pointer-events-auto" : "pointer-events-none",
             className,
           )}
         >
