@@ -2,14 +2,52 @@
 
 import * as React from "react";
 import { XIcon } from "lucide-react";
+import { motion, useReducedMotion } from "motion/react";
 import { Dialog as DialogPrimitive } from "radix-ui";
 
 import { cn } from "@/lib/utils";
 
+const dialogTransition = {
+  duration: 0.2,
+  ease: [0.22, 1, 0.36, 1] as const,
+};
+
+const DialogOpenContext = React.createContext<{ open: boolean }>({
+  open: false,
+});
+
 function Dialog({
+  open: openProp,
+  defaultOpen,
+  onOpenChange,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Root>) {
-  return <DialogPrimitive.Root data-slot="dialog" {...props} />;
+  const isControlled = openProp !== undefined;
+  const [uncontrolledOpen, setUncontrolledOpen] = React.useState(
+    defaultOpen ?? false,
+  );
+  const open = openProp ?? uncontrolledOpen;
+
+  const handleOpenChange = React.useCallback(
+    (nextOpen: boolean) => {
+      if (!isControlled) {
+        setUncontrolledOpen(nextOpen);
+      }
+      onOpenChange?.(nextOpen);
+    },
+    [isControlled, onOpenChange],
+  );
+
+  return (
+    <DialogOpenContext.Provider value={{ open }}>
+      <DialogPrimitive.Root
+        data-slot="dialog"
+        open={open}
+        onOpenChange={handleOpenChange}
+        {...props}
+      />
+    </DialogOpenContext.Provider>
+  );
 }
 
 function DialogTrigger({
@@ -34,15 +72,23 @@ function DialogOverlay({
   className,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Overlay>) {
+  const { open } = React.useContext(DialogOpenContext);
+  const shouldReduceMotion = useReducedMotion() ?? false;
+
   return (
-    <DialogPrimitive.Overlay
-      data-slot="dialog-overlay"
-      className={cn(
-        "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-50 bg-black/50",
-        className
-      )}
-      {...props}
-    />
+    <DialogPrimitive.Overlay forceMount asChild {...props}>
+      <motion.div
+        data-slot="dialog-overlay"
+        initial={false}
+        animate={{ opacity: open ? 1 : 0 }}
+        transition={shouldReduceMotion ? { duration: 0 } : dialogTransition}
+        className={cn(
+          "fixed inset-0 z-50 bg-black/52",
+          !open && "pointer-events-none",
+          className,
+        )}
+      />
+    </DialogPrimitive.Overlay>
   );
 }
 
@@ -54,24 +100,44 @@ function DialogContent({
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean;
 }) {
+  const { open } = React.useContext(DialogOpenContext);
+  const shouldReduceMotion = useReducedMotion() ?? false;
+
   return (
-    <DialogPortal>
+    <DialogPortal forceMount>
       <DialogOverlay />
       <DialogPrimitive.Content
+        forceMount
         data-slot="dialog-content"
-        className={cn(
-          "bg-card data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 translate-x-[-50%] translate-y-[-50%] shadow-lg duration-200",
-          className
-        )}
+        className="fixed inset-0 z-50 grid place-items-center p-4 outline-hidden pointer-events-none"
         {...props}
       >
-        {children}
-        {showCloseButton && (
-          <DialogPrimitive.Close className="ring-offset-background focus:ring-ring data-[state=open]:bg-secondary absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none">
-            <XIcon className="size-4" />
-            <span className="sr-only">Close</span>
-          </DialogPrimitive.Close>
-        )}
+        <motion.div
+          initial={false}
+          animate={
+            open
+              ? { opacity: 1, y: 0, scale: 1 }
+              : {
+                  opacity: 0,
+                  y: shouldReduceMotion ? 0 : 8,
+                  scale: shouldReduceMotion ? 1 : 0.985,
+                }
+          }
+          transition={shouldReduceMotion ? { duration: 0 } : dialogTransition}
+          className={cn(
+            "bg-card relative w-full max-w-lg shadow-2xl shadow-black/15",
+            open ? "pointer-events-auto" : "pointer-events-none",
+            className,
+          )}
+        >
+          {children}
+          {showCloseButton && (
+            <DialogPrimitive.Close className="ring-offset-background focus:ring-ring absolute top-4 right-4 rounded-xs opacity-70 transition-colors hover:bg-secondary hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none">
+              <XIcon className="size-4" />
+              <span className="sr-only">Close</span>
+            </DialogPrimitive.Close>
+          )}
+        </motion.div>
       </DialogPrimitive.Content>
     </DialogPortal>
   );
