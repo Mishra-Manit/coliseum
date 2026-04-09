@@ -152,7 +152,7 @@ python -c "from database import check_db_connection; print('DB Connected:', chec
 curl http://localhost:9000/health
 ```
 
-Expected response:
+Example response:
 ```json
 {
   "status": "healthy",
@@ -163,7 +163,7 @@ Expected response:
 }
 ```
 
-`GET /health` is the canonical health check path. `GET /api/health` is also available as an alias for API clients that prefer the `/api/*` namespace.
+`GET /health` is the canonical health check path. `GET /api/health` is also available as an alias for API clients that prefer the `/api/*` namespace. `uptime_seconds` reports the current API process uptime derived from server startup, so it resets when the process restarts or when reload mode spins up a new worker.
 
 ## Using OpenRouter with pydantic-ai
 
