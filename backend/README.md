@@ -157,11 +157,13 @@ Expected response:
 {
   "status": "healthy",
   "service": "coliseum-api",
-  "version": "0.1.0",
-  "database": "connected",
-  "environment": "development"
+  "mode": "api",
+  "uptime_seconds": 12.345,
+  "started_at": "2026-04-09T12:00:00+00:00"
 }
 ```
+
+`GET /health` is the canonical health check path. `GET /api/health` is also available as an alias for API clients that prefer the `/api/*` namespace.
 
 ## Using OpenRouter with pydantic-ai
 
