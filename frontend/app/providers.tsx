@@ -1,6 +1,7 @@
 "use client";
 
 import type React from "react";
+import { MotionConfig } from "motion/react";
 import { SWRConfig } from "swr";
 import { TimezoneProvider } from "@/lib/timezone-context";
 
@@ -14,7 +15,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
         errorRetryCount: 3,
       }}
     >
-      <TimezoneProvider>{children}</TimezoneProvider>
+      <MotionConfig reducedMotion="user">
+        <TimezoneProvider>{children}</TimezoneProvider>
+      </MotionConfig>
     </SWRConfig>
   );
 }
