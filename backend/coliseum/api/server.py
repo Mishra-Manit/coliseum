@@ -3,8 +3,9 @@
 import asyncio
 import logging
 from contextlib import asynccontextmanager
-from datetime import date
+from datetime import date, datetime, timezone
 from pathlib import Path
+from time import monotonic
 from typing import Any
 
 import yaml
@@ -72,12 +73,22 @@ _CORS_ORIGINS = [
 # ---------------------------------------------------------------------------
 
 
+def _initialize_app_state(
+    app: FastAPI,
+    daemon: ColiseumDaemon | None = None,
+) -> None:
+    """Initialize shared app state for both API server modes."""
+    app.state.daemon = daemon
+    app.state.pipeline_task = None
+    app.state.pipeline_running = False
+    app.state.started_at = datetime.now(timezone.utc)
+    app.state.started_at_monotonic = monotonic()
+
+
 @asynccontextmanager
 async def _api_lifespan(app: FastAPI):
     """Lifespan for the API-only server (no daemon)."""
-    app.state.daemon = None
-    app.state.pipeline_task = None
-    app.state.pipeline_running = False
+    _initialize_app_state(app)
     yield
 
 
@@ -92,9 +103,7 @@ async def _daemon_lifespan(app: FastAPI):
 
     daemon = ColiseumDaemon(settings)
     task = asyncio.create_task(daemon.start(install_signal_handlers=False))
-    app.state.daemon = daemon
-    app.state.pipeline_task = None
-    app.state.pipeline_running = False
+    _initialize_app_state(app, daemon=daemon)
     logger.info("Daemon started as background task alongside API server")
     yield
 
@@ -147,6 +156,27 @@ def _load_yaml(path: Path) -> dict[str, Any]:
         return {}
     with open(path, "r", encoding="utf-8") as f:
         return yaml.safe_load(f) or {}
+
+
+def _build_health_response(request: Request) -> dict[str, Any]:
+    """Build a lightweight health payload for the API server."""
+    started_at = getattr(request.app.state, "started_at", None)
+    started_at_monotonic = getattr(request.app.state, "started_at_monotonic", None)
+
+    uptime_seconds = 0.0
+    if isinstance(started_at_monotonic, (int, float)):
+        uptime_seconds = round(max(0.0, monotonic() - float(started_at_monotonic)), 3)
+
+    daemon = getattr(request.app.state, "daemon", None)
+    response: dict[str, Any] = {
+        "status": "healthy",
+        "service": "coliseum-api",
+        "mode": "daemon" if daemon is not None else "api",
+        "uptime_seconds": uptime_seconds,
+    }
+    if isinstance(started_at, datetime):
+        response["started_at"] = started_at.isoformat()
+    return response
 
 
 # ---------------------------------------------------------------------------
@@ -334,6 +364,13 @@ async def _build_chart() -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 router = APIRouter()
+
+
+@router.get("/api/health", include_in_schema=False)
+@router.get("/health")
+async def health(request: Request) -> dict[str, Any]:
+    """Return API server health and uptime."""
+    return _build_health_response(request)
 
 
 @router.get("/api/config")
