@@ -108,7 +108,7 @@ def _make_app(lifespan: Any) -> FastAPI:
     """Construct a FastAPI instance with shared middleware and routes."""
     the_app = FastAPI(
         title="Coliseum Dashboard API",
-        version="0.1.0",
+        version=__version__,
         lifespan=lifespan,
     )
     the_app.add_middleware(
@@ -159,15 +159,17 @@ def _load_yaml(path: Path) -> dict[str, Any]:
 def _server_started_at(request: Request) -> datetime | None:
     """Return the server startup timestamp from app state."""
     started_at = getattr(request.app.state, "server_started_at", None)
-    if isinstance(started_at, datetime):
-        return started_at
-    return None
+    if not isinstance(started_at, datetime):
+        return None
+    if started_at.tzinfo is None:
+        return started_at.replace(tzinfo=timezone.utc)
+    return started_at.astimezone(timezone.utc)
 
 
 def _server_uptime_seconds(request: Request) -> int:
     """Compute server uptime from app startup state."""
     started_monotonic = getattr(request.app.state, "server_started_monotonic", None)
-    if isinstance(started_monotonic, float):
+    if isinstance(started_monotonic, (int, float)):
         return max(0, int(monotonic() - started_monotonic))
 
     started_at = _server_started_at(request)
