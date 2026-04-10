@@ -3,8 +3,9 @@
 import asyncio
 import logging
 from contextlib import asynccontextmanager
-from datetime import date
+from datetime import date, datetime, timezone
 from pathlib import Path
+from time import monotonic
 from typing import Any
 
 import yaml
@@ -13,6 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from pydantic import BaseModel
 
+from coliseum import __version__
 from coliseum.api.chart_export import (
     ChartExportBusyError,
     ChartExportDependencyError,
@@ -22,7 +24,6 @@ from coliseum.api.chart_export import (
     ExportFormat,
     ExportQuality,
 )
-
 from coliseum.api.cache import get_or_compute, invalidate_all
 from coliseum.api.parsing import parse_opportunity_sections
 from coliseum.config import get_settings
@@ -73,17 +74,17 @@ _CORS_ORIGINS = [
 
 
 @asynccontextmanager
-async def _api_lifespan(app: FastAPI):
+async def _api_lifespan(app: FastAPI) -> Any:
     """Lifespan for the API-only server (no daemon)."""
+    _initialize_server_state(app)
     app.state.daemon = None
-    app.state.pipeline_task = None
-    app.state.pipeline_running = False
     yield
 
 
 @asynccontextmanager
-async def _daemon_lifespan(app: FastAPI):
+async def _daemon_lifespan(app: FastAPI) -> Any:
     """Lifespan for the daemon+API server."""
+    _initialize_server_state(app)
     settings = get_settings()
     try:
         initialize_logfire(settings)
@@ -93,8 +94,6 @@ async def _daemon_lifespan(app: FastAPI):
     daemon = ColiseumDaemon(settings)
     task = asyncio.create_task(daemon.start(install_signal_handlers=False))
     app.state.daemon = daemon
-    app.state.pipeline_task = None
-    app.state.pipeline_running = False
     logger.info("Daemon started as background task alongside API server")
     yield
 
@@ -105,7 +104,7 @@ async def _daemon_lifespan(app: FastAPI):
         logger.warning("Daemon did not stop within 120s timeout — forcing exit")
 
 
-def _make_app(lifespan) -> FastAPI:
+def _make_app(lifespan: Any) -> FastAPI:
     """Construct a FastAPI instance with shared middleware and routes."""
     the_app = FastAPI(
         title="Coliseum Dashboard API",
@@ -128,6 +127,14 @@ def _make_app(lifespan) -> FastAPI:
 # ---------------------------------------------------------------------------
 
 
+def _initialize_server_state(app: FastAPI) -> None:
+    """Initialize shared server state set during app startup."""
+    app.state.server_started_at = datetime.now(timezone.utc)
+    app.state.server_started_monotonic = monotonic()
+    app.state.pipeline_task = None
+    app.state.pipeline_running = False
+
+
 def _cache_ttl() -> int:
     """Read the dashboard cache TTL from config."""
     return get_settings().dashboard_display.cache_ttl_seconds
@@ -147,6 +154,26 @@ def _load_yaml(path: Path) -> dict[str, Any]:
         return {}
     with open(path, "r", encoding="utf-8") as f:
         return yaml.safe_load(f) or {}
+
+
+def _server_started_at(request: Request) -> datetime | None:
+    """Return the server startup timestamp from app state."""
+    started_at = getattr(request.app.state, "server_started_at", None)
+    if isinstance(started_at, datetime):
+        return started_at
+    return None
+
+
+def _server_uptime_seconds(request: Request) -> int:
+    """Compute server uptime from app startup state."""
+    started_monotonic = getattr(request.app.state, "server_started_monotonic", None)
+    if isinstance(started_monotonic, float):
+        return max(0, int(monotonic() - started_monotonic))
+
+    started_at = _server_started_at(request)
+    if started_at is None:
+        return 0
+    return max(0, int((datetime.now(timezone.utc) - started_at).total_seconds()))
 
 
 # ---------------------------------------------------------------------------
@@ -334,6 +361,20 @@ async def _build_chart() -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 router = APIRouter()
+
+
+@router.get("/health")
+async def health_check(request: Request) -> dict[str, Any]:
+    """Return lightweight process health and uptime information."""
+    started_at = _server_started_at(request)
+    daemon = getattr(request.app.state, "daemon", None)
+    return {
+        "status": "ok",
+        "uptime_seconds": _server_uptime_seconds(request),
+        "started_at": started_at.isoformat() if started_at is not None else None,
+        "version": __version__,
+        "daemon_enabled": daemon is not None,
+    }
 
 
 @router.get("/api/config")

@@ -155,11 +155,11 @@ curl http://localhost:9000/health
 Expected response:
 ```json
 {
-  "status": "healthy",
-  "service": "coliseum-api",
+  "status": "ok",
+  "uptime_seconds": 12,
+  "started_at": "2026-04-10T12:34:56.789012+00:00",
   "version": "0.1.0",
-  "database": "connected",
-  "environment": "development"
+  "daemon_enabled": false
 }
 ```
 
