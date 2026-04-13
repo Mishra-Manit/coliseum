@@ -28,7 +28,7 @@ def _get_xai_client() -> AsyncClient:
     global _xai_client
     if _xai_client is None:
         settings = get_settings()
-        _xai_client = AsyncClient(api_key=settings.xai_api_key)
+        _xai_client = AsyncClient(api_key=settings.xai_api_key, timeout=120)
     return _xai_client
 
 

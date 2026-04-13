@@ -61,16 +61,19 @@ async def run_analyst(
         with logfire.span("research phase", opportunity_id=opportunity_id):
             logger.info("Research phase starting (web + X sentiment in parallel)")
 
-            researcher_task = run_researcher(
-                opportunity_id=opportunity_id,
-                settings=settings,
+            researcher_task = asyncio.create_task(
+                run_researcher(opportunity_id=opportunity_id, settings=settings)
             )
-            x_sentiment_task = _run_x_sentiment_safe(opportunity)
+            x_sentiment_task = asyncio.create_task(_run_x_sentiment_safe(opportunity))
 
-            _, x_sentiment_output = await asyncio.gather(
-                researcher_task,
-                x_sentiment_task,
-            )
+            try:
+                _, x_sentiment_output = await asyncio.gather(
+                    researcher_task, x_sentiment_task
+                )
+            except Exception:
+                x_sentiment_task.cancel()
+                await asyncio.gather(x_sentiment_task, return_exceptions=True)
+                raise
 
             if x_sentiment_output is not None:
                 try:
