@@ -98,10 +98,11 @@ def _create_xai_agent(
     builtin_tools: list[Any] | None,
     prepend_mechanics: bool,
     max_tokens: int | None = None,
+    xai_model: GrokModel = GrokModel.GROK_4_20_REASONING,
 ) -> Agent[DepsT, OutputT]:
     """Create an agent using the xAI Grok provider."""
     system_prompt = _build_system_prompt(prompt, prepend_mechanics)
-    model = PydanticAIXaiModel(GrokModel.GROK_4_20_REASONING, provider=_get_xai_provider())
+    model = PydanticAIXaiModel(xai_model, provider=_get_xai_provider())
     settings_kwargs: dict[str, Any] = {"timeout": 300}
     if max_tokens is not None:
         settings_kwargs["max_tokens"] = max_tokens
@@ -129,6 +130,7 @@ def create_agent(
     prepend_mechanics: bool = True,
     use_responses_api: bool = True,
     max_tokens: int | None = None,
+    xai_model: GrokModel = GrokModel.GROK_4_20_REASONING,
 ) -> Agent[DepsT, OutputT]:
     """Create a PydanticAI agent with standard Coliseum configuration.
 
@@ -138,7 +140,7 @@ def create_agent(
 
     if settings.llm.provider == "xai":
         return _create_xai_agent(
-            prompt, output_type, deps_type, builtin_tools, prepend_mechanics, max_tokens
+            prompt, output_type, deps_type, builtin_tools, prepend_mechanics, max_tokens, xai_model
         )
 
     return _create_openai_agent(

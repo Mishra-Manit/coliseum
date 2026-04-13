@@ -5,7 +5,7 @@ import time
 from datetime import datetime, timezone
 
 import logfire
-from pydantic_ai import Agent, WebSearchTool
+from pydantic_ai import Agent, RunContext
 
 from coliseum.agents.agent_factory import AgentFactory, create_agent
 from coliseum.agents.analyst.market_type_context import get_market_type_context
@@ -15,8 +15,10 @@ from coliseum.agents.analyst.shared import (
     format_opportunity_header,
     load_opportunity,
 )
+from coliseum.agents.analyst.web_researcher import get_web_researcher
 from coliseum.agents.shared_tools import strip_cite_tokens
 from coliseum.config import Settings
+from coliseum.llm_providers import GrokModel
 from coliseum.memory.context import build_analyst_context
 from coliseum.services.supabase.repositories.opportunities import update_opportunity_research
 from coliseum.domain.opportunity import OpportunitySignal
@@ -30,11 +32,20 @@ def _create_agent() -> Agent[AnalystDependencies, ResearcherOutput]:
         output_type=ResearcherOutput,
         deps_type=AnalystDependencies,
         reasoning_effort="medium",
-        builtin_tools=[WebSearchTool()],
+        xai_model=GrokModel.GROK_4_20_NON_REASONING,
     )
 
 
-_agent_factory = AgentFactory(create_fn=_create_agent)
+def _register_research_tool(agent: Agent[AnalystDependencies, ResearcherOutput]) -> None:
+    @agent.tool
+    async def research_topic(ctx: RunContext[AnalystDependencies], query: str) -> str:
+        """Search the web for a specific query and return a research synthesis."""
+        researcher = get_web_researcher()
+        result = await researcher.run(query, usage=ctx.usage)
+        return result.output
+
+
+_agent_factory = AgentFactory(create_fn=_create_agent, register_tools_fn=_register_research_tool)
 
 
 def get_agent() -> Agent[AnalystDependencies, ResearcherOutput]:
@@ -102,6 +113,7 @@ async def _build_research_prompt(opportunity: OpportunitySignal, settings: Setti
 
 ## Research Task
 
-Follow the 3-search workflow in your instructions. Use the market-type context above to skip
-searches you can already answer. Report what each search returned — including null results.
+Call research_topic 3 times using the query structure in your instructions. Use the market-type
+context above to skip calls you can already answer. Report what each call returned — including
+null results.
 """
