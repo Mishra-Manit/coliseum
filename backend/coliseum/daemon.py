@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 
 import logfire
 
+from coliseum.agents.analyst.markets_context.refresher import refresh_all_categories
 from coliseum.agents.guardian import run_guardian
 from coliseum.config import Settings
 from coliseum.pipeline import run_pipeline
@@ -117,6 +118,25 @@ class ColiseumDaemon:
                 await self._send_escalation_alert(str(e))
 
         await self._send_heartbeat()
+
+        if not self._shutdown_event.is_set():
+            await self._maybe_refresh_market_context()
+
+    async def _maybe_refresh_market_context(self) -> None:
+        """Kick off a non-blocking background refresh every N cycles."""
+        interval = self.settings.market_context.refresh_every_n_cycles
+        if self._cycle_count % interval != 0:
+            return
+        asyncio.create_task(self._run_market_context_refresh())
+
+    async def _run_market_context_refresh(self) -> None:
+        """Background task: refresh all market categories concurrently."""
+        logger.info("Market context refresh starting (cycle %d)", self._cycle_count)
+        try:
+            refreshed = await refresh_all_categories()
+            logger.info("Market context refresh complete: %d categories", refreshed)
+        except Exception as e:
+            logger.error("Market context refresh failed: %s", e)
 
     async def _run_guardian_intercycles(self, remaining_seconds: float) -> None:
         """Run guardian-only checks in the gap between full pipeline cycles."""

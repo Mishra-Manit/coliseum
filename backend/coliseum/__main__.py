@@ -12,6 +12,10 @@ from pydantic import ValidationError
 
 from coliseum import __version__
 from coliseum.agents.analyst import run_analyst
+from coliseum.agents.analyst.markets_context.refresher import (
+    refresh_all_categories,
+    refresh_category,
+)
 from coliseum.agents.guardian import run_guardian
 from coliseum.agents.scout import run_scout
 from coliseum.agents.trader import run_trader
@@ -313,6 +317,23 @@ def cmd_trader(args: argparse.Namespace) -> int:
     return 0
 
 
+@_cli_command("Market Context Refresh")
+def cmd_refresh_context(args: argparse.Namespace) -> int:
+    """Refresh market category context manually."""
+    _init_logfire()
+
+    if args.category:
+        print(f"\nRefreshing single category: {args.category}\n")
+        asyncio.run(refresh_category(args.category))
+        print(f"\nDone. Refreshed: {args.category}\n")
+    else:
+        print("\nRefreshing all categories...\n")
+        count = asyncio.run(refresh_all_categories())
+        print(f"\nDone. Refreshed: {count} categories\n")
+
+    return 0
+
+
 @_cli_command("API server")
 def cmd_api(args: argparse.Namespace) -> int:
     """Start the dashboard API server (no trading daemon)."""
@@ -438,6 +459,16 @@ def main() -> int:
         help="Run Guardian reconciliation manually",
     )
     parser_guardian.set_defaults(func=cmd_guardian)
+
+    parser_refresh = subparsers.add_parser(
+        "refresh-context",
+        help="Refresh market category context (resolution rules encyclopedia)",
+    )
+    parser_refresh.add_argument(
+        "--category",
+        help="Refresh a single category key (e.g. CPI, BTC, NBAMENTION)",
+    )
+    parser_refresh.set_defaults(func=cmd_refresh_context)
 
     parser_analyst = subparsers.add_parser(
         "analyst",

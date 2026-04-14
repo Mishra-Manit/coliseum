@@ -8,7 +8,7 @@ import logfire
 from pydantic_ai import Agent, RunContext
 
 from coliseum.agents.agent_factory import AgentFactory, create_agent
-from coliseum.agents.analyst.market_type_context import get_market_type_context
+from coliseum.agents.analyst.markets_context import get_market_type_context
 from coliseum.agents.analyst.models import AnalystDependencies, ResearcherOutput
 from coliseum.agents.analyst.prompts import RESEARCHER_PROMPT
 from coliseum.agents.analyst.shared import (
@@ -97,7 +97,7 @@ async def _build_research_prompt(opportunity: OpportunitySignal, settings: Setti
     """Build the research prompt for the agent."""
     header = format_opportunity_header(opportunity)
     memory_context = await build_analyst_context()
-    market_type_context = get_market_type_context(opportunity)
+    market_type_context = await get_market_type_context(opportunity)
 
     return f"""Assess whether this pre-resolution prediction market is likely to hold at 92-96% YES.
 {memory_context}
