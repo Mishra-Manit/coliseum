@@ -1,9 +1,12 @@
 """Logfire cloud observability initialization and instrumentation."""
 
 import logging
+from decimal import Decimal
 from logging.config import dictConfig
 
 import logfire
+from genai_prices import types as genai_types
+from genai_prices.data_snapshot import get_snapshot, set_custom_snapshot
 
 from coliseum import __version__
 from coliseum.config import Settings
@@ -44,16 +47,19 @@ def initialize_logfire(settings: Settings) -> None:
             console=False,
         )
 
-        # 2. Instrument PydanticAI agents (Scout, Analyst, Trader, Guardian)
+        # 2. Register custom model pricing for models not yet in genai-prices
+        _register_custom_pricing()
+
+        # 3. Instrument PydanticAI agents (Scout, Analyst, Trader, Guardian)
         logfire.instrument_pydantic_ai()
 
-        # 3. Instrument OpenAI SDK (GPT models, WebSearchTool)
+        # 4. Instrument OpenAI SDK (GPT models, WebSearchTool)
         logfire.instrument_openai()
 
-        # 4. Instrument HTTPX (Kalshi API, Exa API)
+        # 5. Instrument HTTPX (Kalshi API, Exa API)
         logfire.instrument_httpx()
 
-        # 5. Bridge Python logging to Logfire
+        # 6. Bridge Python logging to Logfire
         # Add LogfireLoggingHandler to root logger
         root_logger = logging.getLogger()
         logfire_handler = logfire.LogfireLoggingHandler()
@@ -61,7 +67,7 @@ def initialize_logfire(settings: Settings) -> None:
 
         logging.getLogger("httpx").setLevel(logging.WARNING)
 
-        # 6. Collect system metrics (CPU, memory, disk) - optional
+        # 7. Collect system metrics (CPU, memory, disk) - optional
         try:
             logfire.instrument_system_metrics()
         except Exception as metrics_error:
@@ -72,3 +78,47 @@ def initialize_logfire(settings: Settings) -> None:
     except Exception as e:
         logger.warning(f"Failed to initialize Logfire: {e}")
         # Continue running - observability is optional
+
+
+def _register_custom_pricing() -> None:
+    """Inject pricing for models not yet in the genai-prices database."""
+    snap = get_snapshot()
+
+    grok_420_price = genai_types.ModelPrice(
+        input_mtok=Decimal("2"),
+        cache_read_mtok=Decimal("0.2"),
+        output_mtok=Decimal("6"),
+    )
+    custom_models = [
+        genai_types.ModelInfo(
+            id="grok-4.20-0309-reasoning",
+            match=genai_types.ClauseEquals(equals="grok-4.20-0309-reasoning"),
+            prices=grok_420_price,
+        ),
+        genai_types.ModelInfo(
+            id="grok-4.20-0309-non-reasoning",
+            match=genai_types.ClauseEquals(equals="grok-4.20-0309-non-reasoning"),
+            prices=grok_420_price,
+        ),
+        genai_types.ModelInfo(
+            id="grok-4.20-multi-agent-0309",
+            match=genai_types.ClauseEquals(equals="grok-4.20-multi-agent-0309"),
+            prices=grok_420_price,
+        ),
+    ]
+
+    for provider in snap.providers:
+        if provider.id != "x-ai":
+            continue
+        existing_ids = {m.id for m in provider.models}
+        added = []
+        for model in custom_models:
+            if model.id not in existing_ids:
+                provider.models.append(model)
+                added.append(model.id)
+        if added:
+            provider._lookup_cache = {}
+            snap._lookup_cache = {}
+            set_custom_snapshot(snap)
+            logger.info(f"Registered custom pricing for: {', '.join(added)}")
+        break
