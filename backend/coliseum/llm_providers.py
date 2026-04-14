@@ -8,9 +8,7 @@ class OpenAIModel(StrEnum):
 
     GPT_5_4 = "gpt-5.4"
     GPT_5_2 = "gpt-5.2"
-    GPT_5 = "gpt-5"
     GPT_5_MINI = "gpt-5-mini"
-    GPT_5_4_MINI = "gpt-5.4-mini"
     GPT_5_NANO = "gpt-5-nano"
 
 
@@ -42,8 +40,6 @@ class GrokModel(StrEnum):
 
     GROK_4_20_REASONING = "grok-4.20-0309-reasoning"
     GROK_4_20_NON_REASONING = "grok-4.20-0309-non-reasoning"
-    GROK_4_1_FAST_REASONING = "grok-4-1-fast-reasoning"
-    GROK_4_1_FAST_NON_REASONING = "grok-4-1-fast-non-reasoning"
     GROK_4_20_MULTI_AGENT = "grok-4.20-multi-agent-0309"
 
 
