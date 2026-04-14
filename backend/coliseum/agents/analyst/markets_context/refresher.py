@@ -25,9 +25,7 @@ from coliseum.services.supabase.repositories.market_context import upsert_catego
 
 logger = logging.getLogger(__name__)
 
-_BATCH_SIZE = 3
-_MAX_RETRIES = 3
-_RETRY_BASE_DELAY = 5
+_BATCH_SIZE = 2
 
 
 class CategoryRefreshOutput(BaseModel):
@@ -131,24 +129,8 @@ async def refresh_category(category_key: str) -> None:
 
     start = time.time()
     with logfire.span("market context refresh", category_key=category_key, label=config.label):
-        last_error: Exception | None = None
-        for attempt in range(_MAX_RETRIES):
-            try:
-                agent = _create_refresher_agent()
-                result = await agent.run(prompt)
-                break
-            except Exception as e:
-                last_error = e
-                if attempt < _MAX_RETRIES - 1:
-                    delay = _RETRY_BASE_DELAY * (2 ** attempt)
-                    logger.warning(
-                        "Retry %d/%d for %s after error: %s (waiting %ds)",
-                        attempt + 1, _MAX_RETRIES, category_key, e, delay,
-                    )
-                    await asyncio.sleep(delay)
-        else:
-            raise last_error  # type: ignore[misc]
-
+        agent = _create_refresher_agent()
+        result = await agent.run(prompt)
         output = result.output
         duration = int(time.time() - start)
 
