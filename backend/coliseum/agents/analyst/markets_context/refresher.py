@@ -97,21 +97,15 @@ For mentions: exact vs partial word matching, transcript source disputes.
 - Include all URLs you referenced in the sources list.
 """
 
-_refresher_agent: Agent[None, CategoryRefreshOutput] | None = None
-
-
-def _get_refresher_agent() -> Agent[None, CategoryRefreshOutput]:
-    """Return the singleton refresher agent."""
-    global _refresher_agent
-    if _refresher_agent is None:
-        _refresher_agent = create_agent(
-            prompt=_REFRESHER_PROMPT,
-            output_type=CategoryRefreshOutput,
-            builtin_tools=[WebSearchTool()],
-            prepend_mechanics=False,
-            xai_model=GrokModel.GROK_4_20_NON_REASONING,
-        )
-    return _refresher_agent
+def _create_refresher_agent() -> Agent[None, CategoryRefreshOutput]:
+    """Create a fresh refresher agent instance."""
+    return create_agent(
+        prompt=_REFRESHER_PROMPT,
+        output_type=CategoryRefreshOutput,
+        builtin_tools=[WebSearchTool()],
+        prepend_mechanics=False,
+        xai_model=GrokModel.GROK_4_20_NON_REASONING,
+    )
 
 
 def _build_refresh_prompt(category_key: str, config: MarketTypeConfig) -> str:
@@ -132,7 +126,7 @@ async def refresh_category(category_key: str) -> None:
     """Run the Grok refresher agent for a single category and persist the result."""
     config = MARKET_TYPES.get(category_key, _FALLBACK)
     prompt = _build_refresh_prompt(category_key, config)
-    agent = _get_refresher_agent()
+    agent = _create_refresher_agent()
 
     start = time.time()
     with logfire.span("market context refresh", category_key=category_key, label=config.label):
