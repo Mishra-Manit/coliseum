@@ -32,6 +32,9 @@ daemon:
   guardian_interval_minutes: 2 # Guardian-only checks between full cycles (5 minutes)
   max_consecutive_failures: 5 # Failures before pausing
 
+market_context:
+  refresh_every_n_cycles: 8
+
 telegram_send_alerts: true
 
 dashboard_display:

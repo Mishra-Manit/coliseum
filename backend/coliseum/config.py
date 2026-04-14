@@ -65,6 +65,12 @@ class DaemonConfig(BaseModel):
     max_consecutive_failures: int = 5
 
 
+class MarketContextConfig(BaseModel):
+    """Market context encyclopedia refresh parameters."""
+
+    refresh_every_n_cycles: int = 8
+
+
 class DashboardDisplayConfig(BaseModel):
     """Dashboard display filtering parameters."""
 
@@ -113,6 +119,7 @@ class Settings(BaseSettings):
     guardian: GuardianConfig = Field(default_factory=GuardianConfig)
     execution: ExecutionConfig = Field(default_factory=ExecutionConfig)
     daemon: DaemonConfig = Field(default_factory=DaemonConfig)
+    market_context: MarketContextConfig = Field(default_factory=MarketContextConfig)
     dashboard_display: DashboardDisplayConfig = Field(default_factory=DashboardDisplayConfig)
 
     model_config = SettingsConfigDict(
@@ -173,6 +180,7 @@ class Settings(BaseSettings):
                 "guardian",
                 "execution",
                 "daemon",
+                "market_context",
                 "dashboard_display",
             ]:
                 if section_name in yaml_config:

@@ -212,6 +212,22 @@ class RunCycle(Base):
     )
 
 
+class MarketCategoryContext(Base):
+    __tablename__ = "market_category_context"
+
+    category_key: Mapped[str] = mapped_column(Text, primary_key=True)
+    label: Mapped[str] = mapped_column(Text, nullable=False)
+    resolution_desc_template: Mapped[str] = mapped_column(Text, nullable=False)
+    uses_slug: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("true"))
+    resolution_rules: Mapped[str] = mapped_column(Text, nullable=False)
+    known_disputes: Mapped[str] = mapped_column(Text, nullable=False)
+    edge_cases: Mapped[str] = mapped_column(Text, nullable=False)
+    risk_questions: Mapped[list] = mapped_column(JSONB, nullable=False)
+    sources: Mapped[list] = mapped_column(JSONB, nullable=False, server_default=text("'[]'::jsonb"))
+    last_refreshed_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False)
+    refresh_duration_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+
 class Learning(Base):
     __tablename__ = "learnings"
     __table_args__ = (
