@@ -100,11 +100,6 @@ def _register_custom_pricing() -> None:
             match=genai_types.ClauseEquals(equals="grok-4.20-0309-non-reasoning"),
             prices=grok_420_price,
         ),
-        genai_types.ModelInfo(
-            id="grok-4.20-multi-agent-0309",
-            match=genai_types.ClauseEquals(equals="grok-4.20-multi-agent-0309"),
-            prices=grok_420_price,
-        ),
     ]
 
     for provider in snap.providers:
