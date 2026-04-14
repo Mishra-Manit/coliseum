@@ -6,7 +6,6 @@ and produces a structured synthesis of resolution rules, disputes, and edge case
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import time
 
@@ -25,7 +24,6 @@ from coliseum.services.supabase.repositories.market_context import upsert_catego
 
 logger = logging.getLogger(__name__)
 
-_BATCH_SIZE = 2
 
 
 class CategoryRefreshOutput(BaseModel):
@@ -151,23 +149,18 @@ async def refresh_category(category_key: str) -> None:
 
 
 async def refresh_all_categories() -> int:
-    """Refresh every category in MARKET_TYPES, batched concurrently. Returns success count."""
+    """Refresh every category in MARKET_TYPES sequentially. Returns success count."""
     keys = list(MARKET_TYPES.keys())
     total = len(keys)
     refreshed = 0
 
     with logfire.span("market context full refresh", total_categories=total):
-        for i in range(0, total, _BATCH_SIZE):
-            batch = keys[i : i + _BATCH_SIZE]
-            results = await asyncio.gather(
-                *(refresh_category(key) for key in batch),
-                return_exceptions=True,
-            )
-            for key, result in zip(batch, results):
-                if isinstance(result, Exception):
-                    logger.error("Skipping %s after refresh failure: %s", key, result)
-                else:
-                    refreshed += 1
+        for key in keys:
+            try:
+                await refresh_category(key)
+                refreshed += 1
+            except Exception as e:
+                logger.error("Skipping %s after refresh failure: %s", key, e)
 
         logger.info("Market context full refresh complete: %d/%d", refreshed, total)
 
