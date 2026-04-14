@@ -12,7 +12,7 @@ from pydantic import ValidationError
 
 from coliseum import __version__
 from coliseum.agents.analyst import run_analyst
-from coliseum.agents.analyst.markets_context.refresher import (
+from coliseum.agents.markets_context.refresher import (
     refresh_all_categories,
     refresh_category,
 )
