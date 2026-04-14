@@ -1,31 +1,33 @@
 """Historical safety rules for Scout market prefiltering."""
 
-SAFE_CATEGORIES: set[str] = {"Economics"}
+SAFE_CATEGORIES: set[str] = set()
 
 SAFE_EVENT_PREFIXES: set[str] = {
     # Crypto 15-min - unconditional
     "KXETH15M",
     "KXSOL15M",
     "KXXRP15M",
+    # Commodities - unconditional
+    "KXGOLDD",
     # Sports - unconditional
     "KXWBCGAME",
     "KXMLBSTGAME",
     # Mentions - unconditional
     "KXPRESMENTION",
-    "KXSURVIVORMENTION",
-    "KXHEGSETHMENTION",
-    "KXGOLDD",
+    # Economics prefixes (category no longer blanket-safe)
+    "KXJOBLESSCLAIMS",
+    # Entertainment - unconditional
+    "KXRT",
 }
 
 PRICE_GATED_EVENT_PREFIXES: dict[str, int] = {
     # Crypto directional
     "KXETHD": 96,
-    "KXBTCD": 94,
     # Crypto 15-min (gate added after 1 loss at < 94c)
     "KXBTC15M": 94,
     # Crude oil weekly
     "KXWTIW": 94,
-    # Weather - only zero-loss prefixes kept, price-gated for safety
+    # Weather (capped at 3 tickers, all gated)
     "KXHIGHMIA": 96,
     "KXHIGHTDAL": 96,
     "KXLOWTMIA": 96,
