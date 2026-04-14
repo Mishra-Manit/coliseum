@@ -3,7 +3,7 @@
 import asyncio
 import logging
 from contextlib import asynccontextmanager
-from datetime import date
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -75,6 +75,7 @@ _CORS_ORIGINS = [
 @asynccontextmanager
 async def _api_lifespan(app: FastAPI):
     """Lifespan for the API-only server (no daemon)."""
+    app.state.started_at = datetime.now(timezone.utc)
     app.state.daemon = None
     app.state.pipeline_task = None
     app.state.pipeline_running = False
@@ -84,6 +85,7 @@ async def _api_lifespan(app: FastAPI):
 @asynccontextmanager
 async def _daemon_lifespan(app: FastAPI):
     """Lifespan for the daemon+API server."""
+    app.state.started_at = datetime.now(timezone.utc)
     settings = get_settings()
     try:
         initialize_logfire(settings)
@@ -477,6 +479,17 @@ async def trigger_pipeline(request: Request):
 async def pipeline_status(request: Request):
     """Check whether a pipeline cycle is currently in progress."""
     return {"running": _pipeline_running(request)}
+
+
+@router.get("/api/health")
+async def health_check(request: Request):
+    """Return server health and uptime."""
+    started_at = getattr(request.app.state, "started_at", None)
+    if started_at is None:
+        uptime_seconds = 0
+    else:
+        uptime_seconds = int((datetime.now(timezone.utc) - started_at).total_seconds())
+    return {"status": "ok", "uptime_seconds": uptime_seconds}
 
 
 @router.get("/api/daemon/status")
