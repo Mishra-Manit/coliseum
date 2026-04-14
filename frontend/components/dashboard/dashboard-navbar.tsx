@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { motion, useReducedMotion } from "motion/react";
 import { BarChart2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useConfig, useDaemonStatus, usePortfolioState } from "@/hooks/use-api";
@@ -26,8 +27,9 @@ export function DashboardNavbar() {
   const openCount = portfolio?.open_positions?.length ?? 0;
 
   return (
-    <nav className={`sticky top-0 z-50 h-11 border-b border-border ${Base.card} backdrop-blur-xl flex items-center px-5`}>
-      {/* Wordmark */}
+    <nav
+      className={`sticky top-0 z-50 h-11 border-b border-border ${Base.card} backdrop-blur-xl flex items-center px-5`}
+    >
       <div className="flex items-center gap-3 shrink-0">
         <span className="font-mono text-xs font-bold text-foreground tracking-[0.2em] uppercase">
           Coliseum
@@ -51,7 +53,6 @@ export function DashboardNavbar() {
 
       <div className="w-px h-4 bg-border mx-5 shrink-0" />
 
-      {/* Core stats: NAV, CASH, POS */}
       <div className="flex items-center gap-6 flex-1 min-w-0 overflow-hidden">
         <StatPill label="NAV" value={`$${totalValue.toFixed(2)}`} />
         <StatPill label="CASH" value={`$${cashBalance.toFixed(2)}`} />
@@ -62,7 +63,6 @@ export function DashboardNavbar() {
         />
       </div>
 
-      {/* Right controls */}
       <div className="flex items-center gap-3 shrink-0">
         <Link
           href={pathname === "/chart" ? "/" : "/chart"}
@@ -73,7 +73,9 @@ export function DashboardNavbar() {
           }`}
         >
           <BarChart2 className="w-3 h-3" />
-          <span className={`${FontSize.small} font-mono tracking-[0.12em] uppercase`}>
+          <span
+            className={`${FontSize.small} font-mono tracking-[0.12em] uppercase`}
+          >
             Charts
           </span>
         </Link>
@@ -83,26 +85,60 @@ export function DashboardNavbar() {
         <SettingsModal />
 
         <div className="flex items-center gap-2 pl-3 border-l border-border">
-          <span className="relative flex h-1.5 w-1.5">
-            {isOnline && !isPaused && (
-              <span className={`animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 ${Faint.opacityClass}`} />
-            )}
-            <span
-              className={`relative inline-flex rounded-full h-1.5 w-1.5 ${
-                !isOnline
-                  ? "bg-zinc-600"
-                  : isPaused
-                    ? "bg-yellow-500"
-                    : "bg-emerald-500"
-              }`}
-            />
-          </span>
-          <span className={`${FontSize.small} font-mono ${Muted.mutedText} tracking-wider`}>
+          <StatusSignal isOnline={isOnline} isPaused={isPaused} />
+          <span
+            className={`${FontSize.small} font-mono ${Muted.mutedText} tracking-wider`}
+          >
             {!isOnline ? "OFFLINE" : isPaused ? "PAUSED" : "RUNNING"}
           </span>
         </div>
       </div>
     </nav>
+  );
+}
+
+function StatusSignal({
+  isOnline,
+  isPaused,
+}: {
+  isOnline: boolean;
+  isPaused: boolean;
+}) {
+  const shouldReduceMotion = useReducedMotion() ?? false;
+  const isRunning = isOnline && !isPaused;
+
+  return (
+    <span className="relative flex h-1.5 w-1.5">
+      {isRunning && (
+        <motion.span
+          className={`absolute inset-0 rounded-full bg-emerald-500 ${Faint.opacityClass}`}
+          initial={false}
+          animate={
+            shouldReduceMotion
+              ? { opacity: 0.22, scale: 1 }
+              : { opacity: [0.24, 0, 0.24], scale: [1, 1.9, 1] }
+          }
+          transition={
+            shouldReduceMotion
+              ? { duration: 0 }
+              : {
+                  duration: 1.8,
+                  ease: [0.22, 1, 0.36, 1],
+                  repeat: Number.POSITIVE_INFINITY,
+                }
+          }
+        />
+      )}
+      <span
+        className={`relative inline-flex rounded-full h-1.5 w-1.5 ${
+          !isOnline
+            ? "bg-zinc-600"
+            : isPaused
+              ? "bg-yellow-500"
+              : "bg-emerald-500"
+        }`}
+      />
+    </span>
   );
 }
 
@@ -117,7 +153,9 @@ function StatPill({
 }) {
   return (
     <div className="flex items-baseline gap-1.5 shrink-0">
-      <span className={`${FontSize.small} font-mono ${Muted.mutedText} tracking-[0.12em] uppercase`}>
+      <span
+        className={`${FontSize.small} font-mono ${Muted.mutedText} tracking-[0.12em] uppercase`}
+      >
         {label}
       </span>
       <span

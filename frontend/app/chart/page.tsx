@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { motion, useReducedMotion } from "motion/react";
 import { DashboardNavbar } from "@/components/dashboard/dashboard-navbar";
 import { useChartData } from "@/hooks/use-api";
 import { LWPortfolioChart } from "@/components/chart/lw-portfolio-chart";
@@ -9,8 +10,31 @@ import type { Interval } from "@/lib/chart-utils";
 import { FontSize } from "@/lib/typography";
 import { Muted, Strong, Faint } from "@/lib/styles";
 
+function useEntranceAnimation(delay: number) {
+  const shouldReduceMotion = useReducedMotion() ?? false;
+
+  if (shouldReduceMotion) {
+    return {
+      initial: false,
+      animate: { opacity: 1 },
+      transition: { duration: 0 },
+    };
+  }
+
+  return {
+    initial: { opacity: 0, y: 10 },
+    animate: { opacity: 1, y: 0 },
+    transition: {
+      duration: 0.24,
+      delay,
+      ease: [0.22, 1, 0.36, 1] as const,
+    },
+  };
+}
+
 function ChartSidebar() {
   const { data: chartData } = useChartData();
+  const entranceAnimation = useEntranceAnimation(0.02);
 
   const stats = chartData?.stats;
   const series = chartData?.series ?? [];
@@ -25,8 +49,10 @@ function ChartSidebar() {
       : "0.0";
 
   return (
-    <aside className="w-[220px] shrink-0 border-r border-border flex flex-col overflow-hidden animate-fade-up stagger-1">
-      {/* NAV header */}
+    <motion.aside
+      {...entranceAnimation}
+      className="w-[220px] shrink-0 border-r border-border flex flex-col overflow-hidden"
+    >
       <div className="p-4 border-b border-border shrink-0">
         <p
           className={`${FontSize.small} font-mono ${Muted.mutedText} tracking-[0.14em] uppercase mb-2`}
@@ -52,7 +78,6 @@ function ChartSidebar() {
         </p>
       </div>
 
-      {/* Radial HUD + Stats */}
       <div className="flex flex-col gap-4 p-4 overflow-auto flex-1">
         {stats && stats.total_trades > 0 ? (
           <WinRatePanel stats={stats} />
@@ -66,12 +91,13 @@ function ChartSidebar() {
           </div>
         )}
       </div>
-    </aside>
+    </motion.aside>
   );
 }
 
 function ChartMain() {
   const { data: chartData } = useChartData();
+  const entranceAnimation = useEntranceAnimation(0.08);
   const [interval, setInterval] = useState<Interval>("1D");
 
   const series = chartData?.series ?? [];
@@ -80,14 +106,17 @@ function ChartMain() {
   const currentNav = latestSeriesNav || stats?.current_nav || 0;
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden animate-fade-up stagger-2">
+    <motion.div
+      {...entranceAnimation}
+      className="flex-1 flex flex-col overflow-hidden"
+    >
       <LWPortfolioChart
         data={series}
         interval={interval}
         onIntervalChange={setInterval}
         currentNav={currentNav}
       />
-    </div>
+    </motion.div>
   );
 }
 
