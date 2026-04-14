@@ -8,7 +8,7 @@ import logfire
 from pydantic_ai import Agent, RunContext
 
 from coliseum.agents.agent_factory import AgentFactory, create_agent
-from coliseum.agents.analyst.markets_context import get_market_type_context
+from coliseum.agents.markets_context import get_market_type_context
 from coliseum.agents.analyst.models import AnalystDependencies, ResearcherOutput
 from coliseum.agents.analyst.prompts import RESEARCHER_PROMPT
 from coliseum.agents.analyst.shared import (

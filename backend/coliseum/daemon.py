@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 
 import logfire
 
-from coliseum.agents.analyst.markets_context.refresher import refresh_all_categories
+from coliseum.agents.markets_context.refresher import refresh_all_categories
 from coliseum.agents.guardian import run_guardian
 from coliseum.config import Settings
 from coliseum.pipeline import run_pipeline
