@@ -3,7 +3,7 @@
 import asyncio
 import logging
 from contextlib import asynccontextmanager
-from datetime import date
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -75,6 +75,7 @@ _CORS_ORIGINS = [
 @asynccontextmanager
 async def _api_lifespan(app: FastAPI):
     """Lifespan for the API-only server (no daemon)."""
+    app.state.started_at = datetime.now(timezone.utc)
     app.state.daemon = None
     app.state.pipeline_task = None
     app.state.pipeline_running = False
@@ -92,6 +93,7 @@ async def _daemon_lifespan(app: FastAPI):
 
     daemon = ColiseumDaemon(settings)
     task = asyncio.create_task(daemon.start(install_signal_handlers=False))
+    app.state.started_at = datetime.now(timezone.utc)
     app.state.daemon = daemon
     app.state.pipeline_task = None
     app.state.pipeline_running = False
@@ -334,6 +336,15 @@ async def _build_chart() -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 router = APIRouter()
+
+
+@router.get("/health")
+async def health_check(request: Request):
+    """Return server health and uptime."""
+    started_at = getattr(request.app.state, "started_at", None)
+    now = datetime.now(timezone.utc)
+    uptime_seconds = int((now - started_at).total_seconds()) if started_at else 0
+    return {"status": "ok", "uptime_seconds": uptime_seconds}
 
 
 @router.get("/api/config")
