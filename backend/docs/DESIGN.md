@@ -866,13 +866,19 @@ Configuration: Set `LOGFIRE_TOKEN` in `.env`
 - [ ] Gradually increase limits as confidence builds
 
 #### 5.5 Optional: FastAPI Dashboard
-- [ ] Create `coliseum/api/dashboard.py`
-- [ ] Endpoints:
-  - `GET /api/portfolio` → Current state
-  - `GET /api/positions` → Open positions
+- [x] Create `coliseum/api/server.py` (FastAPI dashboard)
+- [x] Endpoints:
+  - `GET /health` → Server health + uptime (unauthenticated)
+  - `GET /api/config` → Full config.yaml contents
+  - `GET /api/state` → Portfolio state with P&L-enriched positions
   - `GET /api/opportunities` → Evaluated opportunities (with recommendations)
-  - `POST /api/opportunities/{id}/approve` → Manual approval
-  - `GET /api/alerts` → Recent alerts
+  - `GET /api/opportunities/{id}` → Full opportunity detail
+  - `GET /api/ledger` → Buy+close trade entries
+  - `GET /api/chart` → Portfolio chart data from snapshots
+  - `GET /api/chart/export` → Portfolio NAV animation (MP4)
+  - `POST /api/pipeline/run` → Trigger full pipeline cycle
+  - `GET /api/pipeline/status` → Check pipeline progress
+  - `GET /api/daemon/status` → Live daemon state
 - [ ] Simple static HTML dashboard
 
 #### 5.6 Phase 5 Verification

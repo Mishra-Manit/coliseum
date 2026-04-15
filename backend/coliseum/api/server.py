@@ -338,13 +338,33 @@ async def _build_chart() -> dict[str, Any]:
 router = APIRouter()
 
 
-@router.get("/health")
-async def health_check(request: Request):
+class HealthResponse(BaseModel):
+    """Response schema for the server health check endpoint."""
+
+    status: str
+    uptime_seconds: int
+
+
+@router.get(
+    "/health",
+    response_model=HealthResponse,
+    summary="Server health check",
+    description=(
+        "Returns the server's operational status and uptime in seconds. "
+        "This endpoint is available on both the API-only server (`app`) "
+        "and the daemon+API server (`daemon_app`). It is unauthenticated "
+        "and uncached by design so that load balancers and orchestrators "
+        "can always reach live state. Uptime reflects the FastAPI server "
+        "lifespan start time, not the daemon's internal uptime."
+    ),
+    tags=["infrastructure"],
+)
+async def health_check(request: Request) -> HealthResponse:
     """Return server health and uptime."""
     started_at = getattr(request.app.state, "started_at", None)
     now = datetime.now(timezone.utc)
     uptime_seconds = int((now - started_at).total_seconds()) if started_at else 0
-    return {"status": "ok", "uptime_seconds": uptime_seconds}
+    return HealthResponse(status="ok", uptime_seconds=uptime_seconds)
 
 
 @router.get("/api/config")

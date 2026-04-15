@@ -2,7 +2,7 @@
 
 ## Spec Version
 
-- Current version: `1.9.0`
+- Current version: `1.10.0`
 - Versioning scheme: `MAJOR.MINOR.PATCH` (semantic versioning)
 
 > **CRITICAL**: Always activate the venv before running backend code:
@@ -52,7 +52,7 @@ backend/
 │   │   ├── trader/          # Trade execution agent
 │   │   └── guardian/        # Position monitoring agent
 │   ├── api/
-│   │   ├── server.py        # FastAPI dashboard server
+│   │   ├── server.py        # FastAPI dashboard server (/health, /api/*)
 │   │   ├── cache.py         # API caching
 │   │   ├── chart_export.py  # Chart export utilities
 │   │   └── parsing.py       # API response parsing
@@ -76,6 +76,19 @@ python -m coliseum init                   # Initialize data directory
 python -m coliseum daemon                 # Start trading daemon + dashboard (production)
 python -m coliseum pipeline               # Run full pipeline once (testing/debug)
 python -m coliseum api                    # Start dashboard API only (no daemon)
+
+# API Routes
+#   GET  /health                  - Server health + uptime (unauthenticated, uncached)
+#   GET  /api/config              - Full config.yaml contents
+#   GET  /api/state                - Portfolio state with P&L-enriched positions
+#   GET  /api/opportunities        - List all opportunities
+#   GET  /api/opportunities/{id}   - Full opportunity detail
+#   GET  /api/ledger               - Buy+close trade entries
+#   GET  /api/chart                - Portfolio chart data from snapshots
+#   GET  /api/chart/export         - Portfolio NAV animation (MP4)
+#   POST /api/pipeline/run         - Trigger full pipeline cycle
+#   GET  /api/pipeline/status      - Check pipeline progress
+#   GET  /api/daemon/status        - Live daemon state
 python -m coliseum scout                  # Run Scout manually
 python -m coliseum analyst --id <id>      # Run Analyst pipeline manually
 python -m coliseum trader --id <id>       # Run Trader agent manually
