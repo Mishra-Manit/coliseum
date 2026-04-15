@@ -3,7 +3,7 @@
 import asyncio
 import logging
 from contextlib import asynccontextmanager
-from datetime import date
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -75,6 +75,7 @@ _CORS_ORIGINS = [
 @asynccontextmanager
 async def _api_lifespan(app: FastAPI):
     """Lifespan for the API-only server (no daemon)."""
+    app.state.started_at = datetime.now(timezone.utc)
     app.state.daemon = None
     app.state.pipeline_task = None
     app.state.pipeline_running = False
@@ -96,6 +97,7 @@ async def _daemon_lifespan(app: FastAPI):
     app.state.pipeline_task = None
     app.state.pipeline_running = False
     logger.info("Daemon started as background task alongside API server")
+    app.state.started_at = datetime.now(timezone.utc)
     yield
 
     daemon._shutdown_event.set()
@@ -334,6 +336,20 @@ async def _build_chart() -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 router = APIRouter()
+
+
+@router.get("/api/health")
+async def health_check(request: Request):
+    """Lightweight health check returning server uptime."""
+    started_at = getattr(request.app.state, "started_at", None)
+    if started_at is None:
+        return {"status": "starting", "uptime_seconds": 0, "started_at": None}
+    uptime_seconds = (datetime.now(timezone.utc) - started_at).total_seconds()
+    return {
+        "status": "ok",
+        "uptime_seconds": uptime_seconds,
+        "started_at": started_at.isoformat(),
+    }
 
 
 @router.get("/api/config")
