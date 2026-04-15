@@ -78,7 +78,7 @@ async def _api_lifespan(app: FastAPI):
     app.state.daemon = None
     app.state.pipeline_task = None
     app.state.pipeline_running = False
-    app.state.started_at = datetime.now(timezone.utc)
+    app.state.started_at = datetime.now(timezone.utc)  # used by /health uptime calculation
     yield
 
 
@@ -96,7 +96,7 @@ async def _daemon_lifespan(app: FastAPI):
     app.state.daemon = daemon
     app.state.pipeline_task = None
     app.state.pipeline_running = False
-    app.state.started_at = datetime.now(timezone.utc)
+    app.state.started_at = datetime.now(timezone.utc)  # used by /health uptime calculation
     logger.info("Daemon started as background task alongside API server")
     yield
 
@@ -340,7 +340,18 @@ router = APIRouter()
 
 @router.get("/health")
 async def health_check(request: Request):
-    """Return server health and uptime."""
+    """Liveness probe returning server health and uptime.
+
+    Suitable for Kubernetes, AWS ALB, and other infrastructure health checks.
+    Does not touch the database, cache, or daemon state.
+
+    Response schema:
+        status (str):          Always "ok" when the server is responding.
+        uptime_seconds (int):  Seconds since server startup (0 if lifespan has not run yet).
+
+    Example response:
+        {"status": "ok", "uptime_seconds": 3672}
+    """
     started_at = getattr(request.app.state, "started_at", None)
     if started_at is None:
         uptime_seconds = 0

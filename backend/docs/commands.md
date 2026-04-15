@@ -41,6 +41,25 @@ python -m coliseum guardian
 
 Run a single agent in isolation. Useful for debugging a specific stage of the pipeline.
 
+## Health Check
+
+```
+GET /health
+```
+
+Returns server liveness and uptime. Does not require authentication, touch the database, or depend on the daemon. Use this for Kubernetes liveness probes, AWS ALB health checks, or any infrastructure monitoring.
+
+Example response:
+
+```json
+{"status": "ok", "uptime_seconds": 3672}
+```
+
+- `status` is always `"ok"` when the server is responding.
+- `uptime_seconds` is the integer number of seconds since server startup (0 if the lifespan has not run yet).
+
+Available on both `app` (API-only) and `daemon_app` (daemon + API) instances on port 9000.
+
 ## Setup and Inspection
 
 ```
