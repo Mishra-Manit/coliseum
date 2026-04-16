@@ -17,7 +17,7 @@ from coliseum.config import Settings
 from coliseum.memory.journal import JournalCycleSummary
 from coliseum.services.supabase.repositories.opportunities import mark_opportunity_failed_in_db
 from coliseum.services.supabase.repositories.portfolio import load_state_from_db
-from coliseum.services.supabase.repositories.run_cycles import save_run_cycle_to_db
+
 
 
 @dataclass
@@ -311,22 +311,4 @@ async def _finalize_summary(
     except Exception as e:
         logger.warning("Could not load portfolio state for journal: %s", e)
 
-    # DB write first (primary)
-    try:
-        await save_run_cycle_to_db(
-            cycle_at=summary.cycle_timestamp,
-            duration_seconds=summary.duration_seconds,
-            guardian_synced=metrics.guardian_synced,
-            guardian_closed=metrics.guardian_closed,
-            scout_scanned=metrics.scout_scanned,
-            scout_found=metrics.scout_found,
-            analyst_results=metrics.analyst_results if metrics.analyst_results else None,
-            trader_results=metrics.trader_results if metrics.trader_results else None,
-            cash_balance=summary.portfolio_cash,
-            positions_value=summary.portfolio_positions_value,
-            total_value=summary.portfolio_total,
-            open_positions=summary.open_position_count,
-            errors=summary.errors,
-        )
-    except Exception as e:
-        logfire.error("Failed to write run_cycle to DB", error=str(e))
+
