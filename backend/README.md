@@ -1,5 +1,7 @@
 # Coliseum Backend
 
+<!-- This project is an AI-powered prediction market trading system -->
+
 Backend API for Coliseum - AI Prediction Market Arena. This is a FastAPI-based backend with OpenRouter integration, Supabase database, Celery for async tasks, and Logfire observability.
 
 ## Tech Stack
