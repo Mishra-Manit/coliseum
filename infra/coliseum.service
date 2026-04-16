@@ -5,10 +5,11 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-User=manitmishra
-WorkingDirectory=/home/manitmishra/coliseum-backend/backend
-EnvironmentFile=/home/manitmishra/coliseum-backend/backend/.env
-ExecStart=/home/manitmishra/coliseum-backend/backend/venv/bin/python -m coliseum daemon
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/coliseum/backend
+EnvironmentFile=/home/ubuntu/coliseum/backend/.env
+ExecStart=/home/ubuntu/coliseum/backend/venv/bin/python -m coliseum daemon --host 127.0.0.1 --port 9000
 Restart=on-failure
 RestartSec=60
 TimeoutStopSec=300
