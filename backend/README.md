@@ -2,54 +2,233 @@
 
 # Coliseum Backend
 
-Backend API for Coliseum - AI Prediction Market Arena. This is a FastAPI-based backend with OpenRouter integration, Supabase database, Celery for async tasks, and Logfire observability.
+Autonomous prediction market trading system using PydanticAI agents on Kalshi. The system discovers, researches, and trades prediction market contracts through a multi-agent pipeline: **Scout** (discovery) → **Analyst** (research) → **Trader** (execution) ← **Guardian** (monitoring).
+
+The backend exposes a FastAPI dashboard server, runs a long-lived autonomous daemon with heartbeat monitoring, and persists all state to Supabase (PostgreSQL) so multiple instances stay in sync.
+
+## Architecture
+
+### Agent Pipeline
+
+The core of Coliseum is a sequential agent pipeline orchestrated by `coliseum/pipeline.py`. Each cycle executes:
+
+1. **Guardian (pre-trade)** — Syncs portfolio state from Kalshi, reconciles closed positions, enforces stop-loss exits
+2. **Scout** — Fetches markets from Kalshi, filters by price range / spread / volume / close time, selects high-quality trading opportunities
+3. **Analyst (per opportunity)** — Two sub-agents run sequentially:
+   - **Researcher** — Performs web research on the opportunity using the OpenAI Responses API with WebSearchTool, produces a structured synthesis
+   - **Recommender** — Evaluates flip risk and recommends BUY_YES / BUY_NO / ABSTAIN with confidence
+4. **Trader (per opportunity)** — Reviews the Analyst's recommendation, decides EXECUTE_BUY_YES / EXECUTE_BUY_NO / REJECT, places limit orders on Kalshi with slippage protection and reprice logic
+5. **Guardian (post-trade)** — Reconciles any newly opened positions
+
+The pipeline supports graceful shutdown via `asyncio.Event`, transient error retries on 500/502/503/429 responses, and a pre-trade cash gate that skips Scout/Analyst/Trader when insufficient funds are available.
+
+### Daemon
+
+`coliseum/daemon.py` runs the pipeline as a long-lived process:
+
+- **Heartbeat loop** — Executes full pipeline cycles at a configurable interval (default: 180 min)
+- **Guardian intercycles** — Runs Guardian-only checks between full cycles (default: every 2 min) for real-time stop-loss monitoring
+- **Market context refresh** — Refreshes market category metadata every N cycles as a background task
+- **Telegram alerts** — Sends heartbeat summaries and escalation alerts when the daemon pauses due to consecutive failures
+- **Graceful shutdown** — Handles SIGTERM/SIGINT by setting an `asyncio.Event`, allowing in-progress agent runs to complete
+- **Auto-pause** — Pauses the daemon after a configurable number of consecutive failures (default: 5), resuming after the next heartbeat interval
+
+### Data Flow
+
+```
+Kalshi API ──► Scout (market discovery)
+                    │
+                    ▼
+              OpportunitySignal (domain model)
+                    │
+                    ▼
+              Analyst (research + recommendation)
+                    │
+                    ▼
+              TraderDecision (BUY_YES / BUY_NO / REJECT)
+                    │
+                    ▼
+              Kalshi API (limit order placement)
+                    │
+                    ▼
+              Guardian (position reconciliation + stop-loss)
+```
+
+All pipeline state — opportunities, positions, trades, decisions, run cycles, and learnings — is persisted to Supabase via async SQLAlchemy repositories, making it the shared source of truth for multiple bot instances.
+
+### LLM Providers
+
+Agents use PydanticAI with structured output (`result_type`). The system supports hot-swappable LLM providers via `coliseum/llm_providers.py`:
+
+| Provider | Enum | Models | API Prefix |
+|----------|------|--------|------------|
+| OpenAI | `OpenAIModel` | GPT-5.4, GPT-5.2, GPT-5-mini, GPT-5-nano | `openai-responses:` |
+| Anthropic | `AnthropicModel` | Claude Opus 4.5, Sonnet 4.5, Haiku 4.5 | `anthropic:` |
+| Fireworks | `FireworksModel` | Llama 3.3 70B, Llama 3.1 405B/70B/8B, DeepSeek V3.2, Kimi K2.5 | `fireworks:` |
+| xAI | `GrokModel` | Grok 4.20 reasoning/non-reasoning/multi-agent | `xai:` |
+
+The active provider is configured in `config.yaml` under `llm.provider`. Agents use the OpenAI Responses API with `WebSearchTool` for web-enabled research (Scout Researcher, Analyst Researcher).
+
+### Memory System
+
+The `coliseum/memory/` module provides persistent agent memory:
+
+- **Context** (`context.py`) — Loads Kalshi mechanics and market-type-specific reference material into agent prompts
+- **Decisions** (`decisions.py`) — Stores and retrieves past trading decisions for reflective learning
+- **Journal** (`journal.py`) — Cycle-level summaries with portfolio snapshots, error logs, and agent results
+- **Enums** (`enums.py`) — `LearningCategory` and `LearningAddition` types for the Guardian's Scribe sub-agent
+- **I/O** (`_io.py`) — File-based persistence utilities for prompt memory
+
+The Guardian's **Scribe** sub-agent reflects on completed trades, identifying learnings to add or stale learnings to soft-delete, creating a self-improving feedback loop.
+
+### Kalshi Integration
+
+`coliseum/services/kalshi/` provides an async HTTP client for the Kalshi trading API:
+
+- **Auth** (`auth.py`) — RSA-signed request authentication using the Kalshi trading API key + private key
+- **Client** (`client.py`) — Async `httpx`-based client with connection pooling, supporting market queries, order book retrieval, order placement/cancellation, and position management
+- **Models** (`models.py`) — Pydantic models for `Market`, `Position`, `Order`, `OrderBook`, `Balance`
+- **Config** (`config.py`) — Base URL, timeout, and connection pool settings
+- **Exceptions** (`exceptions.py`) — Typed exceptions: `KalshiAPIError`, `KalshiAuthError`, `KalshiNotFoundError`, `KalshiRateLimitError`
+- **Sync** (`sync.py`) — Portfolio sync logic that reconciles Kalshi state with local state
+
+All orders are placed as **limit orders only** (never market orders). The Trader enforces configurable slippage protection (default: 5%) and a reprice logic with up to 3 attempts at increasing aggression (2¢ per reprice).
+
+### Configuration
+
+The system uses a layered configuration: `.env` for secrets + `config.yaml` for trading parameters, merged via Pydantic Settings (`coliseum/config.py`).
+
+Key configuration knobs in `config.yaml`:
+
+```yaml
+llm:
+  provider: "xai"          # Active LLM provider
+
+trading:
+  paper_mode: false          # Set true for paper trading (no real orders)
+  contracts: 5               # Default contract quantity per trade
+
+scout:
+  market_fetch_limit: 20000  # Max markets to fetch from Kalshi
+  min_close_hours: 0         # Min hours until market close
+  max_close_hours: 48        # Max hours until market close
+  min_price: 92              # Min YES price (cents)
+  max_price: 96              # Max YES price (cents)
+  max_spread_cents: 3        # Max bid-ask spread
+  min_volume: 1000           # Min trading volume
+
+guardian:
+  stop_loss_price: 0.75      # Auto-sell positions below this price
+
+execution:
+  max_slippage_pct: 0.05     # Reject trade if slippage > 5%
+  order_check_interval_seconds: 120
+  max_reprice_attempts: 3
+  reprice_aggression: 0.02   # Increase limit by 2¢ per reprice
+  min_fill_pct_to_keep: 0.25 # Keep partial fills > 25%
+  max_order_age_minutes: 60
+
+daemon:
+  heartbeat_interval_minutes: 180   # Full pipeline cycle interval
+  guardian_interval_minutes: 2      # Guardian-only check interval
+  max_consecutive_failures: 5       # Pause threshold
+```
 
 ## Tech Stack
 
-- **FastAPI** - Modern Python web framework
-- **OpenRouter** - LLM provider for multiple AI models
-- **pydantic-ai** - LLM agent framework with structured outputs
-- **Logfire** - Observability and monitoring
-- **PostgreSQL (Supabase)** - Database with direct connection
-- **SQLAlchemy + Alembic** - ORM and database migrations
-- **Celery + Redis** - Async task queue
-- **Pydantic Settings** - Configuration management
+- **Python 3.12+** with async/await throughout
+- **PydanticAI** — LLM agent framework with structured outputs and dependency injection
+- **FastAPI** — Dashboard API server
+- **httpx** — Async HTTP client for Kalshi API
+- **SQLAlchemy (async)** — ORM with async Supabase/PostgreSQL sessions
+- **Alembic** — Database migrations (auto-generated, never hand-written)
+- **Pydantic** — Data validation, settings management, structured agent outputs
+- **Logfire** — Observability, span tracing, and LLM call instrumentation
+- **Supabase (PostgreSQL)** — Shared source of truth for all bot state
+- **Telegram Bot API** — Real-time alerts and heartbeat notifications
 
 ## Project Structure
 
 ```
 backend/
-├── main.py                    # FastAPI app entry point
-├── celery_config.py           # Celery worker configuration
-├── requirements.txt           # Python dependencies
-├── .env.example              # Environment variables template
-├── alembic.ini               # Alembic configuration
-│
-├── config/                   # Application configuration
-│   ├── settings.py          # Pydantic settings
-│   └── redis_config.py      # Redis/Celery config
-│
-├── database/                 # Database infrastructure
-│   ├── base.py             # SQLAlchemy engine and Base
-│   ├── dependencies.py     # FastAPI dependencies
-│   ├── session.py          # Context managers
-│   └── utils.py            # Health checks
-│
-├── observability/            # Logfire integration
-│   └── logfire_config.py   # Logfire singleton
-│
-├── utils/                    # Utilities
-│   └── llm_agent.py        # OpenRouter agent factory
-│
-├── api/routes/               # API endpoints (to be added)
-├── models/                   # SQLAlchemy models (to be added)
-├── schemas/                  # Pydantic schemas (to be added)
-├── services/                 # Business logic (to be added)
-├── tasks/                    # Celery tasks (to be added)
-│
-└── alembic/                  # Database migrations
-    ├── env.py              # Alembic environment
-    └── versions/           # Migration files
+├── coliseum/
+│   ├── __main__.py           # CLI entry point (init, daemon, pipeline, scout, etc.)
+│   ├── config.py             # Pydantic Settings singleton (merges .env + config.yaml)
+│   ├── llm_providers.py      # Model enums: OpenAI, Anthropic, Fireworks, Grok
+│   ├── observability.py      # Logfire initialization
+│   ├── pipeline.py           # Full pipeline orchestration (Guardian→Scout→Analyst→Trader→Guardian)
+│   ├── runtime.py            # Runtime utilities
+│   ├── daemon.py             # Long-lived autonomous daemon with heartbeat loop
+│   ├── domain/               # Shared domain models
+│   │   ├── opportunity.py    # OpportunitySignal — the core data unit flowing through the pipeline
+│   │   ├── portfolio.py      # Portfolio state models
+│   │   ├── trade.py          # Trade record models
+│   │   └── mappers.py        # Domain ↔ DB mapping utilities
+│   ├── memory/               # Prompt memory + journal/error helpers
+│   │   ├── context.py        # Kalshi mechanics loader
+│   │   ├── decisions.py      # Decision memory helpers
+│   │   ├── enums.py          # Memory-related enums (LearningCategory, LearningAddition)
+│   │   ├── journal.py        # Journal/error helpers
+│   │   └── _io.py            # I/O utilities
+│   ├── agents/
+│   │   ├── agent_factory.py  # PydanticAI agent construction (OpenAI Responses API + WebSearchTool)
+│   │   ├── shared_tools.py   # Tools shared across agents
+│   │   ├── scout/            # Market discovery agent
+│   │   │   ├── main.py       # Scout orchestration
+│   │   │   ├── researcher.py # Web research via WebSearchTool
+│   │   │   ├── filters.py    # Market filtering logic (price, spread, volume, close time)
+│   │   │   ├── models.py    # ScoutDependencies, ScoutOutput
+│   │   │   └── prompts.py   # Scout system prompts
+│   │   ├── analyst/          # Research + recommendation agent
+│   │   │   ├── main.py       # Analyst orchestration
+│   │   │   ├── researcher.py # Analyst web research
+│   │   │   ├── web_researcher.py # Web research variant
+│   │   │   ├── recommender.py # Flip-risk recommendation sub-agent
+│   │   │   ├── market_type_context.py # Market-type-specific context injection
+│   │   │   ├── models.py    # AnalystDependencies, ResearcherOutput, RecommenderOutput
+│   │   │   ├── shared.py    # Shared analyst utilities
+│   │   │   └── prompts.py   # Analyst prompts
+│   │   ├── trader/           # Trade execution agent
+│   │   │   ├── main.py      # Trader orchestration + Kalshi order placement
+│   │   │   ├── models.py    # TraderDependencies, TraderDecision, OrderResult, TraderOutput
+│   │   │   └── prompts.py   # Trader prompts
+│   │   ├── guardian/         # Position monitoring agent
+│   │   │   ├── main.py      # Guardian orchestration (sync + reconcile + stop-loss)
+│   │   │   ├── scribe.py    # Learning reflection sub-agent
+│   │   │   ├── models.py    # GuardianResult, ReconciliationStats, LearningReflectionOutput
+│   │   │   └── prompts.py   # Guardian prompts
+│   │   ├── x_sentiment/      # X/Twitter sentiment analysis agent
+│   │   └── markets_context/  # Market category context management
+│   │       ├── reader.py    # Read market context for prompts
+│   │       ├── refresher.py # Background refresh of market categories
+│   │       └── seed_data.py # Initial seed data
+│   ├── api/
+│   │   ├── server.py        # FastAPI dashboard server
+│   │   ├── cache.py         # API response caching (TTL-based)
+│   │   ├── chart_export.py  # Chart export utilities
+│   │   └── parsing.py       # API response parsing
+│   ├── services/
+│   │   ├── supabase/        # SQLAlchemy models + async DB session
+│   │   │   ├── db.py        # Async DB session (get_db_session)
+│   │   │   ├── models.py    # SQLAlchemy ORM models
+│   │   │   └── repositories/ # Data access layer (opportunities, portfolio, trades, decisions, etc.)
+│   │   ├── kalshi/          # Kalshi prediction market API client
+│   │   │   ├── auth.py      # RSA-signed request authentication
+│   │   │   ├── client.py    # Async httpx client (markets, orders, positions)
+│   │   │   ├── config.py    # Kalshi API configuration
+│   │   │   ├── exceptions.py # Typed API exceptions
+│   │   │   ├── models.py    # Pydantic models (Market, Position, Order, OrderBook, Balance)
+│   │   │   └── sync.py      # Portfolio sync logic
+│   │   └── telegram/        # Telegram Bot API notifications
+│   │       ├── client.py    # Async Telegram client
+│   │       ├── config.py    # Telegram configuration
+│   │       ├── exceptions.py # Telegram exceptions
+│   │       └── models.py    # Pydantic models
+│   └── services/exceptions.py # Shared service exceptions
+├── alembic/                 # Alembic migration environment
+├── alembic.ini              # Alembic configuration
+├── config.yaml              # Trading config (risk limits, schedules, LLM provider)
+└── requirements.txt         # Python dependencies
 ```
 
 ## Setup Instructions
@@ -59,276 +238,217 @@ backend/
 ```bash
 cd backend
 python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+source venv/bin/activate
 pip install -r requirements.txt
 ```
 
 ### 2. Configure Environment Variables
 
-Copy `.env.example` to `.env` and fill in your credentials:
+Create a `.env` file in the `backend/` directory with the following variables:
 
 ```bash
-cp .env.example .env
+# Supabase (shared source of truth for bot state)
+SUPABASE_URL=https://<project>.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=<key>
+SUPABASE_DB_URL=postgresql://<user>:<pass>@<host>:5432/postgres
+
+# LLM API keys (at least one provider required)
+OPENAI_API_KEY=<key>
+ANTHROPIC_API_KEY=<key>
+XAI_API_KEY=<key>
+FIREWORKS_API_KEY=<key>
+
+# Kalshi trading API
+KALSHI_API_KEY=<key>
+RSA_PRIVATE_KEY_PATH=./kalshi_private_key.pem
+
+# Observability
+LOGFIRE_TOKEN=<token>
+
+# Telegram alerts (optional)
+TELEGRAM_BOT_TOKEN=<token>
+TELEGRAM_CHAT_ID=<chat_id>
 ```
 
-Required environment variables:
-- `SUPABASE_URL` - Your Supabase project URL
-- `SUPABASE_SERVICE_ROLE_KEY` - Supabase service role key
-- `DB_USER`, `DB_PASSWORD`, `DB_HOST` - Database connection details
-- `OPENROUTER_API_KEY` - Your OpenRouter API key (starts with `sk-or-v1-`)
-- `LOGFIRE_TOKEN` - Logfire project token
-- `REDIS_HOST`, `REDIS_PORT` - Redis connection (default: localhost:6379)
+### 3. Initialize Data Directory
 
-### 3. Start Redis (Required for Celery)
-
-**macOS:**
 ```bash
-brew install redis
-brew services start redis
-```
-
-**Ubuntu/Debian:**
-```bash
-sudo apt-get install redis-server
-sudo systemctl start redis
-```
-
-**Docker:**
-```bash
-docker run -d -p 6379:6379 redis:latest
+python -m coliseum init
 ```
 
 ### 4. Run Database Migrations
 
 ```bash
-# Check current migration status
-alembic current
-
-# When you add models, generate and apply migrations:
-# alembic revision --autogenerate -m "add initial models"
-# alembic upgrade head
+# Ensure SUPABASE_DB_URL is set in .env
+alembic current          # Check current migration status
+alembic upgrade head     # Apply all pending migrations
 ```
 
-### 5. Start the FastAPI Server
+Schema changes require Alembic — always use `alembic revision --autogenerate -m "description"` and never hand-write migrations.
+
+### 5. Configure Trading Parameters
+
+Edit `backend/config.yaml` to set risk limits, LLM provider, and agent behavior. **Always set `trading.paper_mode: true`** when testing to avoid placing real orders on Kalshi.
+
+### 6. Run the Pipeline
 
 ```bash
-# Development mode (with auto-reload)
-python main.py
+# Run one full pipeline cycle (for testing/debug)
+python -m coliseum pipeline
 
-# Or use uvicorn directly
-uvicorn main:app --reload --host 0.0.0.0 --port 9000
+# Start the autonomous daemon (production)
+python -m coliseum daemon
+
+# Start the dashboard API only
+python -m coliseum api
 ```
 
-The API will be available at:
-- **API**: http://localhost:9000
-- **API Docs (Swagger)**: http://localhost:9000/docs
-- **Health Check**: http://localhost:9000/health
+See the CLI commands section below for the full list of commands.
 
-### 6. Start Celery Worker (Optional)
+## CLI Commands
 
-In a new terminal:
+All commands are run from the `backend/` directory with the venv activated:
 
 ```bash
-cd backend
-source venv/bin/activate
-celery -A celery_config worker --loglevel=info
+python -m coliseum init                   # Initialize data directory
+python -m coliseum daemon                 # Start trading daemon + dashboard (production)
+python -m coliseum pipeline               # Run full pipeline once (testing/debug)
+python -m coliseum api                    # Start dashboard API only (no daemon)
+python -m coliseum scout                  # Run Scout agent manually
+python -m coliseum analyst --id <id>      # Run Analyst for a specific opportunity
+python -m coliseum trader --id <id>       # Run Trader for a specific opportunity
+python -m coliseum guardian               # Run Guardian reconciliation
+python -m coliseum status                 # Portfolio status summary
+python -m coliseum config                 # Display merged configuration
 ```
 
-## Verification
-
-### Test Configuration
+Database migration commands:
 
 ```bash
-python -c "from config import settings; print('Environment:', settings.environment)"
+alembic current                           # Show current DB migration revision
+alembic upgrade head                      # Apply all pending migrations
+alembic upgrade head --sql                # Preview migration SQL without applying
 ```
 
-### Test Database Connection
+## Using LLM Agents
 
-```bash
-python -c "from database import check_db_connection; print('DB Connected:', check_db_connection())"
-```
-
-### Test Health Endpoint
-
-```bash
-curl http://localhost:9000/health
-```
-
-Expected response:
-```json
-{
-  "status": "healthy",
-  "service": "coliseum-api",
-  "version": "0.1.0",
-  "database": "connected",
-  "environment": "development"
-}
-```
-
-## Using OpenRouter with pydantic-ai
-
-The backend is configured to use OpenRouter for LLM calls. Example usage:
+Agents are constructed via `coliseum/agents/agent_factory.py` which creates PydanticAI agents with structured output and optional web search capability. The active LLM provider is configured in `config.yaml` under `llm.provider`.
 
 ```python
-from utils.llm_agent import create_agent
+from coliseum.llm_providers import OpenAIModel, get_model_string
 
-# Create an agent
-agent = create_agent(
-    model="openai:anthropic/claude-3.5-sonnet",
-    system_prompt="You are a prediction market analyst."
-)
-
-# Run the agent
-result = await agent.run("Analyze this market prediction...")
-print(result.data)
+# Get the API model string for any supported model
+model = get_model_string(OpenAIModel.GPT_5_MINI)  # "openai-responses:gpt-5-mini"
 ```
 
-**Available Models via OpenRouter:**
-- Claude: `openai:anthropic/claude-3.5-sonnet`, `openai:anthropic/claude-3-haiku`
-- GPT: `openai:openai/gpt-4o`, `openai:openai/gpt-4-turbo`
-- Gemini: `openai:google/gemini-2.0-flash-exp`
-- Open Source: `openai:meta-llama/llama-3.1-70b-instruct`, `openai:mistralai/mistral-large`
+Available providers and models (see `coliseum/llm_providers.py`):
 
-**Note**: Model format is `openai:{provider}/{model-name}` because OpenRouter uses OpenAI-compatible API.
+- **OpenAI**: GPT-5.4, GPT-5.2, GPT-5-mini, GPT-5-nano (`openai-responses:` prefix)
+- **Anthropic**: Claude Opus 4.5, Sonnet 4.5, Haiku 4.5 (`anthropic:` prefix)
+- **Fireworks**: Llama 3.3 70B, Llama 3.1 405B/70B/8B, DeepSeek V3.2, Kimi K2.5 (`fireworks:` prefix)
+- **xAI**: Grok 4.20 reasoning/non-reasoning/multi-agent (`xai:` prefix)
+
+Agents that perform web research (Scout Researcher, Analyst Researcher) use the OpenAI Responses API with `WebSearchTool`. All agents use Pydantic `result_type` for structured output.
 
 ## Development Workflow
 
 ### Adding Database Models
 
-1. Create model in `models/` directory:
-```python
-# models/prediction.py
-from sqlalchemy import Column, Integer, String, Float
-from database.base import Base
+1. Update the SQLAlchemy model in `coliseum/services/supabase/models.py`
+2. Generate an Alembic migration: `alembic revision --autogenerate -m "add X model"`
+3. Review the generated migration file in `alembic/versions/`
+4. Apply the migration: `alembic upgrade head`
+5. Add a repository in `coliseum/services/supabase/repositories/` for data access
 
-class Prediction(Base):
-    __tablename__ = "predictions"
-    id = Column(Integer, primary_key=True)
-    market_id = Column(String, nullable=False)
-    confidence = Column(Float, nullable=False)
-```
-
-2. Import in `models/__init__.py`
-3. Import in `alembic/env.py`
-4. Generate migration: `alembic revision --autogenerate -m "add prediction model"`
-5. Apply migration: `alembic upgrade head`
+**Important**: Never hand-write Alembic migrations. Always use `--autogenerate` and review the output.
 
 ### Adding API Routes
 
-1. Create router in `api/routes/`:
-```python
-# api/routes/predictions.py
-from fastapi import APIRouter, Depends
-from sqlalchemy.orm import Session
-from database import get_db
+1. Add route handlers in `coliseum/api/server.py`
+2. Use `coliseum/api/cache.py` for TTL-based response caching
+3. Use `coliseum/api/parsing.py` for API response parsing utilities
 
-router = APIRouter(prefix="/api/predictions", tags=["Predictions"])
+### Adding a New Agent
 
-@router.get("/")
-async def get_predictions(db: Session = Depends(get_db)):
-    return {"predictions": []}
-```
-
-2. Include router in `main.py`:
-```python
-from api.routes.predictions import router as predictions_router
-app.include_router(predictions_router)
-```
-
-### Adding Celery Tasks
-
-1. Create task in `tasks/` directory:
-```python
-# tasks/prediction_tasks.py
-from celery_config import celery_app
-from database.session import get_db_context
-
-@celery_app.task
-def analyze_market(market_id: str):
-    with get_db_context() as db:
-        # Your task logic here
-        return {"status": "complete"}
-```
-
-2. Add to `celery_config.py` include list:
-```python
-celery_app = Celery(
-    "coliseum",
-    # ...
-    include=["tasks.prediction_tasks"],
-)
-```
+1. Create a new directory under `coliseum/agents/<agent_name>/`
+2. Define Pydantic models in `models.py` (dependencies, output)
+3. Write prompts in `prompts.py`
+4. Implement orchestration in `main.py`
+5. Register the agent in the pipeline (`coliseum/pipeline.py`) if it participates in the trading cycle
 
 ## Architecture Notes
 
-### No Authentication
+### Supabase as Source of Truth
 
-This backend has **no authentication layer** as specified. All users see a unified frontend. If you need to add authentication later, you'll need to:
-1. Add Supabase auth integration
-2. Create JWT validation middleware
-3. Add user-based database models
+All bot state — opportunities, portfolio, positions, trades, decisions, run cycles, and learnings — is persisted to Supabase (PostgreSQL). This enables multiple bot instances to share state and stay in sync. Database access uses async SQLAlchemy sessions via `coliseum/services/supabase/db.py`:
 
-### OpenRouter Integration
+```python
+from coliseum.services.supabase.db import get_db_session
 
-Unlike the reference `pythonserver` which uses Anthropic directly, this backend uses **OpenRouter** which provides:
-- Access to multiple LLM providers through one API
-- Automatic fallbacks and load balancing
-- Cost optimization across providers
-- Unified billing
+async with get_db_session() as session:
+    # ... query or persist data
+```
+
+### Paper Mode
+
+**Always** run with `trading.paper_mode: true` in `config.yaml` when testing. This prevents real-money order placement on Kalshi. The Trader agent will simulate orders and report `execution_status: "paper"` instead of interacting with the live API.
 
 ### Logfire Observability
 
-All LLM calls are automatically instrumented by Logfire, capturing:
-- Model inputs and outputs
-- Token counts and costs
-- Latency and performance metrics
-- Error traces
+All pipeline spans and LLM calls are automatically instrumented by Logfire, capturing:
+- Pipeline cycle spans (guardian, scout, analyst, trader)
+- Agent inputs, outputs, and structured results
+- Token counts, costs, and latency
+- Error traces and transient retry logs
+
+### Telegram Alerts
+
+When configured, the daemon sends:
+- **Heartbeat summaries** — After each pipeline cycle (status, uptime, cycle count)
+- **Escalation alerts** — When the daemon pauses due to consecutive failures
+- **Trade notifications** — Real-time alerts on trade execution via the Trader's `tldr` field
 
 ## Troubleshooting
 
 ### Database Connection Issues
 
-If you get SSL errors with Supabase:
-- Ensure `?sslmode=require` is in your database URL (handled automatically by settings.py)
-- Check that your Supabase project is active
-- Verify database credentials in `.env`
+- Ensure `SUPABASE_DB_URL` is a valid Postgres connection string in `.env`
+- SSL mode is handled automatically by settings
+- Check that your Supabase project is active and not paused
 
-### OpenRouter API Errors
+### LLM API Errors
 
-If you get authentication errors:
-- Ensure `OPENROUTER_API_KEY` starts with `sk-or-v1-`
-- Check that the key is set in `.env`
-- Verify the key is valid at https://openrouter.ai/keys
+- Ensure the API key for your configured `llm.provider` is set in `.env`
+- Check `python -m coliseum config` to verify the merged configuration
+- Transient errors (500/502/503/429) are retried automatically by the pipeline
+
+### Kalshi API Errors
+
+- Ensure `KALSHI_API_KEY` and `RSA_PRIVATE_KEY_PATH` are set in `.env`
+- Verify the RSA key file exists and is readable
+- Check `python -m coliseum status` for portfolio state
 
 ### Import Errors
 
-If you get module import errors:
 - Ensure you're in the `backend/` directory
-- Activate the virtual environment
+- Activate the virtual environment: `source venv/bin/activate`
 - Reinstall dependencies: `pip install -r requirements.txt`
-
-### Celery Connection Issues
-
-If Celery can't connect to Redis:
-- Check Redis is running: `redis-cli ping` (should return PONG)
-- Verify `REDIS_HOST` and `REDIS_PORT` in `.env`
-- Check firewall settings
 
 ## Next Steps
 
-This is a **skeleton setup** with no business logic. To build your application:
+The core trading pipeline is fully functional. Potential areas for expansion:
 
-1. **Design your data models** - Create SQLAlchemy models for predictions, markets, AI agents, etc.
-2. **Create API endpoints** - Build REST endpoints for your frontend to consume
-3. **Implement business logic** - Add prediction algorithms, market calculations, etc.
-4. **Add Celery tasks** - Implement async tasks for AI model execution
-5. **Connect to frontend** - Update frontend to call your API endpoints
+1. **Additional market sources** — Integrate prediction markets beyond Kalshi (Polymarket, Metaculus)
+2. **Strategy diversification** — Add new agent strategies beyond the current Scout→Analyst→Trader flow
+3. **Risk management** — Enhanced position sizing, portfolio-level risk limits, correlation analysis
+4. **Backtesting** — Historical performance simulation using resolved market data
+5. **Dashboard enhancements** — Richer analytics, P&L charts, and agent decision drill-downs
 
 ## Resources
 
+- [PydanticAI Documentation](https://ai.pydantic.dev/)
+- [Kalshi API Documentation](https://trading-api.kalshi.com)
 - [FastAPI Documentation](https://fastapi.tiangolo.com/)
-- [pydantic-ai Documentation](https://ai.pydantic.dev/)
-- [OpenRouter Documentation](https://openrouter.ai/docs)
 - [Alembic Documentation](https://alembic.sqlalchemy.org/)
-- [Celery Documentation](https://docs.celeryq.dev/)
 - [Logfire Documentation](https://logfire.pydantic.dev/)
+- [Supabase Documentation](https://supabase.com/docs)
