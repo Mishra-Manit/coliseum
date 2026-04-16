@@ -105,6 +105,27 @@ class _CacheEntry(BaseModel):
     expires_at: float
 
 
+def _smooth_navs(navs: list[float], window_size: int = 3) -> list[float]:
+    """Apply moving average smoothing to NAV values to reduce spikes."""
+    if len(navs) < window_size:
+        return navs
+
+    smoothed = []
+    half_window = window_size // 2
+
+    for i in range(len(navs)):
+        # Calculate window bounds
+        start = max(0, i - half_window)
+        end = min(len(navs), i + half_window + 1)
+
+        # Take average of window
+        window = navs[start:end]
+        avg = sum(window) / len(window)
+        smoothed.append(round(avg, 2))
+
+    return smoothed
+
+
 class ChartExportService:
     """Generate and cache chart exports for API and automation usage."""
 
@@ -125,6 +146,7 @@ class ChartExportService:
             raise ChartExportError("Unsupported export format")
 
         navs = [round(float(c["total_value"]), 2) for c in cycles if "total_value" in c]
+        navs = _smooth_navs(navs, window_size=3)  # Smooth NAV values to reduce spikes
         timestamps = [str(c["cycle_at"]) for c in cycles if "cycle_at" in c]
 
         if not navs or not timestamps:
