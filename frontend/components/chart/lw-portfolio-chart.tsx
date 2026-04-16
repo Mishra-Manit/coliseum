@@ -279,7 +279,7 @@ export function LWPortfolioChart({
             onClick={handleExport}
             disabled={isExporting || isEmpty}
             title={isEmpty ? "No chart data to export" : "Download MP4"}
-            className={`h-7 w-7 inline-flex items-center justify-center border border-border rounded transition-colors ${
+            className={`h-7 w-7 hidden sm:inline-flex items-center justify-center border border-border rounded transition-colors ${
               isExporting || isEmpty
                 ? "text-muted-foreground/50 cursor-not-allowed"
                 : `${Muted.mutedText} ${Muted.mutedTextHover}`

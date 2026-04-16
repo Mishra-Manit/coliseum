@@ -5,6 +5,7 @@ import { DashboardNavbar } from "@/components/dashboard/dashboard-navbar";
 import { OpportunitiesFeed } from "@/components/dashboard/opportunities-feed";
 import { OpportunityDetailView } from "@/components/dashboard/opportunity-detail";
 import { PositionsLedgerPanel } from "@/components/dashboard/positions-ledger-panel";
+import { MobileDashboard } from "@/components/mobile/mobile-dashboard";
 
 export default function Home() {
   const [selectedOpportunityId, setSelectedOpportunityId] = useState<
@@ -12,35 +13,43 @@ export default function Home() {
   >(null);
 
   return (
-    <div className="flex flex-col h-screen bg-background tech-grid noise-bg overflow-hidden">
-      <DashboardNavbar />
+    <>
+      {/* Mobile layout */}
+      <div className="lg:hidden">
+        <MobileDashboard />
+      </div>
 
-      <main className="flex-1 flex overflow-hidden">
-        <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-0 overflow-hidden">
-          {/* Left panel — positions + ledger */}
-          <div className="lg:col-span-3 border-r border-border flex flex-col min-h-0 overflow-hidden">
-            <PositionsLedgerPanel
-              onSelectOpportunity={setSelectedOpportunityId}
-            />
-          </div>
+      {/* Desktop layout */}
+      <div className="hidden lg:flex flex-col h-screen bg-background tech-grid noise-bg overflow-hidden">
+        <DashboardNavbar />
 
-          {/* Center panel — opportunities feed */}
-          <div className="lg:col-span-3 border-r border-border flex flex-col min-h-0 overflow-hidden">
-            <OpportunitiesFeed
-              onSelectOpportunity={setSelectedOpportunityId}
-              selectedId={selectedOpportunityId}
-            />
-          </div>
+        <main className="flex-1 flex overflow-hidden">
+          <div className="flex-1 grid grid-cols-12 gap-0 overflow-hidden">
+            {/* Left panel — positions + ledger */}
+            <div className="col-span-3 border-r border-border flex flex-col min-h-0 overflow-hidden">
+              <PositionsLedgerPanel
+                onSelectOpportunity={setSelectedOpportunityId}
+              />
+            </div>
 
-          {/* Right panel — opportunity detail */}
-          <div className="lg:col-span-6 flex flex-col min-h-0 overflow-hidden">
-            <OpportunityDetailView
-              opportunityId={selectedOpportunityId}
-              onClose={() => setSelectedOpportunityId(null)}
-            />
+            {/* Center panel — opportunities feed */}
+            <div className="col-span-3 border-r border-border flex flex-col min-h-0 overflow-hidden">
+              <OpportunitiesFeed
+                onSelectOpportunity={setSelectedOpportunityId}
+                selectedId={selectedOpportunityId}
+              />
+            </div>
+
+            {/* Right panel — opportunity detail */}
+            <div className="col-span-6 flex flex-col min-h-0 overflow-hidden">
+              <OpportunityDetailView
+                opportunityId={selectedOpportunityId}
+                onClose={() => setSelectedOpportunityId(null)}
+              />
+            </div>
           </div>
-        </div>
-      </main>
-    </div>
+        </main>
+      </div>
+    </>
   );
 }

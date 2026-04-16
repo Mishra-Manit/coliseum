@@ -5,6 +5,7 @@ import { DashboardNavbar } from "@/components/dashboard/dashboard-navbar";
 import { useChartData } from "@/hooks/use-api";
 import { LWPortfolioChart } from "@/components/chart/lw-portfolio-chart";
 import { WinRatePanel } from "@/components/chart/win-rate-panel";
+import { MobileCharts } from "@/components/mobile/mobile-charts";
 import type { Interval } from "@/lib/chart-utils";
 import { FontSize } from "@/lib/typography";
 import { Muted, Strong, Faint } from "@/lib/styles";
@@ -93,12 +94,20 @@ function ChartMain() {
 
 export default function ChartPage() {
   return (
-    <div className="flex flex-col h-screen bg-background tech-grid noise-bg overflow-hidden">
-      <DashboardNavbar />
-      <main className="flex-1 overflow-hidden flex min-h-0">
-        <ChartSidebar />
-        <ChartMain />
-      </main>
-    </div>
+    <>
+      {/* Mobile layout */}
+      <div className="lg:hidden">
+        <MobileCharts />
+      </div>
+
+      {/* Desktop layout */}
+      <div className="hidden lg:flex flex-col h-screen bg-background tech-grid noise-bg overflow-hidden">
+        <DashboardNavbar />
+        <main className="flex-1 overflow-hidden flex min-h-0">
+          <ChartSidebar />
+          <ChartMain />
+        </main>
+      </div>
+    </>
   );
 }
