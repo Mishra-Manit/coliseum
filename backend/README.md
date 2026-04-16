@@ -1,3 +1,5 @@
+<!-- This README describes the original backend skeleton. The system has since evolved into the Coliseum autonomous trading pipeline (Scout → Analyst → Trader ← Guardian). See CLAUDE.md for current architecture and commands. -->
+
 # Coliseum Backend
 
 Backend API for Coliseum - AI Prediction Market Arena. This is a FastAPI-based backend with OpenRouter integration, Supabase database, Celery for async tasks, and Logfire observability.
