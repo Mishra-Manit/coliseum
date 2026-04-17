@@ -21,6 +21,31 @@ ExportFormat = Literal["mp4"]
 ExportQuality = Literal["fast", "balanced", "hq"]
 
 
+def _smooth_series(values: list[float], window: int = 3) -> list[float]:
+    """Apply simple moving average to smooth out spikes in the data series.
+    
+    Uses a sliding window average. For edge cases at the beginning/end,
+    uses the available data points (smaller window).
+    """
+    if len(values) < 2 or window < 2:
+        return values
+    
+    smoothed = []
+    half_window = window // 2
+    
+    for i in range(len(values)):
+        # Determine window bounds
+        start = max(0, i - half_window)
+        end = min(len(values), i + half_window + 1)
+        
+        # Calculate average of window
+        window_values = values[start:end]
+        avg = sum(window_values) / len(window_values)
+        smoothed.append(round(avg, 2))
+    
+    return smoothed
+
+
 class ChartExportError(Exception):
     """Base chart export exception."""
 
@@ -124,7 +149,8 @@ class ChartExportService:
         if export_format != "mp4":
             raise ChartExportError("Unsupported export format")
 
-        navs = [round(float(c["total_value"]), 2) for c in cycles if "total_value" in c]
+        raw_navs = [round(float(c["total_value"]), 2) for c in cycles if "total_value" in c]
+        navs = _smooth_series(raw_navs, window=3)
         timestamps = [str(c["cycle_at"]) for c in cycles if "cycle_at" in c]
 
         if not navs or not timestamps:
