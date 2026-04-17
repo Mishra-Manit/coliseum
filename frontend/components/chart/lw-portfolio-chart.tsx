@@ -1,14 +1,15 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import type { IChartApi, ISeriesApi, UTCTimestamp } from "lightweight-charts";
-import { Download, Loader2 } from "lucide-react";
+import { Download, Loader2, Image as ImageIcon, Video } from "lucide-react";
 import type { ChartDataPoint } from "@/lib/types";
 import { getChartSeries, type Interval } from "@/lib/chart-utils";
-import { downloadChartExport } from "@/lib/api";
 import { RangeSwitcher } from "./range-switcher";
 import { FontSize } from "@/lib/typography";
 import { Muted } from "@/lib/styles";
+import { useChartExport, type ChartExportFormat, type ChartExportQuality } from "@/hooks/use-chart-export";
+import { ChartExportCanvas } from "./chart-export-canvas";
 
 const C = {
   bg: "#07060a",
@@ -20,6 +21,12 @@ const C = {
   negative: "#dc2626",
   amber: "#d97706",
 } as const;
+
+const QUALITY_LABELS: Record<ChartExportQuality, string> = {
+  fast: "Fast",
+  balanced: "Balanced",
+  hq: "HQ",
+};
 
 interface LWPortfolioChartProps {
   data: ChartDataPoint[];
@@ -43,6 +50,23 @@ export function LWPortfolioChart({
   const [chartsReady, setChartsReady] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
+  const [showExportMenu, setShowExportMenu] = useState(false);
+  const canvasContainerRef = useRef<HTMLDivElement>(null);
+
+  const {
+    isRecording,
+    progress,
+    error: exportHookError,
+    quality,
+    format,
+    setQuality,
+    setFormat,
+    startRecording,
+    stopRecording,
+    downloadBlob,
+    getProfile,
+    isSupported,
+  } = useChartExport("mp4", "balanced");
 
   useEffect(() => {
     if (!mainRef.current || !histRef.current) return;
@@ -225,29 +249,97 @@ export function LWPortfolioChart({
 
   const isEmpty = data.length === 0;
 
-  const handleExport = async () => {
-    if (isExporting || isEmpty) return;
+  const handleExportComplete = useCallback(() => {
+    // Handled by the startRecording promise
+  }, []);
+
+  const handleExportError = useCallback((errorMsg: string) => {
+    setExportError(errorMsg);
+    setIsExporting(false);
+  }, []);
+
+  const handleExport = async (selectedFormat: ChartExportFormat) => {
+    if (isExporting || isEmpty || isRecording) return;
+    
+    setFormat(selectedFormat);
     setExportError(null);
     setIsExporting(true);
+    setShowExportMenu(false);
 
     try {
-      const { blob, filename } = await downloadChartExport("mp4", "balanced");
-      const objectUrl = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = objectUrl;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      URL.revokeObjectURL(objectUrl);
+      if (selectedFormat === "png") {
+        // PNG export: draw to canvas and download immediately
+        const profile = getProfile();
+        const canvas = document.createElement("canvas");
+        canvas.width = profile.width;
+        canvas.height = profile.height;
+
+        // Render full chart to canvas using the same logic
+        const exportCanvas = canvasContainerRef.current?.querySelector("canvas");
+        if (exportCanvas) {
+          const ctx = canvas.getContext("2d");
+          if (ctx) {
+            // Copy the hidden canvas content
+            ctx.drawImage(exportCanvas, 0, 0);
+          }
+        }
+
+        // Convert to blob and download
+        const blob = await new Promise<Blob | null>((resolve) => {
+          canvas.toBlob(resolve, "image/png");
+        });
+        
+        if (blob) {
+          const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, -5);
+          const filename = `coliseum-portfolio-${timestamp}.png`;
+          downloadBlob(blob, filename);
+        } else {
+          throw new Error("Failed to generate PNG");
+        }
+        setIsExporting(false);
+      } else {
+        // MP4 export: animate and record
+        const exportCanvas = canvasContainerRef.current?.querySelector("canvas");
+        if (!exportCanvas) {
+          throw new Error("Export canvas not found");
+        }
+
+        const blob = await startRecording(exportCanvas as HTMLCanvasElement);
+        const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, -5);
+        const filename = `coliseum-portfolio-${timestamp}.webm`;
+        downloadBlob(blob, filename);
+        setIsExporting(false);
+      }
     } catch (error) {
       setExportError(
         error instanceof Error ? error.message : "Chart export failed"
       );
-    } finally {
       setIsExporting(false);
     }
   };
+
+  // Handle hook errors
+  useEffect(() => {
+    if (exportHookError) {
+      setExportError(exportHookError);
+      setIsExporting(false);
+    }
+  }, [exportHookError]);
+
+  // Close export menu when clicking outside
+  useEffect(() => {
+    if (!showExportMenu) return;
+
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest(".relative")) {
+        setShowExportMenu(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showExportMenu]);
 
   return (
     <div className="flex flex-col h-full min-h-0">
@@ -275,22 +367,70 @@ export function LWPortfolioChart({
               {exportError}
             </span>
           )}
-          <button
-            onClick={handleExport}
-            disabled={isExporting || isEmpty}
-            title={isEmpty ? "No chart data to export" : "Download MP4"}
-            className={`h-7 w-7 hidden sm:inline-flex items-center justify-center border border-border rounded transition-colors ${
-              isExporting || isEmpty
-                ? "text-muted-foreground/50 cursor-not-allowed"
-                : `${Muted.mutedText} ${Muted.mutedTextHover}`
-            }`}
-          >
-            {isExporting ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Download className="h-3.5 w-3.5" />
+          <div className="relative">
+            <button
+              onClick={() => setShowExportMenu(!showExportMenu)}
+              disabled={isExporting || isEmpty || isRecording}
+              title={isEmpty ? "No chart data to export" : "Export chart"}
+              className={`h-7 w-7 hidden sm:inline-flex items-center justify-center border border-border rounded transition-colors ${
+                isExporting || isEmpty || isRecording
+                  ? "text-muted-foreground/50 cursor-not-allowed"
+                  : `${Muted.mutedText} ${Muted.mutedTextHover}`
+              }`}
+            >
+              {isExporting || isRecording ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Download className="h-3.5 w-3.5" />
+              )}
+            </button>
+
+            {/* Export menu dropdown */}
+            {showExportMenu && !isExporting && !isRecording && (
+              <div className="absolute right-0 top-full mt-1 z-50 min-w-[180px] bg-card border border-border rounded shadow-lg">
+                {/* Format options */}
+                <div className="p-1.5 border-b border-border">
+                  <p className={`${FontSize.small} font-mono ${Muted.mutedText} px-2 py-1`}>Format</p>
+                  <button
+                    onClick={() => handleExport("png")}
+                    className={`w-full flex items-center gap-2 px-2 py-1.5 text-left rounded ${FontSize.small} font-mono ${Muted.mutedText} hover:bg-amber-500/5`}
+                  >
+                    <ImageIcon className="h-3.5 w-3.5" />
+                    PNG Image
+                  </button>
+                  <button
+                    onClick={() => handleExport("mp4")}
+                    disabled={!isSupported}
+                    className={`w-full flex items-center gap-2 px-2 py-1.5 text-left rounded ${FontSize.small} font-mono ${Muted.mutedText} hover:bg-amber-500/5 disabled:opacity-50`}
+                  >
+                    <Video className="h-3.5 w-3.5" />
+                    MP4 Video
+                    {!isSupported && <span className="ml-auto text-[10px] text-red-400">N/A</span>}
+                  </button>
+                </div>
+
+                {/* Quality options */}
+                <div className="p-1.5">
+                  <p className={`${FontSize.small} font-mono ${Muted.mutedText} px-2 py-1`}>Quality</p>
+                  <div className="flex gap-1 px-2">
+                    {(["fast", "balanced", "hq"] as ChartExportQuality[]).map((q) => (
+                      <button
+                        key={q}
+                        onClick={() => setQuality(q)}
+                        className={`flex-1 px-2 py-1 rounded ${FontSize.small} font-mono transition-colors ${
+                          quality === q
+                            ? "bg-amber-500/20 text-amber-500"
+                            : `${Muted.mutedText} hover:bg-amber-500/5`
+                        }`}
+                      >
+                        {QUALITY_LABELS[q]}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
             )}
-          </button>
+          </div>
           <RangeSwitcher value={interval} onChange={onIntervalChange} />
         </div>
       </div>
@@ -319,6 +459,35 @@ export function LWPortfolioChart({
 
       {/* Histogram -- takes 35% of the chart area */}
       <div ref={histRef} className="flex-[7] min-h-0" />
+
+      {/* Hidden export canvas component */}
+      <div ref={canvasContainerRef} className="sr-only">
+        <ChartExportCanvas
+          data={data}
+          interval={interval}
+          quality={quality}
+          isRecording={isRecording}
+          onComplete={handleExportComplete}
+          onError={handleExportError}
+        />
+      </div>
+
+      {/* Recording progress overlay */}
+      {isRecording && (
+        <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-card border border-border rounded p-4 text-center">
+            <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2 text-amber-500" />
+            <p className={`${FontSize.small} font-mono ${Muted.mutedText}`}>Recording...</p>
+            <div className="w-32 h-1 bg-border rounded-full mt-2 overflow-hidden">
+              <div
+                className="h-full bg-amber-500 transition-all"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+            <p className={`${FontSize.small} font-mono text-amber-500 mt-1`}>{Math.round(progress)}%</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

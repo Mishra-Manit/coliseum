@@ -1,19 +1,18 @@
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://coliseumapi.manitmishra.com";
 
-export type ChartExportFormat = "mp4";
+// NOTE: Client-side export is now the preferred method.
+// These types are kept for backward compatibility with the hook system.
+export type ChartExportFormat = "mp4" | "png";
 export type ChartExportQuality = "fast" | "balanced" | "hq";
 
-function parseDownloadFilename(contentDisposition: string | null): string | null {
-  if (!contentDisposition) return null;
-  const match = contentDisposition.match(/filename="?([^";]+)"?/i);
-  return match?.[1] ?? null;
-}
-
+// DEPRECATED: Backend chart export is now handled client-side.
+// Use the useChartExport hook from @/hooks/use-chart-export instead.
+// This function is kept for backward compatibility but should be avoided.
 export async function downloadChartExport(
   format: ChartExportFormat = "mp4",
   quality: ChartExportQuality = "balanced",
 ): Promise<{ blob: Blob; filename: string }> {
-  const params = new URLSearchParams({ format, quality });
+  const params = new URLSearchParams({ format: format === "mp4" ? "mp4" : "png", quality });
   const res = await fetch(`${API_BASE}/api/chart/export?${params.toString()}`);
 
   if (!res.ok) {
@@ -27,9 +26,10 @@ export async function downloadChartExport(
     throw new Error(detail);
   }
 
+  const contentDisposition = res.headers.get("Content-Disposition");
   const filename =
-    parseDownloadFilename(res.headers.get("Content-Disposition")) ??
-    `coliseum-portfolio.${format}`;
+    contentDisposition?.match(/filename="?([^";]+)"?/i)?.[1] ??
+    `coliseum-portfolio.${format === "mp4" ? "webm" : "png"}`;
 
   return { blob: await res.blob(), filename };
 }
