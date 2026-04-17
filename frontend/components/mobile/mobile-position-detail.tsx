@@ -51,7 +51,7 @@ export function MobilePositionDetail({
   return (
     <div className="flex flex-col h-[100dvh] bg-background overflow-hidden overscroll-contain">
       {/* Nav Header */}
-      <div className="shrink-0 flex items-center justify-between h-12 px-5 bg-card border-b border-border">
+      <div className="shrink-0 sticky top-0 z-50 flex items-center justify-between h-12 pt-[env(safe-area-inset-top)] px-5 bg-card/95 backdrop-blur-sm border-b border-border">
         <div className="flex items-center gap-3">
           <button onClick={onBack} className="text-foreground/80 p-2 -ml-2 min-h-[44px] min-w-[44px] flex items-center justify-center active:opacity-80 transition-opacity">
             <ArrowLeft className="h-5 w-5" />
