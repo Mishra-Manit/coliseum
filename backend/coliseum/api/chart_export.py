@@ -41,6 +41,30 @@ class ChartExportNoDataError(ChartExportError):
     """Raised when no chart data exists for export."""
 
 
+def _smooth_nav_data(navs: list[float], window_size: int = 3) -> list[float]:
+    """Apply moving average smoothing to reduce spikes in NAV curve.
+
+    Preserves first and last points exactly to maintain accurate endpoints.
+    Uses a sliding window average for interior points.
+    """
+    if len(navs) <= window_size:
+        return navs  # Too few points to smooth
+
+    smoothed = [navs[0]]  # Keep first point exact
+
+    for i in range(1, len(navs) - 1):
+        # Calculate window bounds
+        left = max(0, i - window_size // 2)
+        right = min(len(navs), i + window_size // 2 + 1)
+
+        # Average of window
+        window_avg = sum(navs[left:right]) / (right - left)
+        smoothed.append(round(window_avg, 2))
+
+    smoothed.append(navs[-1])  # Keep last point exact
+    return smoothed
+
+
 @dataclass(frozen=True)
 class RenderProfile:
     """Rendering settings for a named quality profile."""
@@ -125,6 +149,7 @@ class ChartExportService:
             raise ChartExportError("Unsupported export format")
 
         navs = [round(float(c["total_value"]), 2) for c in cycles if "total_value" in c]
+        navs = _smooth_nav_data(navs)  # Smooth the data before rendering
         timestamps = [str(c["cycle_at"]) for c in cycles if "cycle_at" in c]
 
         if not navs or not timestamps:
