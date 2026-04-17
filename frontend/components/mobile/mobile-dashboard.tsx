@@ -34,10 +34,10 @@ export function MobileDashboard() {
   }
 
   return (
-    <div className="flex flex-col h-[100dvh] bg-background overflow-hidden">
+    <div className="flex flex-col h-[100dvh] bg-background overflow-hidden overscroll-contain">
       <MobileHeader showChartLink={false} />
 
-      <div className="flex-1 flex flex-col overflow-y-auto min-h-0 px-4 py-4 gap-4">
+      <div className="flex-1 flex flex-col overflow-y-auto min-h-0 px-4 py-4 gap-4 overscroll-y-contain">
         {/* Stats strip */}
         <StatsStrip />
 
@@ -46,10 +46,7 @@ export function MobileDashboard() {
 
         {/* Tab content */}
         {activeTab === "positions" && (
-          <>
-            <PositionsSection onSelectOpportunity={setSelectedOpportunityId} />
-            <LedgerSection onSelectOpportunity={setSelectedOpportunityId} />
-          </>
+          <PositionsSection onSelectOpportunity={setSelectedOpportunityId} />
         )}
         {activeTab === "opportunities" && (
           <OpportunitiesSection onSelectOpportunity={setSelectedOpportunityId} />
@@ -112,17 +109,15 @@ function TabControl({
         <button
           key={key}
           onClick={() => onTabChange(key)}
-          className={`flex-1 flex items-center justify-center rounded-md py-2 transition-colors ${
+          className={`flex-1 flex items-center justify-center rounded-md py-2.5 min-h-[44px] transition-all duration-150 active:opacity-80 ${
             activeTab === key
-              ? "bg-primary"
-              : ""
+              ? "bg-primary shadow-sm"
+              : "hover:bg-white/[0.03]"
           }`}
         >
           <span
-            className={`font-mono text-[11px] font-${activeTab === key ? "semibold" : "medium"} ${
-              activeTab === key
-                ? "text-primary-foreground"
-                : "text-muted-foreground"
+            className={`font-mono text-[11px] transition-colors duration-150 ${
+              activeTab === key ? "font-semibold text-primary-foreground" : "font-medium text-muted-foreground/80"
             }`}
           >
             {label}
@@ -187,7 +182,7 @@ function PositionCard({
   return (
     <button
       onClick={onSelect}
-      className="w-full text-left rounded-lg bg-card border border-white/[0.08] px-3.5 py-3 flex flex-col gap-1.5"
+      className="w-full text-left rounded-lg bg-card border border-white/[0.08] px-3.5 py-3 flex flex-col gap-1.5 min-h-[44px] active:opacity-80 transition-opacity"
     >
       {/* Row 1: ticker + YES/NO badge + pnl */}
       <div className="flex items-center justify-between w-full">
@@ -302,7 +297,7 @@ function MobileOpportunityRow({
   return (
     <button
       onClick={onSelect}
-      className="w-full text-left px-3 py-2.5 rounded-lg border border-transparent hover:bg-secondary/40 hover:border-border/60 transition-colors"
+      className="w-full text-left px-3 py-2.5 rounded-lg border border-transparent hover:bg-secondary/40 hover:border-border/60 transition-colors min-h-[44px] active:opacity-80"
     >
       <div className="flex items-start gap-2">
         <span className={`mt-1.5 shrink-0 h-1.5 w-1.5 rounded-full ${status.dot}`} />
