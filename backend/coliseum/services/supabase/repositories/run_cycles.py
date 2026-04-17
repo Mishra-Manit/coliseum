@@ -49,5 +49,3 @@ async def save_run_cycle_to_db(
 
     logger.info("Saved run cycle to DB (cycle_at=%s)", cycle_at.isoformat())
 
-
-
