@@ -160,6 +160,10 @@ class ChartExportService:
         navs = [round(float(c["total_value"]), 2) for c in cycles if "total_value" in c]
         timestamps = [str(c["cycle_at"]) for c in cycles if "cycle_at" in c]
 
+        # Apply smoothing to remove spikes and create smoother curve
+        if len(navs) >= 3:
+            navs, timestamps = _smooth_nav_data(navs, timestamps, window_size=3)
+
         if not navs or not timestamps:
             raise ChartExportNoDataError("No chart data available for export")
 
