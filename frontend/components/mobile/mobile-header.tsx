@@ -21,7 +21,7 @@ export function MobileHeader({ showChartLink = false }: MobileHeaderProps) {
   const isPaused = daemon?.paused ?? false;
 
   return (
-    <div className="shrink-0 flex items-center justify-between h-11 px-5 bg-card border-b border-border">
+    <div className="shrink-0 sticky top-0 z-50 flex items-center justify-between h-11 pt-[env(safe-area-inset-top)] px-5 bg-card/95 backdrop-blur-sm border-b border-border">
       {/* Left: wordmark + badge */}
       <div className="flex items-center gap-2.5">
         <span className="font-mono text-xs font-bold text-foreground tracking-[0.2em] uppercase">
