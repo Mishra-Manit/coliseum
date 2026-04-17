@@ -191,27 +191,6 @@ class Decision(Base):
     execution_status: Mapped[str] = mapped_column(Text, nullable=False)
 
 
-class RunCycle(Base):
-    __tablename__ = "run_cycles"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    cycle_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False)
-    duration_seconds: Mapped[int] = mapped_column(Integer, nullable=False)
-    guardian_synced: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
-    guardian_closed: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
-    scout_scanned: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
-    scout_found: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
-    analyst_results: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
-    trader_results: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
-    cash_balance: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
-    positions_value: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
-    total_value: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
-    open_positions: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    errors: Mapped[list[str]] = mapped_column(
-        ARRAY(Text), nullable=False, server_default=text("'{}'::text[]")
-    )
-
-
 class MarketCategoryContext(Base):
     __tablename__ = "market_category_context"
 
