@@ -1,15 +1,18 @@
 /**
  * Test video generator for chart export
- * Uses node-canvas to draw frames matching the frontend lightweight-charts design
- * Then uses ffmpeg to encode into WebM video
+ * Uses @napi-rs/canvas to draw frames matching the frontend lightweight-charts design
+ * Then uses ffmpeg to encode into high-quality WebM video
+ * 
+ * This generates realistic portfolio data matching the Coliseum ChartDataPoint schema
+ * and uses HQ settings (1920x1080 @ 30fps) for smooth, professional output.
  */
 
-const { createCanvas } = require("@napi-rs/canvas");
+const { createCanvas } = require("canvas");
 const { execSync } = require("child_process");
 const fs = require("fs");
 const path = require("path");
 
-// Color constants matching the lightweight-charts design
+// Color constants matching the lightweight-charts design exactly
 const COLORS = {
   bg: "#07060a",
   grid: "#1a1728",
@@ -19,41 +22,127 @@ const COLORS = {
   negative: "#dc2626",
 };
 
-// Quality profile (balanced)
+// HQ Quality profile (1920x1080 @ 30fps, 6s duration)
 const PROFILE = {
-  width: 1280,
-  height: 720,
-  fps: 18,
-  duration: 4000, // 4s
-  padding: { top: 50, right: 100, bottom: 80, left: 80 },
-  fontSize: 12,
-  lineWidth: 2.5,
+  width: 1920,
+  height: 1080,
+  fps: 30,
+  duration: 6000, // 6 seconds for smoother animation
+  padding: { top: 60, right: 120, bottom: 100, left: 100 },
+  fontSize: 14,
+  lineWidth: 3,
 };
 
-// Generate sample NAV data (simulating portfolio value over time)
-function generateSampleData() {
+/**
+ * Generate realistic portfolio NAV data matching Coliseum's ChartDataPoint schema
+ * Format: { timestamp: ISO string, nav: number, cash: number, positions_value: number }
+ * 
+ * Simulates 45 days of trading with:
+ * - Intraday snapshots every 4 hours (trading hours focus)
+ * - Realistic market volatility and position updates
+ * - Slight upward drift from winning strategy
+ * - Floor protection to prevent unrealistic crashes
+ */
+function generateRealisticData() {
   const data = [];
-  const baseValue = 10500;
-  const startTime = new Date("2024-01-01").getTime() / 1000;
-  const days = 30;
-
+  const baseValue = 10000; // Starting portfolio NAV
+  
+  const startDate = new Date("2024-01-01T00:00:00Z");
+  const days = 45; // 1.5 months of data
+  
+  let currentValue = baseValue;
+  
   for (let i = 0; i <= days; i++) {
-    const time = startTime + i * 86400;
-    // Random walk with slight upward trend
-    const randomChange = (Math.random() - 0.48) * 200;
-    const trend = i * 15;
-    const value = baseValue + randomChange + trend;
-    data.push({ time, value });
+    // Multiple snapshots per day (every 4 hours during trading day)
+    for (let hour of [0, 4, 8, 12, 16, 20]) {
+      const timestamp = new Date(startDate);
+      timestamp.setDate(startDate.getDate() + i);
+      timestamp.setHours(hour, 0, 0, 0);
+      
+      // Realistic portfolio movements:
+      // - Small intraday drift (market noise)
+      // - Occasional larger moves from position updates (every 3 days)
+      // - Slight daily upward bias (winning strategy)
+      const intradayDrift = (Math.random() - 0.47) * 50;
+      
+      // Larger moves every few days (position entry/exit updates)
+      const positionMove = (i % 3 === 0 && hour === 16) 
+        ? (Math.random() - 0.4) * 300 
+        : 0;
+      
+      // Small consistent daily trend
+      const dailyTrend = i * 12;
+      
+      currentValue = baseValue + dailyTrend + intradayDrift + positionMove;
+      currentValue = Math.max(currentValue, 9500); // Floor protection at 95%
+      
+      // Add micro-noise for realism
+      currentValue += (Math.random() - 0.5) * 20;
+      
+      data.push({ 
+        timestamp: timestamp.toISOString(),
+        nav: Math.round(currentValue * 100) / 100,
+        cash: Math.round(currentValue * 0.3 * 100) / 100,
+        positions_value: Math.round(currentValue * 0.7 * 100) / 100
+      });
+    }
   }
+  
   return data;
 }
 
-// Generate sample P&L histogram data
-function generateHistogramData(data) {
-  return data.slice(1).map((point, i) => ({
-    time: point.time,
-    value: point.value - data[i].value,
-  }));
+// Parse ISO timestamp to milliseconds (matches chart-utils.ts)
+function parseTimestamp(iso) {
+  return new Date(iso).getTime();
+}
+
+// Bucketize by day (matches getBucketMs in chart-utils.ts)
+function getBucketMs(timestampMs) {
+  const DAY_MS = 24 * 60 * 60 * 1000;
+  return Math.floor(timestampMs / DAY_MS) * DAY_MS;
+}
+
+/**
+ * Bucketize data for chart display (matches getChartSeries in chart-utils.ts)
+ * Groups by day, keeping first and last NAV per day
+ */
+function bucketizeData(data) {
+  const buckets = new Map();
+  
+  for (const point of data) {
+    const timestampMs = parseTimestamp(point.timestamp);
+    const bucketMs = getBucketMs(timestampMs);
+    const time = Math.floor(bucketMs / 1000);
+    
+    if (!buckets.has(time)) {
+      buckets.set(time, {
+        time,
+        firstNav: point.nav,
+        lastNav: point.nav
+      });
+    } else {
+      const bucket = buckets.get(time);
+      // Update last NAV - this gives us closing value per day
+      bucket.lastNav = point.nav;
+    }
+  }
+  
+  return Array.from(buckets.values()).sort((a, b) => a.time - b.time);
+}
+
+/**
+ * Generate daily P&L histogram data from bucketized series
+ * P&L = current day close - previous day close
+ */
+function generateHistogramData(bucketized) {
+  return bucketized.map((bucket, i) => {
+    if (i === 0) return { time: bucket.time, value: 0 };
+    const prev = bucketized[i - 1];
+    return {
+      time: bucket.time,
+      value: Math.round((bucket.lastNav - prev.lastNav) * 100) / 100
+    };
+  });
 }
 
 function formatPrice(value) {
@@ -138,7 +227,7 @@ function drawAreaChart(
   const visiblePoints = Math.max(1, Math.floor(points.length * progress));
   const visibleData = points.slice(0, visiblePoints);
 
-  // Create gradient for fill
+  // Create gradient for fill (amber with fade)
   const gradient = ctx.createLinearGradient(
     0,
     chartArea.y,
@@ -252,7 +341,7 @@ function drawTitle(ctx, chartArea, currentNav, fontSize) {
   ctx.fillStyle = COLORS.text;
   ctx.fillText("PORTFOLIO VALUE", chartArea.x, 15);
 
-  // Current NAV value
+  // Current NAV value (amber)
   ctx.font = `bold ${fontSize + 4}px "JetBrains Mono", monospace`;
   ctx.fillStyle = COLORS.amber;
   ctx.fillText(formatPrice(currentNav), chartArea.x, 15 + fontSize + 6);
@@ -317,21 +406,34 @@ function drawFrame(canvas, ctx, data, histData, progress, dims) {
 }
 
 async function generateVideo() {
-  console.log("Generating test chart video...");
-
+  console.log("🎬 Generating HQ test chart video...");
+  console.log(`   Quality: ${PROFILE.width}x${PROFILE.height} @ ${PROFILE.fps}fps`);
+  console.log(`   Duration: ${PROFILE.duration / 1000}s`);
+  
   // Create output directory
   const outputDir = path.join(__dirname, "../test-output");
   if (!fs.existsSync(outputDir)) {
     fs.mkdirSync(outputDir, { recursive: true });
   }
 
-  // Generate sample data
-  const data = generateSampleData();
-  const histData = generateHistogramData(data);
+  // Generate realistic data matching Coliseum schema
+  console.log("\n📊 Generating realistic portfolio data...");
+  const rawData = generateRealisticData();
+  const bucketized = bucketizeData(rawData);
+  
+  // Convert to area series format (daily closing NAV values)
+  const data = bucketized.map(b => ({ time: b.time, value: b.lastNav }));
+  
+  // Generate daily P&L histogram
+  const histData = generateHistogramData(bucketized);
+  
+  console.log(`   Generated ${data.length} days of NAV data`);
+  console.log(`   Date range: ${formatDate(data[0].time)} - ${formatDate(data[data.length - 1].time)}`);
+  console.log(`   NAV range: $${Math.min(...data.map(d => d.value)).toFixed(2)} - $${Math.max(...data.map(d => d.value)).toFixed(2)}`);
 
   // Calculate total frames
   const totalFrames = Math.round((PROFILE.duration / 1000) * PROFILE.fps);
-  console.log(`Generating ${totalFrames} frames at ${PROFILE.fps} fps...`);
+  console.log(`\n🎞️  Generating ${totalFrames} frames...`);
 
   // Create canvas
   const canvas = createCanvas(PROFILE.width, PROFILE.height);
@@ -352,37 +454,47 @@ async function generateVideo() {
     const buffer = canvas.toBuffer("image/png");
     fs.writeFileSync(framePath, buffer);
 
-    if (i % 10 === 0) {
-      console.log(`Progress: ${((i / totalFrames) * 100).toFixed(1)}%`);
+    if (i % 30 === 0) {
+      console.log(`   ${((i / totalFrames) * 100).toFixed(0)}%`);
     }
   }
 
-  console.log("Encoding video with ffmpeg...");
+  console.log("\n🎥 Encoding video with ffmpeg...");
 
-  // Use ffmpeg to encode frames into WebM video
+  // Use ffmpeg to encode frames into high-quality WebM video
   const outputVideoPath = path.join(outputDir, "chart-export-demo.webm");
+  
+  // Higher bitrate for HQ
+  const videoBitrate = "5M";
+  
   const ffmpegCmd = `ffmpeg -y -framerate ${PROFILE.fps} -i ${path.join(
     framesDir,
     "frame_%04d.png"
-  )} -c:v libvpx-vp9 -pix_fmt yuva420p -b:v 2.5M ${outputVideoPath}`;
+  )} -c:v libvpx-vp9 -pix_fmt yuva420p -b:v ${videoBitrate} -quality good -speed 0 ${outputVideoPath}`;
 
   try {
     execSync(ffmpegCmd, { stdio: "inherit" });
-    console.log(`\n✅ Video generated: ${outputVideoPath}`);
+    
+    const stats = fs.statSync(outputVideoPath);
+    
+    console.log(`\n✅ Video generated successfully!`);
+    console.log(`   File: ${outputVideoPath}`);
+    console.log(`   Size: ${(stats.size / 1024).toFixed(1)} KB`);
     console.log(`   Resolution: ${PROFILE.width}x${PROFILE.height}`);
     console.log(`   Duration: ${PROFILE.duration / 1000}s`);
     console.log(`   FPS: ${PROFILE.fps}`);
+    console.log(`   Bitrate: ${videoBitrate}`);
 
-    // Copy to public directory for easy viewing
+    // Copy to public directory
     const publicPath = path.join(__dirname, "../public/chart-export-demo.webm");
     fs.copyFileSync(outputVideoPath, publicPath);
-    console.log(`\n📁 Also copied to: ${publicPath}`);
+    console.log(`\n📁 Copied to: ${publicPath}`);
 
     // Clean up frames
     fs.rmSync(framesDir, { recursive: true, force: true });
     console.log("🧹 Cleaned up temporary frames");
   } catch (error) {
-    console.error("❌ Failed to encode video:", error.message);
+    console.error("\n❌ Failed to encode video:", error.message);
     process.exit(1);
   }
 }
