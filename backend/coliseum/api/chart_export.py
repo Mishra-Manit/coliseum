@@ -21,6 +21,39 @@ ExportFormat = Literal["mp4"]
 ExportQuality = Literal["fast", "balanced", "hq"]
 
 
+def _smooth_nav_data(
+    navs: list[float],
+    timestamps: list[str],
+    window_size: int = 3,
+) -> tuple[list[float], list[str]]:
+    """Apply moving average smoothing to NAV data to reduce spikes.
+
+    Uses a sliding window average. For edge windows (first/last points),
+    uses smaller windows to preserve data availability.
+    """
+    if len(navs) < window_size * 2:
+        # Not enough data for meaningful smoothing, return as-is
+        return navs, timestamps
+
+    smoothed_navs: list[float] = []
+    smoothed_timestamps: list[str] = []
+
+    for i in range(len(navs)):
+        # Determine window bounds
+        half_window = window_size // 2
+        start_idx = max(0, i - half_window)
+        end_idx = min(len(navs), i + half_window + 1)
+
+        # Calculate average for this window
+        window_values = navs[start_idx:end_idx]
+        avg_nav = sum(window_values) / len(window_values)
+
+        smoothed_navs.append(round(avg_nav, 2))
+        smoothed_timestamps.append(timestamps[i])
+
+    return smoothed_navs, smoothed_timestamps
+
+
 class ChartExportError(Exception):
     """Base chart export exception."""
 
