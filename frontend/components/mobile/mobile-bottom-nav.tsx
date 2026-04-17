@@ -14,7 +14,7 @@ export function MobileBottomNav() {
   const pathname = usePathname();
 
   return (
-    <div className="shrink-0 px-[21px] pt-3 pb-[21px] flex justify-center">
+    <div className="shrink-0 px-[21px] pt-3 pb-[21px] pb-[max(21px,env(safe-area-inset-bottom))] flex justify-center">
       <div className="flex gap-1 w-full h-[62px] rounded-[36px] bg-card border border-border p-1">
         {tabs.map(({ href, icon: Icon, label }) => {
           const isActive =
