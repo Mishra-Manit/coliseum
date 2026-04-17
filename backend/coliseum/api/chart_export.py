@@ -21,6 +21,28 @@ ExportFormat = Literal["mp4"]
 ExportQuality = Literal["fast", "balanced", "hq"]
 
 
+def _smooth_navs(navs: list[float], window: int = 5) -> list[float]:
+    """Apply a centered moving-average to smooth NAV spikes before rendering."""
+    if len(navs) < 3:
+        return navs
+
+    clamped = min(window, len(navs))
+    if clamped % 2 == 0:
+        clamped += 1
+    half = clamped // 2
+
+    smoothed: list[float] = []
+    for i in range(len(navs)):
+        if i == 0 or i == len(navs) - 1:
+            smoothed.append(navs[i])
+        else:
+            lo = max(0, i - half)
+            hi = min(len(navs), i + half + 1)
+            smoothed.append(round(sum(navs[lo:hi]) / (hi - lo), 2))
+
+    return smoothed
+
+
 class ChartExportError(Exception):
     """Base chart export exception."""
 
@@ -129,6 +151,8 @@ class ChartExportService:
 
         if not navs or not timestamps:
             raise ChartExportNoDataError("No chart data available for export")
+
+        navs = _smooth_navs(navs)
 
         cache_key = self._make_cache_key(export_format, quality, navs, timestamps)
         cached = self._get_cache_entry(cache_key)

@@ -1,10 +1,8 @@
 """DB repository for pipeline-cycle telemetry persistence."""
 
 import logging
-from datetime import date, datetime, time, timezone
+from datetime import datetime
 from decimal import Decimal
-
-from sqlalchemy import select
 
 from coliseum.services.supabase.db import get_db_session
 from coliseum.services.supabase.models import RunCycle
@@ -52,36 +50,4 @@ async def save_run_cycle_to_db(
     logger.info("Saved run cycle to DB (cycle_at=%s)", cycle_at.isoformat())
 
 
-async def list_run_cycles_from_db(
-    start_date: date | None = None,
-) -> list[dict]:
-    """Return run cycle telemetry rows ordered by time (legacy chart fallback)."""
-    async with get_db_session() as session:
-        stmt = (
-            select(
-                RunCycle.cycle_at,
-                RunCycle.total_value,
-                RunCycle.cash_balance,
-                RunCycle.positions_value,
-                RunCycle.open_positions,
-            )
-            .where(RunCycle.total_value.isnot(None))
-            .order_by(RunCycle.cycle_at.asc())
-        )
 
-        if start_date is not None:
-            start_dt = datetime.combine(start_date, time.min, tzinfo=timezone.utc)
-            stmt = stmt.where(RunCycle.cycle_at >= start_dt)
-
-        rows = (await session.execute(stmt)).all()
-
-    return [
-        {
-            "cycle_at": row.cycle_at.isoformat(),
-            "total_value": float(row.total_value),
-            "cash_balance": float(row.cash_balance),
-            "positions_value": float(row.positions_value),
-            "open_positions": row.open_positions,
-        }
-        for row in rows
-    ]
