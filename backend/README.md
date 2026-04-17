@@ -152,16 +152,18 @@ python -c "from database import check_db_connection; print('DB Connected:', chec
 curl http://localhost:9000/health
 ```
 
-Expected response:
+Example response:
 ```json
 {
   "status": "healthy",
   "service": "coliseum-api",
-  "version": "0.1.0",
-  "database": "connected",
-  "environment": "development"
+  "mode": "api",
+  "uptime_seconds": 12.345,
+  "started_at": "2026-04-09T12:00:00+00:00"
 }
 ```
+
+`GET /health` is the canonical health check path. `GET /api/health` is also available as an alias for API clients that prefer the `/api/*` namespace. `uptime_seconds` reports the current API process uptime derived from server startup, so it resets when the process restarts or when reload mode spins up a new worker.
 
 ## Using OpenRouter with pydantic-ai
 
