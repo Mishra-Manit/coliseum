@@ -49,11 +49,11 @@ export function MobilePositionDetail({
   }
 
   return (
-    <div className="flex flex-col h-[100dvh] bg-background overflow-hidden">
+    <div className="flex flex-col h-[100dvh] bg-background overflow-hidden overscroll-contain">
       {/* Nav Header */}
       <div className="shrink-0 flex items-center justify-between h-12 px-5 bg-card border-b border-border">
         <div className="flex items-center gap-3">
-          <button onClick={onBack} className="text-foreground/80">
+          <button onClick={onBack} className="text-foreground/80 p-2 -ml-2 min-h-[44px] min-w-[44px] flex items-center justify-center active:opacity-80 transition-opacity">
             <ArrowLeft className="h-5 w-5" />
           </button>
           <span className="font-mono text-xs font-bold text-foreground/80 tracking-[0.18em]">
@@ -70,7 +70,7 @@ export function MobilePositionDetail({
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto min-h-0 px-5 py-4">
+      <div className="flex-1 overflow-y-auto min-h-0 px-5 py-4 overscroll-y-contain">
         {isLoading ? (
           <div className="space-y-3">
             <div className="shimmer h-5 w-3/4 rounded" />
@@ -228,7 +228,7 @@ function DetailContent({
       <div className="flex items-start justify-between gap-3">
         <button
           onClick={() => onCopyTicker(summary.market_ticker)}
-          className={`inline-flex items-center gap-1 font-mono text-[11px] tracking-wider transition-colors min-w-0 ${
+          className={`inline-flex items-center gap-1 font-mono text-[11px] tracking-wider transition-colors min-w-0 p-1 -ml-1 min-h-[44px] active:opacity-80 ${
             copied ? "text-emerald-400/70" : "text-muted-foreground/85"
           }`}
         >
