@@ -2,7 +2,7 @@
 
 ## Spec Version
 
-- Current version: `1.9.0`
+- Current version: `2.0.0`
 - Versioning scheme: `MAJOR.MINOR.PATCH` (semantic versioning)
 
 > **CRITICAL**: Always activate the venv before running backend code:
@@ -128,7 +128,7 @@ async with get_db_session() as session:
 
 1. **Paper mode first**: `trading.paper_mode: true` in config.yaml
 2. **Limit orders only**: Never use market orders
-3. **Supabase is now the shared source of truth for bot state**: opportunities, portfolio state, positions, trades, decisions, and run-cycle data should persist online so multiple instances stay in sync
+3. **Supabase is now the shared source of truth for bot state**: opportunities, portfolio state, positions, trades, decisions, and portfolio snapshot data should persist online so multiple instances stay in sync
 4. **RSA key for Kalshi**: Set `RSA_PRIVATE_KEY_PATH` in .env
 5. **Alembic required for schema changes**: After any structural change to `backend/coliseum/services/supabase/models.py`, generate an Alembic migration and keep `online_db.md` in sync
 6. **Never hand-write Alembic migrations**: Always use `alembic revision --autogenerate -m "description"` to generate migration files, then review the output. Never create migration files manually.
