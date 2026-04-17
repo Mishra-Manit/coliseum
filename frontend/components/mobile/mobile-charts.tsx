@@ -41,7 +41,7 @@ export function MobileCharts() {
     <div className="flex flex-col h-[100dvh] bg-background overflow-hidden">
       <MobileHeader showChartLink={true} />
 
-      <div className="flex-1 flex flex-col overflow-y-auto min-h-0 px-4 py-5 gap-5">
+      <div className="flex-1 flex flex-col overflow-y-auto min-h-0 px-4 py-5 gap-5 overscroll-y-contain">
         {/* Portfolio Hero */}
         <div className="rounded-lg bg-white/[0.03] border border-white/[0.08] px-4 py-4 flex flex-col gap-1.5">
           <span className="font-mono text-[11px] font-medium text-muted-foreground/85 tracking-[0.15em]">

@@ -109,7 +109,7 @@ export function MobileSettings() {
   return (
     <div className="flex flex-col h-[100dvh] bg-background overflow-hidden">
       {/* Settings Header */}
-      <div className="shrink-0 flex items-center gap-3 h-[52px] px-5 bg-card border-b border-border">
+      <div className="shrink-0 sticky top-0 z-50 flex items-center gap-3 h-[52px] pt-[env(safe-area-inset-top)] px-5 bg-card/95 backdrop-blur-sm border-b border-border">
         <Link href="/" className="text-foreground/80">
           <ArrowLeft className="h-5 w-5" />
         </Link>
