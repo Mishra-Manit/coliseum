@@ -298,6 +298,7 @@ function MobileOpportunityRow({
     <button
       onClick={onSelect}
       className="w-full text-left px-3 py-2.5 rounded-lg border border-transparent hover:bg-secondary/40 hover:border-border/60 transition-colors min-h-[44px] active:opacity-80"
+    >
       <div className="flex items-start gap-2">
         <span className={`mt-1.5 shrink-0 h-1.5 w-1.5 rounded-full ${status.dot}`} />
         <div className="flex-1 min-w-0">
