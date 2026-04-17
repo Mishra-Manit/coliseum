@@ -3,12 +3,13 @@
 import { useState, useRef, useEffect } from "react";
 import { ArrowLeft, Copy, Check, Clock, ExternalLink } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
-import { useOpportunityDetail } from "@/hooks/use-api";
+import { useOpportunityDetail, usePortfolioState } from "@/hooks/use-api";
 import { useTimezone, formatInTz } from "@/lib/timezone-context";
 import { MobileBottomNav } from "./mobile-bottom-nav";
 import { IntelBrief } from "@/components/dashboard/intel-brief";
 import { FontSize } from "@/lib/typography";
 import { Muted, Strong, BgTint, BorderTint } from "@/lib/styles";
+import type { EnrichedPosition } from "@/lib/types";
 
 interface MobilePositionDetailProps {
   opportunityId: string;
@@ -20,9 +21,15 @@ export function MobilePositionDetail({
   onBack,
 }: MobilePositionDetailProps) {
   const { data, isLoading } = useOpportunityDetail(opportunityId);
+  const { data: portfolio } = usePortfolioState();
   const { tz } = useTimezone();
   const [copied, setCopied] = useState(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Find the position matching this opportunity
+  const position = portfolio?.open_positions?.find(
+    (pos) => pos.opportunity_id === opportunityId
+  );
 
   useEffect(() => {
     return () => {
@@ -79,6 +86,7 @@ export function MobilePositionDetail({
         ) : (
           <DetailContent
             data={data}
+            position={position}
             tz={tz}
             copied={copied}
             onCopyTicker={handleCopyTicker}
@@ -91,11 +99,13 @@ export function MobilePositionDetail({
 
 function DetailContent({
   data,
+  position,
   tz,
   copied,
   onCopyTicker,
 }: {
   data: NonNullable<ReturnType<typeof useOpportunityDetail>["data"]>;
+  position: EnrichedPosition | undefined;
   tz: "EST" | "PST";
   copied: boolean;
   onCopyTicker: (ticker: string) => void;
@@ -135,52 +145,84 @@ function DetailContent({
         </p>
       )}
 
-      {/* Position Card */}
-      <div className="rounded-lg bg-white/[0.03] border border-white/[0.08] p-3.5 flex flex-col gap-3">
-        {/* Row 1: badge + contracts + PnL */}
-        <div className="flex items-center justify-between">
+      {/* Position Card - Real Data or Analysis Only */}
+      {position ? (
+        <div className="rounded-lg bg-white/[0.03] border border-white/[0.08] p-3.5 flex flex-col gap-3">
+          {/* Row 1: badge + contracts + PnL */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className={`rounded px-2 py-[3px] border ${
+                position.side === "YES"
+                  ? "bg-emerald-500/10 border-emerald-500/30"
+                  : "bg-red-500/10 border-red-500/30"
+              }`}>
+                <span className={`font-mono text-[10px] font-semibold tracking-wider ${
+                  position.side === "YES" ? "text-emerald-400" : "text-red-400"
+                }`}>
+                  {position.side}
+                </span>
+              </div>
+              <span className="font-mono text-[11px] text-muted-foreground/85">
+                x{position.contracts} contracts
+              </span>
+            </div>
+            <span className={`font-mono text-xl font-bold tabular-nums ${
+              position.unrealized_pnl >= 0 ? "text-emerald-400" : "text-red-400"
+            }`}>
+              {position.unrealized_pnl >= 0 ? "+" : "-"}
+              ${Math.abs(position.unrealized_pnl).toFixed(2)}
+            </span>
+          </div>
+          {/* Row 2: entry / current / return */}
+          <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-0.5">
+              <span className="font-mono text-[9px] text-muted-foreground/50 tracking-[0.12em]">
+                ENTRY
+              </span>
+              <span className="font-mono text-sm font-semibold text-foreground/80 tabular-nums">
+                {Math.round(position.average_entry * 100)}c
+              </span>
+            </div>
+            <div className="flex flex-col items-center gap-0.5">
+              <span className="font-mono text-[9px] text-muted-foreground/50 tracking-[0.12em]">
+                CURRENT
+              </span>
+              <span className={`font-mono text-sm font-semibold tabular-nums ${
+                position.unrealized_pnl >= 0 ? "text-emerald-400" : "text-red-400"
+              }`}>
+                {position.current_price > 0 ? `${Math.round(position.current_price * 100)}c` : "--"}
+              </span>
+            </div>
+            <div className="flex flex-col items-end gap-0.5">
+              <span className="font-mono text-[9px] text-muted-foreground/50 tracking-[0.12em]">
+                RETURN
+              </span>
+              <span className={`font-mono text-sm font-semibold tabular-nums ${
+                position.pct_change >= 0 ? "text-emerald-400" : "text-red-400"
+              }`}>
+                {position.pct_change >= 0 ? "+" : ""}
+                {position.pct_change.toFixed(1)}%
+              </span>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="rounded-lg bg-white/[0.03] border border-white/[0.08] p-3.5">
           <div className="flex items-center gap-2">
-            <div className="rounded bg-emerald-500/10 border border-emerald-500/30 px-2 py-[3px]">
-              <span className="font-mono text-[10px] font-semibold text-emerald-400 tracking-wider">
-                YES
+            <div className="rounded bg-sky-500/10 border border-sky-500/30 px-2 py-[3px]">
+              <span className="font-mono text-[10px] font-semibold text-sky-400 tracking-wider">
+                ANALYSIS
               </span>
             </div>
             <span className="font-mono text-[11px] text-muted-foreground/85">
-              x12 contracts
+              No active position
             </span>
           </div>
-          <span className="font-mono text-xl font-bold text-emerald-400 tabular-nums">
-            +$3.24
-          </span>
+          <p className="mt-2 text-xs text-muted-foreground/70">
+            Viewing market analysis only. No trades have been executed for this opportunity.
+          </p>
         </div>
-        {/* Row 2: entry / current / return */}
-        <div className="flex items-center justify-between">
-          <div className="flex flex-col gap-0.5">
-            <span className="font-mono text-[9px] text-muted-foreground/50 tracking-[0.12em]">
-              ENTRY
-            </span>
-            <span className="font-mono text-sm font-semibold text-foreground/80 tabular-nums">
-              67c
-            </span>
-          </div>
-          <div className="flex flex-col items-center gap-0.5">
-            <span className="font-mono text-[9px] text-muted-foreground/50 tracking-[0.12em]">
-              CURRENT
-            </span>
-            <span className="font-mono text-sm font-semibold text-emerald-400 tabular-nums">
-              94c
-            </span>
-          </div>
-          <div className="flex flex-col items-end gap-0.5">
-            <span className="font-mono text-[9px] text-muted-foreground/50 tracking-[0.12em]">
-              RETURN
-            </span>
-            <span className="font-mono text-sm font-semibold text-emerald-400 tabular-nums">
-              +40.3%
-            </span>
-          </div>
-        </div>
-      </div>
+      )}
 
       {/* Ticker row */}
       <div className="flex items-start justify-between gap-3">
