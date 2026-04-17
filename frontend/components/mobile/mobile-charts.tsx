@@ -75,7 +75,7 @@ export function MobileCharts() {
             </div>
 
             {/* 2x2 Stats Grid */}
-            <div className="flex-1 grid grid-cols-2 gap-2">
+            <div className="flex-1 grid grid-cols-2 gap-2 min-w-0">
               <StatCard
                 value={String(stats.total_trades)}
                 label="Trades"
@@ -122,7 +122,7 @@ export function MobileCharts() {
 
         {/* Chart Section */}
         <div className="rounded-lg bg-white/[0.03] border border-white/[0.08] overflow-hidden">
-          <div className="h-[260px]">
+          <div className="h-[40vh] min-h-[200px] max-h-[320px]">
             <LWPortfolioChart
               data={series}
               interval={interval}
