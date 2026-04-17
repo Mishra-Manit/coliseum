@@ -39,7 +39,6 @@ from coliseum.services.supabase.repositories.portfolio import load_state_from_db
 from coliseum.services.supabase.repositories.portfolio_snapshots import (
     list_portfolio_snapshots_from_db,
 )
-from coliseum.services.supabase.repositories.run_cycles import list_run_cycles_from_db
 from coliseum.services.supabase.repositories.trades import (
     list_trade_closes_from_db,
     list_trades_from_db,
@@ -237,25 +236,6 @@ async def _build_ledger(limit: int) -> list[dict[str, Any]]:
 async def _build_chart() -> dict[str, Any]:
     start = _start_date()
     snapshots = await list_portfolio_snapshots_from_db(start_date=start)
-    cycles = await list_run_cycles_from_db(start_date=start)
-
-    legacy_series = [
-        {
-            "snapshot_at": c["cycle_at"],
-            "total_value": c["total_value"],
-            "cash_balance": c["cash_balance"],
-            "positions_value": c["positions_value"],
-        }
-        for c in cycles
-    ]
-
-    if snapshots:
-        first_snapshot_at = snapshots[0]["snapshot_at"]
-        snapshots = [
-            s for s in legacy_series if s["snapshot_at"] < first_snapshot_at
-        ] + snapshots
-    else:
-        snapshots = legacy_series
 
     if not snapshots:
         try:
