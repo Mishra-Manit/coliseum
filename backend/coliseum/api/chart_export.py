@@ -105,6 +105,19 @@ class _CacheEntry(BaseModel):
     expires_at: float
 
 
+def _smooth_navs(navs: list[float], window: int = 5) -> list[float]:
+    """Apply centered moving average smoothing to NAV data."""
+    if len(navs) < 3:
+        return navs
+    half_w = window // 2
+    smoothed: list[float] = []
+    for i in range(len(navs)):
+        lo = max(0, i - half_w)
+        hi = min(len(navs), i + half_w + 1)
+        smoothed.append(sum(navs[lo:hi]) / (hi - lo))
+    return smoothed
+
+
 class ChartExportService:
     """Generate and cache chart exports for API and automation usage."""
 
@@ -125,10 +138,12 @@ class ChartExportService:
             raise ChartExportError("Unsupported export format")
 
         navs = [round(float(c["total_value"]), 2) for c in cycles if "total_value" in c]
-        timestamps = [str(c["cycle_at"]) for c in cycles if "cycle_at" in c]
+        timestamps = [str(c.get("snapshot_at") or c.get("cycle_at")) for c in cycles if c.get("snapshot_at") or c.get("cycle_at")]
 
         if not navs or not timestamps:
             raise ChartExportNoDataError("No chart data available for export")
+
+        navs = _smooth_navs(navs, window=5)
 
         cache_key = self._make_cache_key(export_format, quality, navs, timestamps)
         cached = self._get_cache_entry(cache_key)
@@ -353,7 +368,7 @@ class ChartExportService:
         last_ts = timestamps[-1]
         latest_nav = navs[-1]
         return (
-            f"{export_format}:{quality}:{len(navs)}:{first_ts}:{last_ts}:{latest_nav:.2f}"
+            f"{export_format}:{quality}:smooth5:{len(navs)}:{first_ts}:{last_ts}:{latest_nav:.2f}"
         )
 
     def _get_cache_entry(self, key: str) -> _CacheEntry | None:
