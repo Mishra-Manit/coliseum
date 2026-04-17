@@ -46,10 +46,7 @@ export function MobileDashboard() {
 
         {/* Tab content */}
         {activeTab === "positions" && (
-          <>
-            <PositionsSection onSelectOpportunity={setSelectedOpportunityId} />
-            <LedgerSection onSelectOpportunity={setSelectedOpportunityId} />
-          </>
+          <PositionsSection onSelectOpportunity={setSelectedOpportunityId} />
         )}
         {activeTab === "opportunities" && (
           <OpportunitiesSection onSelectOpportunity={setSelectedOpportunityId} />
@@ -112,17 +109,15 @@ function TabControl({
         <button
           key={key}
           onClick={() => onTabChange(key)}
-          className={`flex-1 flex items-center justify-center rounded-md py-2.5 min-h-[44px] transition-colors active:opacity-80 ${
+          className={`flex-1 flex items-center justify-center rounded-md py-2.5 min-h-[44px] transition-all duration-150 active:opacity-80 ${
             activeTab === key
-              ? "bg-primary"
-              : ""
+              ? "bg-primary shadow-sm"
+              : "hover:bg-white/[0.03]"
           }`}
         >
           <span
-            className={`font-mono text-[11px] font-${activeTab === key ? "semibold" : "medium"} ${
-              activeTab === key
-                ? "text-primary-foreground"
-                : "text-muted-foreground"
+            className={`font-mono text-[11px] transition-colors duration-150 ${
+              activeTab === key ? "font-semibold text-primary-foreground" : "font-medium text-muted-foreground/80"
             }`}
           >
             {label}
