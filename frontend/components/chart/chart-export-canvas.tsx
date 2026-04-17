@@ -353,6 +353,13 @@ export function ChartExportCanvas({
     [area, hist, dims, drawGrid, drawLabels, drawAreaChart, drawHistogram, drawTitle],
   );
 
+  // Quality profiles for animation duration (must match use-chart-export.ts)
+  const QUALITY_DURATION: Record<ChartExportQuality, number> = {
+    fast: 3000,
+    balanced: 4000,
+    hq: 5000,
+  };
+
   // Handle animation when recording starts
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -365,11 +372,11 @@ export function ChartExportCanvas({
     if (isRecording) {
       progressRef.current = 0;
       let startTime: number | null = null;
+      const duration = QUALITY_DURATION[quality];
 
       const animate = (timestamp: number) => {
         if (!startTime) startTime = timestamp;
         const elapsed = timestamp - startTime;
-        const duration = 4000; // 4s animation
         progressRef.current = Math.min(elapsed / duration, 1);
 
         drawFrame(canvas, progressRef.current);
