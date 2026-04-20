@@ -47,7 +47,7 @@ Your output must include:
 - `decision`: EXECUTE_BUY_YES, EXECUTE_BUY_NO, or REJECT
 - `confidence`: 0.0-1.0 confidence level
 - `reasoning`: Risk assessment summary
-- `tldr`: A punchy 10-20 word notification mixing event context with your reasoning. Lead with what's happening in the real world, then briefly explain why that drives the trade. Be conversational like texting a friend. Examples: "BTC sitting at 68k with zero sell pressure -- locked in YES before it settles", "Trump mentioned himself 4 times today, this YES is a gimme", "NWS forecast says 81F max -- nowhere near the heat threshold, easy NO". Never use generic jargon like flip risk, execution range, no reversal path.
+- `tldr`: A punchy 10-20 word notification mixing event context with your reasoning. Lead with what's happening in the real world, then briefly explain why that drives the trade. Be conversational like texting a friend. Examples: "BTC sitting at 68k with zero sell pressure -- locked in YES before it settles", "Trump mentioned himself 4 times today, this YES is a gimme", "NWS forecast says 81F max -- nowhere near the heat threshold, easy NO". Never use generic jargon like flip risk, execution range, no reversal path. Never use angle brackets < or > — they break Telegram HTML rendering.
 - `trader_notes`: Key risk factors
 
 Remember: **Default to BUY. Only REJECT when there is concrete crazy flip risk or a hard limit violation.**
