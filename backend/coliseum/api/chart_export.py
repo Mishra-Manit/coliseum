@@ -87,6 +87,30 @@ _AMBER = "#d97706"
 _FILL = (217 / 255, 119 / 255, 6 / 255, 0.18)
 
 
+def _smooth_nav_series(navs: list[float], window: int = 3) -> list[float]:
+    """Apply centered moving average to smooth NAV data for visualization.
+
+    Uses a conservative window to reduce visual spikes without hiding
+    legitimate volatility. Edge points use progressively smaller windows.
+    """
+    if len(navs) < window:
+        return navs[:]
+
+    smoothed: list[float] = []
+    half = window // 2
+
+    for i in range(len(navs)):
+        # Determine window bounds with edge handling
+        start = max(0, i - half)
+        end = min(len(navs), i + half + 1)
+        actual_window = end - start
+
+        window_sum = sum(navs[start:end])
+        smoothed.append(round(window_sum / actual_window, 2))
+
+    return smoothed
+
+
 class ExportResult(BaseModel):
     """Binary export payload and metadata."""
 
