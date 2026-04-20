@@ -148,7 +148,8 @@ class ChartExportService:
         if export_format != "mp4":
             raise ChartExportError("Unsupported export format")
 
-        navs = [round(float(c["total_value"]), 2) for c in cycles if "total_value" in c]
+        raw_navs = [round(float(c["total_value"]), 2) for c in cycles if "total_value" in c]
+        navs = _smooth_nav_series(raw_navs, window=3)
         timestamps = [str(c["cycle_at"]) for c in cycles if "cycle_at" in c]
 
         if not navs or not timestamps:
