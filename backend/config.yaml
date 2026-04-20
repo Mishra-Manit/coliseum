@@ -17,7 +17,7 @@ scout:
   min_volume: 1000
 
 guardian:
-  stop_loss_price: 0.75 # Sell any open position with current_price below this
+  stop_loss_price: 0.70 # Sell any open position with current_price below this
 
 execution:
   max_slippage_pct: 0.05 # Reject trade if slippage > 5%
