@@ -11,7 +11,7 @@ scout:
   market_fetch_limit: 20000
   min_close_hours: 0
   max_close_hours: 48
-  min_price: 92
+  min_price: 94
   max_price: 96
   max_spread_cents: 3
   min_volume: 1000

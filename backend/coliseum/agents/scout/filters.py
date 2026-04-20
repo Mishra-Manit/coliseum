@@ -9,25 +9,35 @@ SAFE_EVENT_PREFIXES: set[str] = {
     "KXXRP15M",
     # Commodities - unconditional
     "KXGOLDD",
+    "KXGOLDW",    # 16W/0L
+    "KXBRENTW",   # 19W/0L
     # Sports - unconditional
     "KXWBCGAME",
     "KXMLBSTGAME",
+    "KXNASCARRACE",  # 13W/0L
     # Mentions - unconditional
     "KXPRESMENTION",
-    # Economics prefixes (category no longer blanket-safe)
+    # Economics - unconditional
     "KXJOBLESSCLAIMS",
+    "KXAAAGASW",  # 15W/0L weekly gas prices
+    "KXAAAGASD",  # 11W/0L daily gas prices
     # Entertainment - unconditional
     "KXRT",
+    # Weather - losses only below new min_price floor (94)
+    "KXLOWTLAX",  # 69W/1L, loss at 92 only
+    "KXLOWTCHI",  # 55W/1L, loss at 93 only
 }
 
 PRICE_GATED_EVENT_PREFIXES: dict[str, int] = {
     # Crypto directional
     "KXETHD": 96,
+    "KXBTCD": 95,  # 498W/13L at 95+
+    "KXETH": 94,   # 25W/0L at 94+
     # Crypto 15-min (gate added after 1 loss at < 94c)
     "KXBTC15M": 94,
     # Crude oil weekly
     "KXWTIW": 94,
-    # Weather (capped at 3 tickers, all gated)
+    # Weather (3 gates only)
     "KXHIGHMIA": 96,
     "KXHIGHTDAL": 96,
     "KXLOWTMIA": 96,
