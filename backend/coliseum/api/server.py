@@ -39,7 +39,6 @@ from coliseum.services.supabase.repositories.portfolio import load_state_from_db
 from coliseum.services.supabase.repositories.portfolio_snapshots import (
     list_portfolio_snapshots_from_db,
 )
-from coliseum.services.supabase.repositories.run_cycles import list_run_cycles_from_db
 from coliseum.services.supabase.repositories.trades import (
     list_trade_closes_from_db,
     list_trades_from_db,
