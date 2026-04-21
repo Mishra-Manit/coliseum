@@ -31,12 +31,12 @@ execution:
   max_order_age_minutes: 60 # Cancel order if open > 1 hour
 
 daemon:
-  heartbeat_interval_minutes: 180 # Full pipeline cycle interval
-  guardian_interval_minutes: 2 # Guardian-only checks between full cycles (5 minutes)
+  heartbeat_interval_minutes: 120 # Full pipeline cycle interval
+  guardian_interval_minutes: 2 # Guardian-only checks between full cycles
   max_consecutive_failures: 5 # Failures before pausing
 
 market_context:
-  refresh_every_n_cycles: 8
+  refresh_every_n_cycles: 12
 
 telegram_send_alerts: true
 
