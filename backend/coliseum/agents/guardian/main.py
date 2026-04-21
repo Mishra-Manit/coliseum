@@ -127,26 +127,103 @@ async def _extract_entry_rationale(opportunity_id: str | None) -> str | None:
         return None
 
 
+# Module-level dedup set for close_time=None warnings. Cleared when process restarts.
+_MISSING_CLOSE_TIME_WARNED: set[str] = set()
+
+
+def _evaluate_stop_triggers(
+    pos: Position,
+    settings: Settings,
+    now: datetime,
+) -> tuple[str | None, float | None]:
+    """Return (trigger_type, minutes_to_close) or (None, None) if no trigger fires.
+
+    Floor check runs first as it is the more severe condition. Window check
+    only runs when close_time is available and in the future.
+    """
+    floor = settings.guardian.floor_price
+    if pos.current_price < floor:
+        minutes_to_close: float | None = None
+        if pos.close_time is not None and pos.close_time > now:
+            minutes_to_close = (pos.close_time - now).total_seconds() / 60.0
+        return "floor", minutes_to_close
+
+    if pos.close_time is None:
+        if pos.market_ticker not in _MISSING_CLOSE_TIME_WARNED:
+            logger.warning(
+                "Position %s has no close_time; window stop disabled, floor only",
+                pos.market_ticker,
+            )
+            _MISSING_CLOSE_TIME_WARNED.add(pos.market_ticker)
+        return None, None
+
+    if pos.close_time <= now:
+        return None, None
+
+    minutes_to_close = (pos.close_time - now).total_seconds() / 60.0
+    if (
+        minutes_to_close < settings.guardian.window_minutes
+        and pos.current_price < settings.guardian.window_threshold_price
+    ):
+        return "window", minutes_to_close
+
+    return None, None
+
+
 async def execute_stop_loss_exits(
     state: PortfolioState,
     client: KalshiClient,
     settings: Settings,
 ) -> list[str]:
-    """Sell any open position whose current_price is below the stop-loss threshold."""
-    threshold = settings.guardian.stop_loss_price
+    """Exit positions that breach the always-on floor or the final-window threshold."""
     triggered: list[str] = []
+    now = datetime.now(timezone.utc)
 
     for pos in state.open_positions:
-        if pos.current_price >= threshold:
+        # Skip when current_price is unknown/zero (e.g. Kalshi returned market.status == "closed",
+        # which causes resolve_market_price to return None and current_price to fall through to 0.0).
+        # Reconcile will handle these positions; attempting a sell would just fail and log noise.
+        if pos.current_price <= 0.0:
             continue
 
-        open_orders = await client.get_orders(ticker=pos.market_ticker, status="resting")
-        if any(o.action == "sell" for o in open_orders):
-            logger.info("Stop-loss sell already pending for %s", pos.market_ticker)
+        trigger_type, minutes_to_close = _evaluate_stop_triggers(pos, settings, now)
+        if trigger_type is None:
             continue
 
         side_lower = pos.side.lower()
-        sell_price = int(pos.current_price * 100)
+        raw_cents = int(pos.current_price * 100) - settings.guardian.sell_aggression_cents
+        sell_price = max(1, raw_cents)
+
+        open_orders = await client.get_orders(ticker=pos.market_ticker, status="resting")
+        existing_sell = next((o for o in open_orders if o.action == "sell"), None)
+        if existing_sell is not None:
+            existing_price = (
+                existing_sell.yes_price if side_lower == "yes" else existing_sell.no_price
+            )
+            if sell_price >= existing_price:
+                logger.info(
+                    "Stop-loss sell already pending at %d¢ for %s (new target %d¢); skipping",
+                    existing_price,
+                    pos.market_ticker,
+                    sell_price,
+                )
+                continue
+            try:
+                await client.cancel_order(existing_sell.order_id)
+                logfire.info(
+                    "Cancelled stale stop-loss sell",
+                    ticker=pos.market_ticker,
+                    order_id=existing_sell.order_id,
+                    old_price_cents=existing_price,
+                    new_price_cents=sell_price,
+                )
+            except Exception as cancel_exc:
+                logger.warning(
+                    "Cancel stale stop-loss failed for %s: %s; skipping reprice",
+                    pos.market_ticker,
+                    cancel_exc,
+                )
+                continue
 
         try:
             if side_lower == "yes":
@@ -169,20 +246,36 @@ async def execute_stop_loss_exits(
             logfire.info(
                 "Stop-loss triggered",
                 ticker=pos.market_ticker,
+                trigger_type=trigger_type,
                 current_price=pos.current_price,
-                threshold=threshold,
                 sell_price_cents=sell_price,
+                minutes_to_close=minutes_to_close,
+                close_time=pos.close_time.isoformat() if pos.close_time else None,
+                floor_price=settings.guardian.floor_price,
+                window_threshold_price=settings.guardian.window_threshold_price,
+                repriced=existing_sell is not None,
             )
             if settings.telegram_send_alerts and settings.telegram_bot_token:
                 try:
+                    label = "FLOOR" if trigger_type == "floor" else "WINDOW"
+                    mtc_line = (
+                        f"Close In: {minutes_to_close:.1f} min\n"
+                        if minutes_to_close is not None
+                        else ""
+                    )
+                    reprice_line = (
+                        "Repriced: yes\n" if existing_sell is not None else ""
+                    )
                     msg = (
-                        f"STOP-LOSS TRIGGERED\n\n"
+                        f"{label} STOP-LOSS\n\n"
                         f"Ticker: {pos.market_ticker}\n"
                         f"Side: {pos.side}\n"
                         f"Contracts: {pos.contracts}\n"
                         f"Current Price: {pos.current_price:.2f}\n"
                         f"Sell At: {sell_price}¢\n"
-                        f"Threshold: {threshold:.2f}"
+                        f"{mtc_line}"
+                        f"{reprice_line}"
+                        f"Trigger: {trigger_type}"
                     )
                     async with TelegramClient(
                         bot_token=settings.telegram_bot_token,

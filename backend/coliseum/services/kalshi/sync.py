@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from datetime import datetime
 from typing import Any
 from uuid import uuid4
 
@@ -174,6 +175,7 @@ def _map_kalshi_position(
     current_price: float,
     existing: Position | None,
     resolved_opportunity_id: str | None = None,
+    close_time: datetime | None = None,
 ) -> Position:
     """Map a Kalshi API position to a local Position model, preserving metadata from existing position."""
     side = normalize_kalshi_side(kalshi_pos.side)
@@ -191,6 +193,7 @@ def _map_kalshi_position(
         average_entry=avg_entry,
         current_price=current_price,
         opportunity_id=opportunity_id,
+        close_time=close_time,
     )
 
 
@@ -233,11 +236,15 @@ async def sync_portfolio_from_kalshi(client: KalshiClient) -> PortfolioState:
         existing = existing_by_key.get(key)
 
         current_price = 0.0
+        close_time = None
         market = markets.get(kalshi_pos.market_ticker)
         if market:
             current_price = resolve_market_price(market, side) or 0.0
+            close_time = market.close_time
         if current_price == 0.0 and existing:
             current_price = existing.current_price
+        if close_time is None and existing:
+            close_time = existing.close_time
 
         avg_entry = avg_entries.get(key) or 0.0
         if avg_entry == 0.0:
@@ -270,6 +277,7 @@ async def sync_portfolio_from_kalshi(client: KalshiClient) -> PortfolioState:
                 current_price=current_price,
                 existing=existing,
                 resolved_opportunity_id=opp_id,
+                close_time=close_time,
             )
         )
 

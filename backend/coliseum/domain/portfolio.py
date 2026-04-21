@@ -29,6 +29,7 @@ class Position(BaseModel):
     average_entry: float
     current_price: float
     opportunity_id: str | None = None
+    close_time: datetime | None = None
 
     @field_validator("average_entry", "current_price")
     @classmethod

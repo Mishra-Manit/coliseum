@@ -51,6 +51,7 @@ def _build_open_position_values(position: Position, *, updated_at: datetime) -> 
         "average_entry": to_decimal(position.average_entry),
         "current_price": to_decimal(position.current_price),
         "opportunity_id": position.opportunity_id,
+        "close_time": position.close_time,
         "updated_at": updated_at,
     }
 
@@ -78,6 +79,7 @@ async def _upsert_open_positions(
             "average_entry": stmt.excluded.average_entry,
             "current_price": stmt.excluded.current_price,
             "opportunity_id": stmt.excluded.opportunity_id,
+            "close_time": stmt.excluded.close_time,
             "updated_at": stmt.excluded.updated_at,
         },
     )

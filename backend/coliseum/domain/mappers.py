@@ -126,6 +126,7 @@ def position_to_db(pos: Position) -> DBOpenPosition:
         average_entry=to_decimal(pos.average_entry),
         current_price=to_decimal(pos.current_price),
         opportunity_id=pos.opportunity_id,
+        close_time=pos.close_time,
     )
 
 
@@ -139,6 +140,7 @@ def db_to_position(row: DBOpenPosition) -> Position:
         average_entry=to_float(row.average_entry),
         current_price=to_float(row.current_price),
         opportunity_id=row.opportunity_id,
+        close_time=row.close_time,
     )
 
 

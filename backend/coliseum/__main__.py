@@ -85,7 +85,10 @@ scout:
   min_volume: 1000
 
 guardian:
-  stop_loss_price: 0.80
+  floor_price: 0.50
+  window_threshold_price: 0.85
+  window_minutes: 15
+  sell_aggression_cents: 2
 
 execution:
   max_slippage_pct: 0.05
@@ -138,7 +141,10 @@ def cmd_config(args: argparse.Namespace) -> int:
         print(f"  Min Volume: {settings.scout.min_volume:,} contracts\n")
 
         print("Guardian:")
-        print(f"  Stop Loss Price: {settings.guardian.stop_loss_price:.2f}\n")
+        print(f"  Floor Price: {settings.guardian.floor_price:.2f}")
+        print(f"  Window Threshold: {settings.guardian.window_threshold_price:.2f}")
+        print(f"  Window Minutes: {settings.guardian.window_minutes}")
+        print(f"  Sell Aggression: {settings.guardian.sell_aggression_cents}¢\n")
 
         print("Execution:")
         print(f"  Max Slippage: {settings.execution.max_slippage_pct:.0%}")

@@ -83,6 +83,9 @@ class OpenPosition(Base):
     opportunity_id: Mapped[str | None] = mapped_column(
         Text, ForeignKey("opportunities.id"), nullable=True
     )
+    close_time: Mapped[datetime | None] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True), nullable=False, server_default=text("now()")
     )
