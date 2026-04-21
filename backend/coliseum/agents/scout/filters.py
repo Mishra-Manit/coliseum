@@ -3,47 +3,49 @@
 SAFE_CATEGORIES: set[str] = set()
 
 SAFE_EVENT_PREFIXES: set[str] = {
-    # Crypto 15-min - unconditional
-    "KXETH15M",
-    "KXSOL15M",
-    "KXXRP15M",
+    # Crypto 15-min - unconditional (all zero-loss, event diversity >= 5)
+    "KXETH15M",   # 28W/0L, 28 events
+    "KXSOL15M",   # 19W/0L, 19 events
+    "KXXRP15M",   # 14W/0L, 14 events
     # Commodities - unconditional
-    "KXGOLDD",
-    "KXGOLDW",    # 16W/0L
-    "KXBRENTW",   # 19W/0L
+    "KXGOLDD",    # 19W/0L, 9 events
+    "KXBRENTD",   # 13W/0L, 5 events
     # Sports - unconditional
-    "KXWBCGAME",
-    "KXMLBSTGAME",
-    "KXNASCARRACE",  # 13W/0L
+    "KXMLBSTGAME",  # 22W/0L, 12 events
+    "KXWBCGAME",    # 8W/0L, 5 events
     # Mentions - unconditional
-    "KXPRESMENTION",
+    "KXPRESMENTION",      # 13W/0L, 5 events
+    "KXPOLITICSMENTION",  # 10W/0L, 6 events
     # Economics - unconditional
-    "KXJOBLESSCLAIMS",
-    "KXAAAGASW",  # 15W/0L weekly gas prices
-    "KXAAAGASD",  # 11W/0L daily gas prices
+    "KXJOBLESSCLAIMS",  # 12W/0L, 6 events
+    "KXAAAGASW",        # 15W/0L, 5 events
+    "KXTSAW",           # 8W/0L, 5 events (TSA weekly passengers)
     # Entertainment - unconditional
-    "KXRT",
-    # Weather - losses only below new min_price floor (94)
-    "KXLOWTLAX",  # 69W/1L, loss at 92 only
-    "KXLOWTCHI",  # 55W/1L, loss at 93 only
+    "KXRT",  # 10W/0L, 6 events (Rotten Tomatoes)
 }
 
 PRICE_GATED_EVENT_PREFIXES: dict[str, int] = {
-    # Crypto directional
-    "KXETHD": 96,
-    "KXBTCD": 95,  # 498W/13L at 95+
-    "KXETH": 94,   # 25W/0L at 94+
-    # Crypto 15-min (gate added after 1 loss at < 94c)
-    "KXBTC15M": 94,
+    # Crypto directional (structural family requires >= 96c)
+    "KXETHD": 96,  # 39W/0L/28 events at gate
+    # Crypto range (15-min gate added after losses below 94c)
+    "KXBTC15M": 94,  # 17W/0L/17 events at gate
+    # Crypto ETH threshold (promoted from 96c; CSV shows 25W/0L/15 events at 94c)
+    "KXETH": 94,
     # Crude oil weekly
-    "KXWTIW": 94,
-    # Weather (3 gates only)
-    "KXHIGHMIA": 96,
-    "KXHIGHTDAL": 96,
-    "KXLOWTMIA": 96,
-    # Mentions
-    "KXTRUMPMENTION": 94,
-    "KXTRUMPSAY": 94,
+    "KXWTIW": 94,  # 50W/0L/6 events at gate
+    # Weather (capped at 3 per policy, all price-gated)
+    "KXHIGHMIA": 96,   # 25W/0L/19 events at gate (consistent with prior policy)
+    "KXHIGHTDAL": 96,  # data clean at 96c
+    "KXLOWTMIA": 96,   # data clean at 96c
+    # Daily gas - demoted from unconditional after KXAAAGASD-26APR21-4.025 live loss
+    "KXAAAGASD": 96,
+    # Mentions (Trump-adjacent structural family requires >= 94c)
+    "KXTRUMPMENTION": 94,   # 27W/0L/9 events at gate
+    "KXTRUMPMENTIONB": 95,  # 16W/0L/6 events at gate
+    "KXTRUMPSAY": 94,       # 25W/0L/6 events at gate
+    # Politics / entertainment long-form
+    "KXAPRPOTUS": 93,    # 13W/0L/5 events at gate
+    "KXALBUMSALES": 95,  # 16W/0L/9 events at gate
 }
 
 
