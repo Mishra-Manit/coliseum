@@ -19,7 +19,7 @@ scout:
 guardian:
   floor_price: 0.50 # Always-on circuit breaker: sell any open position below this price
   window_threshold_price: 0.85 # Aggressive stop: sell if below this AND within window_minutes of close
-  window_minutes: 15 # Minutes before close_time at which window_threshold_price activates
+  window_minutes: 30 # Minutes before close_time at which window_threshold_price activates
   sell_aggression_cents: 2 # Place sell limit at current_price - this many cents to cross the spread
 
 execution:
