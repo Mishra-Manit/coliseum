@@ -114,6 +114,28 @@ class ChartExportService:
         self._cache_lock = threading.Lock()
         self._inflight_lock = threading.Lock()
 
+    def _smooth_series(self, values: list[float], window: int = 3) -> list[float]:
+        """Apply moving average smoothing to a series of values.
+
+        Preserves the first and last points exactly to maintain start/end values.
+        Uses a simple centered moving average for interior points.
+        """
+        if len(values) <= window:
+            return values
+
+        smoothed: list[float] = [values[0]]  # Keep first point exact
+
+        for i in range(1, len(values) - 1):
+            # Calculate window bounds
+            half_window = window // 2
+            start = max(0, i - half_window)
+            end = min(len(values), i + half_window + 1)
+            window_values = values[start:end]
+            smoothed.append(sum(window_values) / len(window_values))
+
+        smoothed.append(values[-1])  # Keep last point exact
+        return smoothed
+
     def export(
         self,
         cycles: list[dict[str, Any]],
@@ -124,8 +146,11 @@ class ChartExportService:
         if export_format != "mp4":
             raise ChartExportError("Unsupported export format")
 
-        navs = [round(float(c["total_value"]), 2) for c in cycles if "total_value" in c]
+        raw_navs = [round(float(c["total_value"]), 2) for c in cycles if "total_value" in c]
         timestamps = [str(c["cycle_at"]) for c in cycles if "cycle_at" in c]
+
+        # Apply smoothing to reduce animation spikes
+        navs = self._smooth_series(raw_navs, window=3)
 
         if not navs or not timestamps:
             raise ChartExportNoDataError("No chart data available for export")
