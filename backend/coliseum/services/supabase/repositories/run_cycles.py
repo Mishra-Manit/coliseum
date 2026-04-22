@@ -16,8 +16,6 @@ async def save_run_cycle_to_db(
     *,
     cycle_at: datetime,
     duration_seconds: float,
-    guardian_synced: int = 0,
-    guardian_closed: int = 0,
     scout_scanned: int = 0,
     scout_found: int = 0,
     analyst_results: dict | None = None,
@@ -32,8 +30,6 @@ async def save_run_cycle_to_db(
     row = RunCycle(
         cycle_at=cycle_at,
         duration_seconds=int(duration_seconds),
-        guardian_synced=guardian_synced,
-        guardian_closed=guardian_closed,
         scout_scanned=scout_scanned,
         scout_found=scout_found,
         analyst_results=analyst_results,

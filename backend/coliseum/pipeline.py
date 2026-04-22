@@ -1,4 +1,4 @@
-"""Production pipeline orchestration: Guardian -> Scout -> (Analyst -> Trader) -> Guardian."""
+"""Production pipeline orchestration: Scout -> (Analyst -> Trader)."""
 
 import asyncio
 import logging
@@ -10,7 +10,6 @@ from typing import ParamSpec, TypeVar
 import logfire
 
 from coliseum.agents.analyst import run_analyst
-from coliseum.agents.guardian import run_guardian
 from coliseum.agents.scout import run_scout
 from coliseum.agents.trader import run_trader
 from coliseum.config import Settings
@@ -24,10 +23,6 @@ from coliseum.services.supabase.repositories.run_cycles import save_run_cycle_to
 class CycleMetrics:
     """Structured metrics collected during a pipeline cycle for DB persistence."""
 
-    # Open position count from the latest Guardian run in the cycle.
-    guardian_synced: int = 0
-    # Total positions closed across Guardian runs in the cycle.
-    guardian_closed: int = 0
     scout_scanned: int = 0
     scout_found: int = 0
     analyst_results: dict[str, str] = field(default_factory=dict)
@@ -69,40 +64,13 @@ def _shutdown_requested(shutdown_event: asyncio.Event | None) -> bool:
 
 
 async def run_pipeline(settings: Settings, shutdown_event: asyncio.Event | None = None) -> JournalCycleSummary:
-    """Run one full pipeline cycle: Guardian -> Scout -> (Analyst -> Trader) -> Guardian."""
+    """Run one full pipeline cycle: Scout -> (Analyst -> Trader)."""
     cycle_start = datetime.now(timezone.utc)
     summary = JournalCycleSummary(cycle_timestamp=cycle_start)
     metrics = CycleMetrics()
     errors: list[str] = []
 
     with logfire.span("pipeline cycle"):
-        # Step 1: Guardian (pre-trade)
-        with logfire.span("guardian pre-trade"):
-            try:
-                guardian_result = await run_guardian(settings=settings)
-                metrics.guardian_synced = guardian_result.positions_synced
-                metrics.guardian_closed += guardian_result.reconciliation.newly_closed
-                summary.guardian_summary = (
-                    f"Synced {guardian_result.positions_synced} positions, "
-                    f"closed {guardian_result.reconciliation.newly_closed}"
-                )
-                logfire.info(
-                    "Guardian complete",
-                    synced=guardian_result.positions_synced,
-                    closed=guardian_result.reconciliation.newly_closed,
-                )
-            except Exception as e:
-                errors.append(f"Guardian: {e}")
-                logfire.error("Guardian failed", error=str(e))
-
-        if _shutdown_requested(shutdown_event):
-            logger.info("Shutdown requested after pre-trade Guardian, exiting pipeline")
-            summary.scout_summary = "Skipped (shutdown)"
-            summary.analyst_summary = "N/A"
-            summary.trader_summary = "N/A"
-            await _finalize_summary(summary, cycle_start, errors, metrics)
-            return summary
-
         # Pre-trade cash gate: skip Scout/Analyst/Trader if we can't afford to trade
         # In paper mode, bypass the cash check since no real funds are at risk
         if not settings.trading.paper_mode:
@@ -247,30 +215,6 @@ async def run_pipeline(settings: Settings, shutdown_event: asyncio.Event | None 
 
         logfire.info("All opportunities processed", count=total)
 
-        if _shutdown_requested(shutdown_event):
-            logger.info("Shutdown requested, skipping post-trade Guardian")
-            await _finalize_summary(summary, cycle_start, errors, metrics)
-            return summary
-
-        # Step 5: Guardian (post-trade)
-        with logfire.span("guardian post-trade"):
-            try:
-                guardian_result = await run_guardian(settings=settings)
-                metrics.guardian_synced = guardian_result.positions_synced
-                metrics.guardian_closed += guardian_result.reconciliation.newly_closed
-                summary.guardian_summary += (
-                    f" | Post-trade: synced {guardian_result.positions_synced}, "
-                    f"closed {guardian_result.reconciliation.newly_closed}"
-                )
-                logfire.info(
-                    "Guardian post-trade complete",
-                    synced=guardian_result.positions_synced,
-                    closed=guardian_result.reconciliation.newly_closed,
-                )
-            except Exception as e:
-                errors.append(f"Guardian(post-trade): {e}")
-                logfire.error("Guardian post-trade failed", error=str(e))
-
     await _finalize_summary(summary, cycle_start, errors, metrics)
     return summary
 
@@ -316,8 +260,6 @@ async def _finalize_summary(
         await save_run_cycle_to_db(
             cycle_at=summary.cycle_timestamp,
             duration_seconds=summary.duration_seconds,
-            guardian_synced=metrics.guardian_synced,
-            guardian_closed=metrics.guardian_closed,
             scout_scanned=metrics.scout_scanned,
             scout_found=metrics.scout_found,
             analyst_results=metrics.analyst_results if metrics.analyst_results else None,

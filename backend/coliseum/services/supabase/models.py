@@ -200,8 +200,6 @@ class RunCycle(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     cycle_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False)
     duration_seconds: Mapped[int] = mapped_column(Integer, nullable=False)
-    guardian_synced: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
-    guardian_closed: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
     scout_scanned: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
     scout_found: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
     analyst_results: Mapped[dict | None] = mapped_column(JSONB, nullable=True)

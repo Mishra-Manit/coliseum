@@ -16,7 +16,7 @@ from coliseum.services.telegram import TelegramClient
 logger = logging.getLogger("coliseum.daemon")
 
 
-GUARDIAN_COOLDOWN_SECONDS = 5
+GUARDIAN_COOLDOWN_SECONDS = 15
 
 
 class ColiseumDaemon:

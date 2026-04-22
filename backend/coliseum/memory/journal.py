@@ -10,7 +10,6 @@ class JournalCycleSummary(BaseModel):
 
     cycle_timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     duration_seconds: float = 0.0
-    guardian_summary: str = ""
     scout_summary: str = ""
     analyst_summary: str = ""
     trader_summary: str = ""
