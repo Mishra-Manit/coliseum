@@ -5,7 +5,7 @@ llm:
 
 trading:
   paper_mode: false
-  contracts: 5
+  contracts: 8
 
 scout:
   market_fetch_limit: 20000
