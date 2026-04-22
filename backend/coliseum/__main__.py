@@ -20,6 +20,7 @@ from coliseum.agents.guardian import run_guardian
 from coliseum.agents.scout import run_scout
 from coliseum.agents.trader import run_trader
 from coliseum.config import get_settings
+from coliseum.daemon import GUARDIAN_COOLDOWN_SECONDS
 from coliseum.observability import initialize_logfire
 from coliseum.pipeline import run_pipeline
 from coliseum.services.supabase.repositories.portfolio import load_state_from_db
@@ -100,7 +101,6 @@ execution:
 
 daemon:
   heartbeat_interval_minutes: 60
-  guardian_interval_minutes: 15
   max_consecutive_failures: 5
 
 telegram_send_alerts: true
@@ -154,7 +154,7 @@ def cmd_config(args: argparse.Namespace) -> int:
 
         print("Daemon:")
         print(f"  Heartbeat Interval: {settings.daemon.heartbeat_interval_minutes}m")
-        print(f"  Guardian Interval: {settings.daemon.guardian_interval_minutes}m")
+        print(f"  Guardian: continuous (cooldown={GUARDIAN_COOLDOWN_SECONDS}s)")
         print(f"  Max Consecutive Failures: {settings.daemon.max_consecutive_failures}\n")
 
         print("API Keys:")
@@ -380,7 +380,7 @@ def cmd_daemon(args: argparse.Namespace) -> int:
         daemon_mode = "LIVE TRADING"
     print(f"Mode: {daemon_mode}")
     print(f"Heartbeat Interval: {settings.daemon.heartbeat_interval_minutes}m")
-    print(f"Guardian Interval: {settings.daemon.guardian_interval_minutes}m")
+    print(f"Guardian: continuous (cooldown={GUARDIAN_COOLDOWN_SECONDS}s)")
     print(f"Max Consecutive Failures: {settings.daemon.max_consecutive_failures}")
     print(f"Dashboard: http://{args.host}:{args.port}")
     print("\nStarting daemon + dashboard... (Ctrl+C to stop)\n")

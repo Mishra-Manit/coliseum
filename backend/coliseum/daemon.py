@@ -16,6 +16,9 @@ from coliseum.services.telegram import TelegramClient
 logger = logging.getLogger("coliseum.daemon")
 
 
+GUARDIAN_COOLDOWN_SECONDS = 5
+
+
 class ColiseumDaemon:
     """Long-lived autonomous trading daemon."""
 
@@ -33,32 +36,30 @@ class ColiseumDaemon:
     def heartbeat_interval_seconds(self) -> float:
         return self.settings.daemon.heartbeat_interval_minutes * 60
 
-    @property
-    def guardian_interval_seconds(self) -> float:
-        return self.settings.daemon.guardian_interval_minutes * 60
-
     async def start(self, install_signal_handlers: bool = True) -> None:
-        """Start the daemon: optionally install signal handlers and enter heartbeat loop."""
+        """Start the daemon: launch guardian loop and heartbeat loop concurrently."""
         self.running = True
         self._started_at = datetime.now(timezone.utc)
         if install_signal_handlers:
             self._install_signal_handlers()
 
         logger.info(
-            "Daemon starting — heartbeat=%dm, guardian=%dm, max_failures=%d",
+            "Daemon starting — heartbeat=%dm, guardian_cooldown=%ds, max_failures=%d",
             self.settings.daemon.heartbeat_interval_minutes,
-            self.settings.daemon.guardian_interval_minutes,
+            GUARDIAN_COOLDOWN_SECONDS,
             self.settings.daemon.max_consecutive_failures,
         )
 
         try:
-            await self._heartbeat_loop()
+            async with asyncio.TaskGroup() as tg:
+                tg.create_task(self._heartbeat_loop())
+                tg.create_task(self._guardian_loop())
         finally:
             self.running = False
             logger.info("Daemon stopped. Cycles completed: %d", self._cycle_count)
 
     async def _heartbeat_loop(self) -> None:
-        """Main loop: run full pipeline cycles with guardian-only checks in between."""
+        """Main loop: run full pipeline cycles on the heartbeat interval."""
         while not self._shutdown_event.is_set():
             if self._paused:
                 logger.warning(
@@ -79,7 +80,7 @@ class ColiseumDaemon:
             remaining = max(0, self.heartbeat_interval_seconds - elapsed)
 
             if remaining > 0 and not self._shutdown_event.is_set():
-                await self._run_guardian_intercycles(remaining)
+                await self._interruptible_sleep(remaining)
 
     async def _run_full_cycle(self) -> None:
         """Execute one full pipeline cycle with error tracking."""
@@ -138,36 +139,21 @@ class ColiseumDaemon:
         except Exception as e:
             logger.error("Market context refresh failed: %s", e)
 
-    async def _run_guardian_intercycles(self, remaining_seconds: float) -> None:
-        """Run guardian-only checks in the gap between full pipeline cycles."""
-        guardian_interval = self.guardian_interval_seconds
-
-        if guardian_interval <= 0 or guardian_interval >= remaining_seconds:
-            await self._interruptible_sleep(remaining_seconds)
-            return
-
-        elapsed_in_gap = 0.0
-        while elapsed_in_gap + guardian_interval <= remaining_seconds:
-            sleep_dur = guardian_interval
-            await self._interruptible_sleep(sleep_dur)
-            if self._shutdown_event.is_set():
-                return
-
-            elapsed_in_gap += sleep_dur
-            logger.info("Guardian-only intercycle check starting")
+    async def _guardian_loop(self) -> None:
+        """Continuous guardian loop: run -> cooldown -> run, independent of pipeline cycles."""
+        while not self._shutdown_event.is_set():
             try:
                 guardian_result = await run_guardian(settings=self.settings)
                 logger.info(
-                    "Guardian intercycle complete: synced=%d closed=%d",
+                    "Guardian complete: synced=%d closed=%d",
                     guardian_result.positions_synced,
                     guardian_result.reconciliation.newly_closed,
                 )
             except Exception as e:
-                logger.error("Guardian intercycle failed: %s", e)
+                logger.error("Guardian failed: %s", e)
 
-        leftover = remaining_seconds - elapsed_in_gap
-        if leftover > 0 and not self._shutdown_event.is_set():
-            await self._interruptible_sleep(leftover)
+            await self._interruptible_sleep(GUARDIAN_COOLDOWN_SECONDS)
+
 
     async def _interruptible_sleep(self, seconds: float) -> None:
         """Sleep that can be interrupted by the shutdown event."""

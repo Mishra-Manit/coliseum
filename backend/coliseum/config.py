@@ -64,7 +64,6 @@ class DaemonConfig(BaseModel):
     """Daemon process configuration."""
 
     heartbeat_interval_minutes: int = 60
-    guardian_interval_minutes: int = 15
     max_consecutive_failures: int = 5
 
 
