@@ -87,6 +87,28 @@ _AMBER = "#d97706"
 _FILL = (217 / 255, 119 / 255, 6 / 255, 0.18)
 
 
+def _smooth_navs(navs: list[float], window: int = 5) -> list[float]:
+    """Apply simple moving average to smooth out NAV spikes for animation.
+
+    Uses a centered window that shrinks at boundaries. Window size is
+    clamped to ensure we always have at least 1 point on each side.
+    """
+    if len(navs) <= 2:
+        return navs
+
+    smoothed: list[float] = []
+    half_window = max(1, window // 2)
+
+    for i in range(len(navs)):
+        # Determine window bounds (centered on current point)
+        left = max(0, i - half_window)
+        right = min(len(navs), i + half_window + 1)
+        window_vals = navs[left:right]
+        smoothed.append(sum(window_vals) / len(window_vals))
+
+    return smoothed
+
+
 class ExportResult(BaseModel):
     """Binary export payload and metadata."""
 
@@ -124,7 +146,8 @@ class ChartExportService:
         if export_format != "mp4":
             raise ChartExportError("Unsupported export format")
 
-        navs = [round(float(c["total_value"]), 2) for c in cycles if "total_value" in c]
+        raw_navs = [round(float(c["total_value"]), 2) for c in cycles if "total_value" in c]
+        navs = _smooth_navs(raw_navs, window=5)
         timestamps = [str(c["cycle_at"]) for c in cycles if "cycle_at" in c]
 
         if not navs or not timestamps:
