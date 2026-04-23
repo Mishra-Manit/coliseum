@@ -116,7 +116,7 @@ class ChartExportService:
 
     def export(
         self,
-        cycles: list[dict[str, Any]],
+        snapshots: list[dict[str, Any]],
         export_format: ExportFormat,
         quality: ExportQuality,
     ) -> ExportResult:
@@ -124,8 +124,8 @@ class ChartExportService:
         if export_format != "mp4":
             raise ChartExportError("Unsupported export format")
 
-        navs = [round(float(c["total_value"]), 2) for c in cycles if "total_value" in c]
-        timestamps = [str(c["cycle_at"]) for c in cycles if "cycle_at" in c]
+        navs = [round(float(s["total_value"]), 2) for s in snapshots if "total_value" in s]
+        timestamps = [str(s["snapshot_at"]) for s in snapshots if "snapshot_at" in s]
 
         if not navs or not timestamps:
             raise ChartExportNoDataError("No chart data available for export")
@@ -164,17 +164,33 @@ class ChartExportService:
         finally:
             self._inflight_lock.release()
 
+    def _smooth_nav_values(self, navs: list[float], window_size: int = 3) -> list[float]:
+        """Apply moving average smoothing to NAV values to reduce spikes."""
+        if len(navs) <= window_size:
+            return navs
+
+        smoothed = []
+        for i in range(len(navs)):
+            # Calculate window bounds
+            start = max(0, i - window_size // 2)
+            end = min(len(navs), i + window_size // 2 + 1)
+            # Average values in window
+            window_avg = sum(navs[start:end]) / (end - start)
+            smoothed.append(round(window_avg, 2))
+        return smoothed
+
     def _render_with_fallback(
         self, navs: list[float], requested_quality: ExportQuality
     ) -> tuple[bytes, ExportQuality]:
         """Render with one-step quality downgrade on timeout."""
+        navs_smoothed = self._smooth_nav_values(navs)
         try:
-            return self._render_mp4(navs, requested_quality), requested_quality
+            return self._render_mp4(navs_smoothed, requested_quality), requested_quality
         except ChartExportTimeoutError:
             downgraded = self._downgrade_quality(requested_quality)
             if downgraded is None:
                 raise
-            return self._render_mp4(navs, downgraded), downgraded
+            return self._render_mp4(navs_smoothed, downgraded), downgraded
 
     def _render_mp4(self, navs: list[float], quality: ExportQuality) -> bytes:
         """Render NAV animation and encode as MP4 using ffmpeg."""
