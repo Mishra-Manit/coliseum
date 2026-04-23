@@ -105,6 +105,41 @@ class _CacheEntry(BaseModel):
     expires_at: float
 
 
+def _smooth_series(values: list[float], window: int = 3) -> list[float]:
+    """Apply moving average smoothing to a series of values.
+
+    Uses a centered moving average window. Endpoints (first and last values)
+    are preserved exactly to maintain chart accuracy at boundaries.
+
+    Args:
+        values: List of float values to smooth
+        window: Moving average window size (default 3)
+
+    Returns:
+        Smoothed list of values with same length as input
+    """
+    if len(values) <= 2 or window <= 1:
+        return values[:]
+
+    # Adjust window if larger than data
+    effective_window = min(window, len(values))
+    half_window = effective_window // 2
+
+    result = []
+    for i in range(len(values)):
+        # Preserve endpoints exactly
+        if i < half_window or i >= len(values) - half_window:
+            result.append(values[i])
+        else:
+            # Centered moving average
+            start = i - half_window
+            end = i + half_window + 1
+            window_values = values[start:end]
+            result.append(sum(window_values) / len(window_values))
+
+    return result
+
+
 class ChartExportService:
     """Generate and cache chart exports for API and automation usage."""
 
@@ -116,21 +151,38 @@ class ChartExportService:
 
     def export(
         self,
-        cycles: list[dict[str, Any]],
+        data: list[dict[str, Any]],
         export_format: ExportFormat,
         quality: ExportQuality,
     ) -> ExportResult:
-        """Render an export for chart series data."""
+        """Render an export for chart series data.
+
+        Args:
+            data: List of time-series data points with 'total_value' and
+                  either 'snapshot_at' or 'cycle_at' timestamp fields
+            export_format: Export format (currently only "mp4")
+            quality: Quality profile for rendering
+
+        Returns:
+            ExportResult with rendered content and metadata
+        """
         if export_format != "mp4":
             raise ChartExportError("Unsupported export format")
 
-        navs = [round(float(c["total_value"]), 2) for c in cycles if "total_value" in c]
-        timestamps = [str(c["cycle_at"]) for c in cycles if "cycle_at" in c]
+        navs = [round(float(d["total_value"]), 2) for d in data if "total_value" in d]
+        timestamps = [
+            str(d.get("snapshot_at") or d.get("cycle_at"))
+            for d in data
+            if "snapshot_at" in d or "cycle_at" in d
+        ]
 
         if not navs or not timestamps:
             raise ChartExportNoDataError("No chart data available for export")
 
-        cache_key = self._make_cache_key(export_format, quality, navs, timestamps)
+        # Apply smoothing to reduce visual spikes in the animation
+        smoothed_navs = _smooth_series(navs, window=3)
+
+        cache_key = self._make_cache_key(export_format, quality, smoothed_navs, timestamps)
         cached = self._get_cache_entry(cache_key)
         if cached is not None:
             return ExportResult(
@@ -145,7 +197,7 @@ class ChartExportService:
             raise ChartExportBusyError("Chart export already in progress")
 
         try:
-            result_bytes, quality_used = self._render_with_fallback(navs, quality)
+            result_bytes, quality_used = self._render_with_fallback(smoothed_navs, quality)
             self._set_cache_entry(
                 cache_key,
                 _CacheEntry(
