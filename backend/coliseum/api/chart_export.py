@@ -21,6 +21,32 @@ ExportFormat = Literal["mp4"]
 ExportQuality = Literal["fast", "balanced", "hq"]
 
 
+def _smooth_nav_curve(navs: list[float], window_size: int = 3) -> list[float]:
+    """Apply moving average smoothing to remove spikes while preserving curve shape.
+
+    Uses a sliding window average. For edge cases (first/last elements),
+    uses smaller windows. Window size of 3 means each point becomes the
+    average of itself and its immediate neighbors.
+    """
+    if len(navs) <= window_size:
+        return navs
+
+    smoothed = []
+    half_window = window_size // 2
+
+    for i, value in enumerate(navs):
+        # Calculate window bounds
+        start = max(0, i - half_window)
+        end = min(len(navs), i + half_window + 1)
+
+        # Take average of window
+        window = navs[start:end]
+        avg = sum(window) / len(window)
+        smoothed.append(round(avg, 2))
+
+    return smoothed
+
+
 class ChartExportError(Exception):
     """Base chart export exception."""
 
@@ -124,8 +150,11 @@ class ChartExportService:
         if export_format != "mp4":
             raise ChartExportError("Unsupported export format")
 
-        navs = [round(float(c["total_value"]), 2) for c in cycles if "total_value" in c]
+        raw_navs = [round(float(c["total_value"]), 2) for c in cycles if "total_value" in c]
         timestamps = [str(c["cycle_at"]) for c in cycles if "cycle_at" in c]
+
+        # Apply smoothing to reduce visual spikes while preserving curve shape
+        navs = _smooth_nav_curve(raw_navs, window_size=3)
 
         if not navs or not timestamps:
             raise ChartExportNoDataError("No chart data available for export")
