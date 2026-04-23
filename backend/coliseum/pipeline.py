@@ -255,7 +255,8 @@ async def _finalize_summary(
     except Exception as e:
         logger.warning("Could not load portfolio state for journal: %s", e)
 
-    # DB write first (primary)
+    # DB write for telemetry (errors, scout/analyst/trader metrics)
+    # Portfolio data now saved to portfolio_snapshots by Guardian only
     try:
         await save_run_cycle_to_db(
             cycle_at=summary.cycle_timestamp,
@@ -264,10 +265,6 @@ async def _finalize_summary(
             scout_found=metrics.scout_found,
             analyst_results=metrics.analyst_results if metrics.analyst_results else None,
             trader_results=metrics.trader_results if metrics.trader_results else None,
-            cash_balance=summary.portfolio_cash,
-            positions_value=summary.portfolio_positions_value,
-            total_value=summary.portfolio_total,
-            open_positions=summary.open_position_count,
             errors=summary.errors,
         )
     except Exception as e:
