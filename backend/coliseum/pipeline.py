@@ -71,10 +71,12 @@ async def run_pipeline(settings: Settings, shutdown_event: asyncio.Event | None 
     errors: list[str] = []
 
     with logfire.span("pipeline cycle"):
-        # Pre-trade cash gate: skip Scout/Analyst/Trader if we can't afford to trade
-        # In paper mode, bypass the cash check since no real funds are at risk
+        # Pre-trade cash gate: skip Scout/Analyst/Trader only when the account has
+        # less than $1 (i.e. cannot afford even a single contract at any price).
+        # Actual contract quantity is scaled down at execution time in the Trader.
+        # In paper mode, bypass the cash check since no real funds are at risk.
         if not settings.trading.paper_mode:
-            min_cash = settings.trading.contracts * 1.0  # Need at least $1 per contract
+            min_cash = 1.0  # floor: at least enough for one contract
             try:
                 state = await load_state_from_db()
                 if state.portfolio.cash_balance < min_cash:

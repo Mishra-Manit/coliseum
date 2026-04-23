@@ -366,7 +366,7 @@ async def _execute_trade(
     shutdown_event: asyncio.Event | None = None,
 ) -> TraderOutput:
     """Run slippage check, then execute or skip the trade. Returns updated output."""
-    contracts = settings.trading.contracts
+    max_contracts = settings.trading.contracts
 
     with logfire.span("slippage check", ticker=opportunity.market_ticker):
         market = await client.get_market(opportunity.market_ticker)
@@ -397,6 +397,39 @@ async def _execute_trade(
             slippage_pct=round(slippage_pct, 4),
         )
         return output.model_copy(update={"execution_status": "paper"})
+
+    # Scale contract quantity down to what the account can actually afford.
+    # max_contracts is the desired ceiling (from config); affordable may be lower
+    # if cash is running low. We never go below 1 — if even 1 contract is out of
+    # reach the trade is rejected cleanly rather than sending a $0 order.
+    try:
+        portfolio_state = await load_state_from_db()
+        cash_balance = portfolio_state.portfolio.cash_balance
+    except Exception as e:
+        # Cannot verify available funds — reject rather than risk an unfunded order.
+        logfire.error("Could not load portfolio state for contract sizing; rejecting trade", error=str(e))
+        return output.model_copy(update={"execution_status": "rejected"})
+
+    if current_price_decimal > 0:
+        affordable = int(cash_balance / current_price_decimal)
+        if affordable < 1:
+            logfire.warn(
+                "Insufficient cash to buy even one contract; rejecting trade",
+                cash_balance=round(cash_balance, 2),
+                price_per_contract=round(current_price_decimal, 4),
+            )
+            return output.model_copy(update={"execution_status": "rejected"})
+        contracts = min(max_contracts, affordable)
+        if contracts < max_contracts:
+            logfire.warn(
+                "Scaling contract size down due to available cash",
+                desired=max_contracts,
+                affordable=affordable,
+                using=contracts,
+                cash_balance=round(cash_balance, 2),
+            )
+    else:
+        contracts = max_contracts
 
     initial_price_cents = int(current_price_decimal * 100)
 
