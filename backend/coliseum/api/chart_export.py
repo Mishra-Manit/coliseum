@@ -105,6 +105,31 @@ class _CacheEntry(BaseModel):
     expires_at: float
 
 
+def _smooth_navs(navs: list[float], window_size: int = 3) -> list[float]:
+    """Apply moving average smoothing to reduce spikes in NAV curve.
+
+    Uses a centered moving average. Edge points use smaller windows
+    to avoid data loss at the boundaries.
+    """
+    if len(navs) <= window_size:
+        return navs[:]
+
+    smoothed = []
+    half_window = window_size // 2
+
+    for i in range(len(navs)):
+        # Determine window boundaries
+        start = max(0, i - half_window)
+        end = min(len(navs), i + half_window + 1)
+
+        # Calculate average of window
+        window = navs[start:end]
+        avg = sum(window) / len(window)
+        smoothed.append(avg)
+
+    return smoothed
+
+
 class ChartExportService:
     """Generate and cache chart exports for API and automation usage."""
 
@@ -129,6 +154,9 @@ class ChartExportService:
 
         if not navs or not timestamps:
             raise ChartExportNoDataError("No chart data available for export")
+
+        # Apply smoothing to reduce visual spikes in animation
+        navs = _smooth_navs(navs, window_size=3)
 
         cache_key = self._make_cache_key(export_format, quality, navs, timestamps)
         cached = self._get_cache_entry(cache_key)
