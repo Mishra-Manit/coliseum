@@ -461,7 +461,7 @@ function groupByDate(entries: LedgerEntry[]): [string, LedgerEntry[]][] {
     let dateKey = "Unknown";
     try {
       const d = parseISO(entry.timestamp);
-      if (isValid(d)) dateKey = format(d, "MMM d").toUpperCase();
+      if (isValid(d)) dateKey = format(d, "MMM d");
     } catch {
       /* keep Unknown */
     }
