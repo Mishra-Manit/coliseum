@@ -7,6 +7,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useOpportunityDetail, usePortfolioState } from "@/hooks/use-api";
 import { useTimezone, formatInTz } from "@/lib/timezone-context";
+import { stripCitations } from "@/lib/citations";
 import { IntelBrief } from "@/components/dashboard/intel-brief";
 import type { EnrichedPosition } from "@/lib/types";
 
@@ -120,13 +121,13 @@ function DetailContent({
 
   const strippedMarkdown = useStructured
     ? ""
-    : markdown_body
-        .replace(/^#\s+.+\n?/, "")
-        .replace(/^\*\*Event\*\*:.*\n?/m, "")
-        .replace(/^\*\*Outcome\*\*:.*\n?/m, "")
-        .replace(/^Outcome:.*\n?/m, "")
-        .replace(/\W{0,4}(?:file)?cite\W{0,4}(?:turn\d+\w+\W{0,4})+/g, "")
-        .replace(/\s*\[(?:[a-z0-9-]+\.)+[a-z]{2,}\]/gi, "")
+    : stripCitations(
+        markdown_body
+          .replace(/^#\s+.+\n?/, "")
+          .replace(/^\*\*Event\*\*:.*\n?/m, "")
+          .replace(/^\*\*Outcome\*\*:.*\n?/m, "")
+          .replace(/^Outcome:.*\n?/m, ""),
+      )
         .replace(/^\n+/, "")
         .replace(/\n{3,}/g, "\n\n")
         .trimStart();

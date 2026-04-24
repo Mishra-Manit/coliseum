@@ -4,16 +4,8 @@ import React from "react";
 import { ExternalLink } from "lucide-react";
 import { FontSize } from "@/lib/typography";
 import { Muted, Strong } from "@/lib/styles";
+import { stripCitations } from "@/lib/citations";
 import type { ParsedSections } from "@/lib/types";
-
-function stripCitations(text: string): string {
-  // Strip OpenAI `cite…turnXfileY` tokens
-  let out = text.replace(/\W{0,4}(?:file)?cite\W{0,4}(?:turn\d+\w+\W{0,4})+/g, "");
-  // Strip inline `[hostname.tld]` citation markers (e.g. `[cmegroup.com]`, `[kalshi.com]`)
-  out = out.replace(/\s*\[(?:[a-z0-9-]+\.)+[a-z]{2,}\]/gi, "");
-  // Collapse stray double spaces left behind
-  return out.replace(/\s{2,}/g, " ").trim();
-}
 
 function InlineMarkdown({ text }: { text: string }) {
   const clean = stripCitations(text);

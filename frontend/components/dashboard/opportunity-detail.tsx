@@ -7,6 +7,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useOpportunityDetail } from "@/hooks/use-api";
 import { useTimezone, formatInTz } from "@/lib/timezone-context";
+import { stripCitations } from "@/lib/citations";
 import { FontSize } from "@/lib/typography";
 import { Muted, BgTint, BorderTint } from "@/lib/styles";
 import { IntelBrief } from "./intel-brief";
@@ -100,12 +101,13 @@ export function OpportunityDetailView({
 
   const strippedMarkdown = useStructured
     ? ""
-    : markdown_body
-        .replace(/^#\s+.+\n?/, "")
-        .replace(/^\*\*Event\*\*:.*\n?/m, "")
-        .replace(/^\*\*Outcome\*\*:.*\n?/m, "")
-        .replace(/^Outcome:.*\n?/m, "")
-        .replace(/\W{0,4}(?:file)?cite\W{0,4}(?:turn\d+\w+\W{0,4})+/g, "")
+    : stripCitations(
+        markdown_body
+          .replace(/^#\s+.+\n?/, "")
+          .replace(/^\*\*Event\*\*:.*\n?/m, "")
+          .replace(/^\*\*Outcome\*\*:.*\n?/m, "")
+          .replace(/^Outcome:.*\n?/m, ""),
+      )
         .replace(/^\n+/, "")
         .replace(/\n{3,}/g, "\n\n")
         .trimStart();
