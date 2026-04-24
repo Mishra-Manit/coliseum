@@ -7,8 +7,6 @@ import {
   Receipt,
   FileText,
   ChevronRight,
-  ArrowDownToLine,
-  ArrowUpFromLine,
 } from "lucide-react";
 import { usePortfolioState, useLedger, useOpportunities } from "@/hooks/use-api";
 import type { EnrichedPosition, LedgerEntry, OpportunitySummary } from "@/lib/types";
@@ -16,7 +14,7 @@ import { MobileHeader } from "./mobile-header";
 import { MobileBottomNav } from "./mobile-bottom-nav";
 import { MobilePositionDetail } from "./mobile-position-detail";
 import { FontSize } from "@/lib/typography";
-import { Muted, Base, Soft, Strong, BgTint, BorderTint } from "@/lib/styles";
+import { Muted, Base, Soft } from "@/lib/styles";
 
 type Tab = "positions" | "opportunities" | "ledger";
 
