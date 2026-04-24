@@ -28,22 +28,18 @@ export function MobileBottomNav() {
               href={href}
               className={`flex-1 flex flex-col items-center justify-center gap-1 rounded-[26px] transition-colors ${
                 isActive
-                  ? "bg-primary"
-                  : ""
+                  ? "bg-primary/15 border border-primary/30"
+                  : "border border-transparent"
               }`}
             >
               <Icon
                 className={`h-[18px] w-[18px] ${
-                  isActive
-                    ? "text-primary-foreground"
-                    : "text-muted-foreground/60"
+                  isActive ? "text-primary" : "text-muted-foreground/60"
                 }`}
               />
               <span
                 className={`font-mono text-[9px] font-semibold tracking-[0.05em] ${
-                  isActive
-                    ? "text-primary-foreground"
-                    : "text-muted-foreground/60"
+                  isActive ? "text-primary" : "text-muted-foreground/60"
                 }`}
               >
                 {label}

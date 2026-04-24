@@ -16,7 +16,7 @@ function formatDayAmount(value: number): string {
 
 export function MobileCharts() {
   const { data: chartData } = useChartData();
-  const [interval, setInterval] = useState<Interval>("1D");
+  const [interval, setInterval] = useState<Interval>("1M");
 
   const stats = chartData?.stats;
   const series = chartData?.series ?? [];

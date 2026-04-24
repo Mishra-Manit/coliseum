@@ -7,7 +7,12 @@ import { Muted, Strong } from "@/lib/styles";
 import type { ParsedSections } from "@/lib/types";
 
 function stripCitations(text: string): string {
-  return text.replace(/\W{0,4}(?:file)?cite\W{0,4}(?:turn\d+\w+\W{0,4})+/g, "").trim();
+  // Strip OpenAI `cite…turnXfileY` tokens
+  let out = text.replace(/\W{0,4}(?:file)?cite\W{0,4}(?:turn\d+\w+\W{0,4})+/g, "");
+  // Strip inline `[hostname.tld]` citation markers (e.g. `[cmegroup.com]`, `[kalshi.com]`)
+  out = out.replace(/\s*\[(?:[a-z0-9-]+\.)+[a-z]{2,}\]/gi, "");
+  // Collapse stray double spaces left behind
+  return out.replace(/\s{2,}/g, " ").trim();
 }
 
 function InlineMarkdown({ text }: { text: string }) {
@@ -66,17 +71,23 @@ function SectionDivider({ label }: { label: string }) {
 
 function BulletList({
   items,
-  className,
+  dotClass = "bg-muted-foreground/50",
 }: {
   items: string[];
-  className?: string;
+  dotClass?: string;
 }) {
   if (items.length === 0) return null;
   return (
-    <ul className={`list-disc list-inside space-y-1 ${className ?? ""}`}>
+    <ul className="space-y-2">
       {items.map((item, i) => (
-        <li key={i} className={`${FontSize.medium} ${Strong.foreground} leading-relaxed`}>
-          <InlineMarkdown text={item} />
+        <li key={i} className="flex gap-2.5 text-[13.5px] text-foreground/85 leading-relaxed font-sans">
+          <span
+            className={`mt-[9px] h-1 w-1 rounded-full shrink-0 ${dotClass}`}
+            aria-hidden="true"
+          />
+          <span className="min-w-0">
+            <InlineMarkdown text={item} />
+          </span>
         </li>
       ))}
     </ul>
@@ -136,12 +147,12 @@ function TldrBanner({ decision, tldr }: { decision: string; tldr: string }) {
   return (
     <div>
       <SectionDivider label="TLDR" />
-      <div className={`mt-2 border-l-2 ${accentBorder} bg-white/[0.02] rounded-r px-3 py-2.5`}>
-        <span className={`${FontSize.small} font-mono font-bold uppercase tracking-wider ${accentText}`}>
+      <div className={`mt-2 border-l-2 ${accentBorder} bg-white/[0.02] rounded-r px-3.5 py-3`}>
+        <span className={`text-[11px] font-mono font-bold uppercase tracking-[0.14em] ${accentText}`}>
           {decisionLabel}
         </span>
-        <p className={`${FontSize.medium} ${Strong.foreground} leading-relaxed mt-1`}>
-          {tldr}
+        <p className="text-[13.5px] text-foreground/90 leading-relaxed mt-1.5 font-sans">
+          {stripCitations(tldr)}
         </p>
       </div>
     </div>
@@ -205,9 +216,9 @@ export function IntelBrief({ parsed }: { parsed: ParsedSections }) {
         )}
       </div>
 
-      {/* Summary / Conclusion */}
+      {/* Summary / Conclusion — long-form, font-sans for readability */}
       {conclusion && (
-        <p className={`${FontSize.large} ${Strong.foreground} leading-relaxed`}>
+        <p className="text-[14px] text-foreground/90 leading-[1.65] font-sans">
           <InlineMarkdown text={conclusion} />
         </p>
       )}
@@ -217,7 +228,7 @@ export function IntelBrief({ parsed }: { parsed: ParsedSections }) {
         <div>
           <SectionDivider label="Evidence" />
           <div className="mt-2">
-            <BulletList items={supportingEvidence} />
+            <BulletList items={supportingEvidence} dotClass="bg-emerald-400/70" />
           </div>
         </div>
       )}
@@ -227,10 +238,7 @@ export function IntelBrief({ parsed }: { parsed: ParsedSections }) {
         <div>
           <SectionDivider label="Against" />
           <div className="mt-2">
-            <BulletList
-              items={contraryEvidence}
-              className="[&_li]:text-red-400/70"
-            />
+            <BulletList items={contraryEvidence} dotClass="bg-red-400" />
           </div>
         </div>
       )}
@@ -240,10 +248,7 @@ export function IntelBrief({ parsed }: { parsed: ParsedSections }) {
         <div>
           <SectionDivider label="Risks" />
           <div className="mt-2">
-            <BulletList
-              items={mergedRisks}
-              className="[&_li]:text-amber-500/70"
-            />
+            <BulletList items={mergedRisks} dotClass="bg-amber-400" />
           </div>
         </div>
       )}
@@ -252,7 +257,7 @@ export function IntelBrief({ parsed }: { parsed: ParsedSections }) {
       {resolution && (
         <div>
           <SectionDivider label="Resolution" />
-          <p className={`${FontSize.medium} ${Muted.foreground} leading-relaxed mt-2`}>
+          <p className="text-[13.5px] text-foreground/75 leading-relaxed mt-2 font-sans">
             <InlineMarkdown text={resolution} />
           </p>
         </div>

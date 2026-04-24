@@ -108,27 +108,30 @@ function TabControl({
 
   return (
     <div className="flex gap-0.5 w-full rounded-lg bg-card border border-white/[0.08] p-[3px]">
-      {tabs.map(({ key, label }) => (
-        <button
-          key={key}
-          onClick={() => onTabChange(key)}
-          className={`flex-1 flex items-center justify-center rounded-md py-2 transition-colors ${
-            activeTab === key
-              ? "bg-primary"
-              : ""
-          }`}
-        >
-          <span
-            className={`font-mono text-[11px] font-${activeTab === key ? "semibold" : "medium"} ${
-              activeTab === key
-                ? "text-primary-foreground"
-                : "text-muted-foreground"
+      {tabs.map(({ key, label }) => {
+        const isActive = activeTab === key;
+        return (
+          <button
+            key={key}
+            onClick={() => onTabChange(key)}
+            className={`flex-1 flex items-center justify-center rounded-md py-2 transition-colors ${
+              isActive
+                ? "bg-primary/15 border border-primary/30"
+                : "border border-transparent"
             }`}
           >
-            {label}
-          </span>
-        </button>
-      ))}
+            <span
+              className={`font-mono text-[11px] tracking-wider ${
+                isActive
+                  ? "font-semibold text-primary"
+                  : "font-medium text-muted-foreground/80"
+              }`}
+            >
+              {label}
+            </span>
+          </button>
+        );
+      })}
     </div>
   );
 }

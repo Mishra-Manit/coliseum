@@ -73,7 +73,7 @@ function ChartSidebar() {
 
 function ChartMain() {
   const { data: chartData } = useChartData();
-  const [interval, setInterval] = useState<Interval>("1D");
+  const [interval, setInterval] = useState<Interval>("1M");
 
   const series = chartData?.series ?? [];
   const stats = chartData?.stats;
