@@ -39,7 +39,7 @@ from coliseum.services.supabase.repositories.portfolio import load_state_from_db
 from coliseum.services.supabase.repositories.portfolio_snapshots import (
     list_portfolio_snapshots_from_db,
 )
-from coliseum.services.supabase.repositories.run_cycles import list_run_cycles_from_db
+
 from coliseum.services.supabase.repositories.trades import (
     list_trade_closes_from_db,
     list_trades_from_db,
@@ -234,28 +234,40 @@ async def _build_ledger(limit: int) -> list[dict[str, Any]]:
     return await list_trades_from_db(start_date=_start_date(), limit=limit)
 
 
+def _smooth_series(series: list[dict[str, Any]], window: int = 3) -> list[dict[str, Any]]:
+    """Apply simple moving average smoothing to NAV values.
+
+    Uses a configurable window size to reduce noise while preserving
+    the overall curve shape. Edge cases (beginning/end of series)
+    use smaller windows as needed.
+    """
+    if not series or len(series) <= 1:
+        return series
+
+    result = []
+    for i, point in enumerate(series):
+        # Determine actual window size for edge cases
+        window_start = max(0, i - window + 1)
+        window_points = series[window_start : i + 1]
+        actual_window = len(window_points)
+
+        # Calculate moving average for NAV
+        nav_avg = sum(p["nav"] for p in window_points) / actual_window
+
+        result.append(
+            {
+                "timestamp": point["timestamp"],
+                "nav": round(nav_avg, 2),
+                "cash": point["cash"],
+                "positions_value": point["positions_value"],
+            }
+        )
+    return result
+
+
 async def _build_chart() -> dict[str, Any]:
     start = _start_date()
     snapshots = await list_portfolio_snapshots_from_db(start_date=start)
-    cycles = await list_run_cycles_from_db(start_date=start)
-
-    legacy_series = [
-        {
-            "snapshot_at": c["cycle_at"],
-            "total_value": c["total_value"],
-            "cash_balance": c["cash_balance"],
-            "positions_value": c["positions_value"],
-        }
-        for c in cycles
-    ]
-
-    if snapshots:
-        first_snapshot_at = snapshots[0]["snapshot_at"]
-        snapshots = [
-            s for s in legacy_series if s["snapshot_at"] < first_snapshot_at
-        ] + snapshots
-    else:
-        snapshots = legacy_series
 
     if not snapshots:
         try:
@@ -311,8 +323,11 @@ async def _build_chart() -> dict[str, Any]:
 
     daily_pnls = [v["last"] - v["first"] for v in daily_nav_map.values()]
 
+    # Apply smoothing to reduce visual noise in chart animations
+    smoothed_series = _smooth_series(series, window=3)
+
     return {
-        "series": series,
+        "series": smoothed_series,
         "stats": {
             "current_nav": round(current_nav, 2),
             "initial_nav": round(initial_nav, 2),
