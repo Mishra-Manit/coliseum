@@ -3,6 +3,8 @@
 import { useState, useRef, useEffect } from "react";
 import { ArrowLeft, Copy, Check, Clock } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { useOpportunityDetail, usePortfolioState } from "@/hooks/use-api";
 import { useTimezone, formatInTz } from "@/lib/timezone-context";
 import { IntelBrief } from "@/components/dashboard/intel-brief";
@@ -110,11 +112,24 @@ function DetailContent({
   copied: boolean;
   onCopyTicker: (ticker: string) => void;
 }) {
-  const { summary, parsed_sections } = data;
+  const { summary, markdown_body, parsed_sections } = data;
   const useStructured =
     parsed_sections !== null &&
     parsed_sections !== undefined &&
     parsed_sections.scout.is_structured === true;
+
+  const strippedMarkdown = useStructured
+    ? ""
+    : markdown_body
+        .replace(/^#\s+.+\n?/, "")
+        .replace(/^\*\*Event\*\*:.*\n?/m, "")
+        .replace(/^\*\*Outcome\*\*:.*\n?/m, "")
+        .replace(/^Outcome:.*\n?/m, "")
+        .replace(/\W{0,4}(?:file)?cite\W{0,4}(?:turn\d+\w+\W{0,4})+/g, "")
+        .replace(/\s*\[(?:[a-z0-9-]+\.)+[a-z]{2,}\]/gi, "")
+        .replace(/^\n+/, "")
+        .replace(/\n{3,}/g, "\n\n")
+        .trimStart();
 
   const headerTitle = summary.event_title || summary.title;
   const yesPercent = Math.round(summary.yes_price * 100);
@@ -192,9 +207,24 @@ function DetailContent({
       <div className="pt-1">
         {useStructured && parsed_sections ? (
           <IntelBrief parsed={parsed_sections} />
+        ) : strippedMarkdown.trim().length > 0 ? (
+          <div className="markdown-body">
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              components={{
+                a: ({ href, children }) => (
+                  <a href={href} target="_blank" rel="noopener noreferrer">
+                    {children}
+                  </a>
+                ),
+              }}
+            >
+              {strippedMarkdown}
+            </ReactMarkdown>
+          </div>
         ) : (
           <p className="text-sm text-muted-foreground/85 font-sans leading-relaxed">
-            No structured analysis available for this opportunity.
+            No analysis available for this opportunity.
           </p>
         )}
       </div>
