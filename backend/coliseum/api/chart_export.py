@@ -87,6 +87,23 @@ _AMBER = "#d97706"
 _FILL = (217 / 255, 119 / 255, 6 / 255, 0.18)
 
 
+def _smooth_nav_values(navs: list[float], window_size: int = 3) -> list[float]:
+    """Apply moving average smoothing to NAV values to reduce spikes."""
+    if len(navs) <= window_size:
+        return navs
+
+    smoothed = []
+    for i in range(len(navs)):
+        # Calculate window bounds
+        start = max(0, i - window_size // 2)
+        end = min(len(navs), i + window_size // 2 + 1)
+        window = navs[start:end]
+        avg = sum(window) / len(window)
+        smoothed.append(round(avg, 2))
+
+    return smoothed
+
+
 class ExportResult(BaseModel):
     """Binary export payload and metadata."""
 
@@ -125,6 +142,7 @@ class ChartExportService:
             raise ChartExportError("Unsupported export format")
 
         navs = [round(float(c["total_value"]), 2) for c in cycles if "total_value" in c]
+        navs = _smooth_nav_values(navs)
         timestamps = [str(c["cycle_at"]) for c in cycles if "cycle_at" in c]
 
         if not navs or not timestamps:
