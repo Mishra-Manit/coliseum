@@ -114,6 +114,26 @@ class ChartExportService:
         self._cache_lock = threading.Lock()
         self._inflight_lock = threading.Lock()
 
+    def _smooth_navs(self, navs: list[float], window_size: int = 3) -> list[float]:
+        """Apply simple moving average to smooth NAV curve and reduce spikes."""
+        if len(navs) <= window_size:
+            return navs
+
+        smoothed = []
+        half_window = window_size // 2
+
+        for i in range(len(navs)):
+            # Determine window bounds
+            start = max(0, i - half_window)
+            end = min(len(navs), i + half_window + 1)
+
+            # Calculate average of window
+            window = navs[start:end]
+            avg = sum(window) / len(window)
+            smoothed.append(round(avg, 2))
+
+        return smoothed
+
     def export(
         self,
         cycles: list[dict[str, Any]],
@@ -125,6 +145,7 @@ class ChartExportService:
             raise ChartExportError("Unsupported export format")
 
         navs = [round(float(c["total_value"]), 2) for c in cycles if "total_value" in c]
+        navs = self._smooth_navs(navs)
         timestamps = [str(c["cycle_at"]) for c in cycles if "cycle_at" in c]
 
         if not navs or not timestamps:
