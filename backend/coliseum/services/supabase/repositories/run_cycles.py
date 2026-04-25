@@ -51,7 +51,7 @@ async def save_run_cycle_to_db(
 async def list_run_cycles_from_db(
     start_date: date | None = None,
 ) -> list[dict]:
-    """Return run cycle telemetry rows ordered by time (legacy chart fallback)."""
+    """Return run cycle telemetry rows ordered by time (for debugging/history only)."""
     async with get_db_session() as session:
         stmt = (
             select(
