@@ -155,15 +155,42 @@ async def execute_working_order(
             order = await client.get_order_status(order_id)
 
             if order.is_filled:
-                # Fully filled — fall back to `contracts` if Kalshi omits fill counts
+                # Cost is always derived from actual fill cost fields, never from price × count
+                total_cost = (order.taker_fill_cost + order.maker_fill_cost) / 100
                 if order.fill_count > 0:
                     actual_fill_count = order.fill_count
+                    fill_price_decimal = _calc_fill_price(
+                        order.taker_fill_cost, order.maker_fill_cost, order.fill_count, current_price
+                    )
                 else:
-                    actual_fill_count = contracts
-                fill_price_decimal = _calc_fill_price(
-                    order.taker_fill_cost, order.maker_fill_cost, order.fill_count, current_price
-                )
-                total_cost = fill_price_decimal * actual_fill_count
+                    # fill_count_fp absent from API response — consult fills ledger for ground truth
+                    try:
+                        fills = await client.get_fills(order_id=order_id)
+                    except Exception as exc:
+                        logger.error(
+                            "get_fills failed for order %s: %s — falling back to requested count",
+                            order_id, exc,
+                        )
+                        fills = []
+                    # Fills endpoint uses "count" (integer); "count_fp" is the order-object convention
+                    actual_fill_count = sum(int(float(f.get("count", f.get("count_fp", 0)))) for f in fills)
+                    if actual_fill_count > 0:
+                        fill_price_decimal = total_cost / actual_fill_count if total_cost > 0 else current_price / 100
+                    else:
+                        logger.warning(
+                            "Order %s executed with fill_count=0 and empty fills ledger; falling back to requested %d",
+                            order_id, contracts,
+                        )
+                        actual_fill_count = contracts
+                        fill_price_decimal = current_price / 100
+
+                # Guard: fill cost fields can lag settlement — fall back to price × count estimate
+                if total_cost == 0.0 and actual_fill_count > 0:
+                    logger.error(
+                        "Order %s reports %d fills but zero fill cost — using price × count estimate",
+                        order_id, actual_fill_count,
+                    )
+                    total_cost = round(fill_price_decimal * actual_fill_count, 4)
 
                 return OrderResult(
                     order_id=order_id,
@@ -179,20 +206,28 @@ async def execute_working_order(
             else:
                 fill_pct = 0.0
             if fill_pct >= config.execution.min_fill_pct_to_keep:
+                await client.cancel_order(order_id)
+                # Re-poll after cancel to capture any fills that landed during cancel processing
+                try:
+                    refreshed = await client.get_order_status(order_id)
+                    order = refreshed
+                except Exception as exc:
+                    logger.warning("Post-cancel status poll failed for %s: %s", order_id, exc)
+
+                logger.info("Keeping partial fill: %d/%d", order.fill_count, contracts)
                 fill_price_decimal = _calc_fill_price(
                     order.taker_fill_cost, order.maker_fill_cost, order.fill_count, current_price
                 )
                 total_cost = (order.taker_fill_cost + order.maker_fill_cost) / 100
-
-                await client.cancel_order(order_id)
-                logger.info("Keeping partial fill: %d/%d", order.fill_count, contracts)
+                # All contracts may have filled during the cancel window — reflect the true outcome
+                final_status: Literal["filled", "partial"] = "filled" if order.fill_count >= contracts else "partial"
 
                 return OrderResult(
                     order_id=order_id,
                     fill_price=fill_price_decimal,
                     contracts_filled=order.fill_count,
                     total_cost_usd=total_cost,
-                    status="partial",
+                    status=final_status,
                 )
 
             # Not filled yet, reprice if we have attempts left
@@ -433,7 +468,7 @@ async def _execute_trade(
 
     initial_price_cents = int(current_price_decimal * 100)
 
-    with logfire.span("order execution", ticker=opportunity.market_ticker, side=side, contracts=contracts):
+    with logfire.span("order execution", ticker=opportunity.market_ticker, side=side, contracts_requested=contracts):
         order_result = await execute_working_order(
             client=client,
             ticker=opportunity.market_ticker,
