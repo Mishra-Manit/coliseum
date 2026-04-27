@@ -8,6 +8,7 @@ import logging
 import logfire
 from pydantic_ai import Agent
 
+from coliseum.llm_providers import GrokModel
 from coliseum.agents.agent_factory import AgentFactory, create_agent
 from coliseum.agents.guardian.models import LearningReflectionOutput
 from coliseum.agents.guardian.prompts import SCRIBE_PROMPT
@@ -26,6 +27,7 @@ def _create_agent() -> Agent[None, LearningReflectionOutput]:
         prompt=SCRIBE_PROMPT,
         output_type=LearningReflectionOutput,
         use_responses_api=False,
+        xai_model=GrokModel.GROK_4_20_NON_REASONING,
     )
 
 

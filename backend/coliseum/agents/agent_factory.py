@@ -98,7 +98,7 @@ def _create_xai_agent(
     builtin_tools: list[Any] | None,
     prepend_mechanics: bool,
     max_tokens: int | None = None,
-    xai_model: GrokModel = GrokModel.GROK_4_20_REASONING,
+    xai_model: GrokModel = GrokModel.GROK_4_20_NON_REASONING,
 ) -> Agent[DepsT, OutputT]:
     """Create an agent using the xAI Grok provider."""
     system_prompt = _build_system_prompt(prompt, prepend_mechanics)
@@ -130,7 +130,7 @@ def create_agent(
     prepend_mechanics: bool = True,
     use_responses_api: bool = True,
     max_tokens: int | None = None,
-    xai_model: GrokModel = GrokModel.GROK_4_20_REASONING,
+    xai_model: GrokModel = GrokModel.GROK_4_20_NON_REASONING,
 ) -> Agent[DepsT, OutputT]:
     """Create a PydanticAI agent with standard Coliseum configuration.
 

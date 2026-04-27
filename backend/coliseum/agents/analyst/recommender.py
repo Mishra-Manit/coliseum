@@ -15,6 +15,7 @@ from coliseum.agents.analyst.shared import (
     load_opportunity,
 )
 from coliseum.config import Settings
+from coliseum.llm_providers import GrokModel
 from coliseum.memory.context import build_analyst_context
 from coliseum.services.supabase.repositories.opportunities import (
     get_opportunity_body_from_db,
@@ -32,6 +33,7 @@ def _create_agent() -> Agent[AnalystDependencies, RecommenderOutput]:
         deps_type=AnalystDependencies,
         use_responses_api=False,
         max_tokens=2048,
+        xai_model=GrokModel.GROK_4_20_NON_REASONING,
     )
 
 

@@ -11,6 +11,7 @@ from coliseum.agents.agent_factory import create_agent
 from coliseum.agents.shared_tools import register_get_current_time, strip_cite_tokens
 from coliseum.agents.x_sentiment.main import run_x_sentiment
 from coliseum.config import Settings, get_settings
+from coliseum.llm_providers import GrokModel
 from coliseum.memory.context import build_scout_context
 from coliseum.services.kalshi.client import KalshiClient
 from coliseum.services.kalshi.config import KalshiConfig
@@ -38,6 +39,7 @@ def _create_scout_agent(prompt: str) -> Agent[ScoutDependencies, ScoutOutput]:
         deps_type=ScoutDependencies,
         reasoning_effort="medium",
         prepend_mechanics=False,
+        xai_model=GrokModel.GROK_4_20_NON_REASONING,
     )
 
 
