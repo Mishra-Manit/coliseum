@@ -1,56 +1,72 @@
 # Markets Data Dive: Refreshed 100% Win-Rate Filters
 
 **Dataset**: `backend/monitoring/markets.csv`
-**Refreshed**: Apr 27, 2026
-**Scope**: 5,737 completed trades across 2,343 distinct events
+**Refreshed**: Apr 30, 2026
+**Scope**: 6,173 completed trades across 2,524 distinct events
 
 ---
 
-## Baseline Performance
+## Why this refresh exists (capital-preservation override)
+
+Portfolio NAV collapsed from **$25.24 (Apr 18) → $8.85 (Apr 30)** — a 65% drawdown in 12 days. The Apr 27 refresh ("22 rules, conservative") still produced live losses on three of its surviving rules within 72 hours of being deployed. This refresh is therefore deliberately stricter than what the CSV-only "100% rule" would suggest, because the CSV is lagging the live tape.
+
+### Live-trading loss audit (Apr 19–30, post-prior-refresh)
+
+| Date | Ticker | Entry | Exit | PnL | Filter that allowed it |
+|------|--------|-------|------|-----|------------------------|
+| 4/19 | `KXTRUMPSAY-26APR20-ALLA` | 0.95 | 0.71 | -$1.20 | `ade00eb` (gate 94, since removed) |
+| 4/20 | `KXHIGHMIA-26APR20-T86` | 0.96 | 0.66 | -$1.50 | `ade00eb` (gate 96) |
+| 4/21 | `KXAAAGASD-26APR21-4.025` | 0.94 | 0.00 | -$4.70 | `ade00eb` (unconditional) |
+| 4/23 | `KXBRENTD-26APR23` | 0.94 | 0.49 | -$3.60 | `223a46d` (unconditional, just added) |
+| 4/25 | `KXETHD-26APR24` | 0.97 | 0.84 | -$0.13 | `223a46d` (gate 96) |
+| 4/27 | `KXGOLDD-26APR27` | 0.96 | 0.58 | -$2.28 | `223a46d` (unconditional) |
+| 4/29 | `KXETHD-26APR29` | 0.95 | 0.63 | -$2.56 | `6888916` (gate 96, partial-fill bypass) |
+| 4/30 | `KXETHD-26MAY01` | 0.96 | 0.37 | -$0.59 | `6888916` (gate 96) |
+| 4/30 | `KXAPRPOTUS-26MAY01-40.6` | 0.96 | 0.51 | -$3.15 | `6888916` (gate 93, day-1 failure) |
+
+**Loss shape is identical across every line**: enter at 0.94–0.97, stop-loss fires at 0.37–0.74, 25–45c slippage on 5–8 contracts wipes 4–10 wins per loss. The filter has zero margin for error, so any rule whose live behavior shows even one stop-out must be removed — it cannot be amortized.
+
+### Structural conclusions from the audit
+
+1. **Directional crypto is broken at every gate.** `KXETHD` lost 3× in 6 days at entries 0.95 / 0.96 / 0.97. Tightening to 97c does not save it (the 0.97 entry stopped out). The whole `KX*D` directional family must come out until a new clean window is observed.
+2. **Daily commodity markers (`KXGOLDD`, `KXBRENTD`, `KXAAAGASD`)** failed in identical fashion; intraday vol on these markers eats 96c-NO bets through the stop. Removed in prior refresh; staying removed.
+3. **Weather** is the largest historical loss bucket (108 losses, 1,012 events). The Apr 20 KXHIGHMIA stop-out at the 96c gate confirms the gate is no longer protective. **All weather is removed** — the 3-cap policy was already too generous given the realized-vol regime.
+4. **Mention-counter family** is bifurcated: `KXPRESMENTION` / `KXPOLITICSMENTION` are deterministic news-counter markets and stay. The Trump-adjacent family (`KXTRUMPMENTION`, `KXTRUMPMENTIONB`, `KXTRUMPSAY`) is correlated and `KXTRUMPSAY` already produced a live loss; the rest of the family is removed under the structural-similarity rule from the skill.
+5. **`KXAPRPOTUS`** added Apr 27 at gate 93c lost on its first live entry at 0.96. CSV showed 15W/0L/6 events at 93c — exactly the threshold from the skill, and still failed. This argues for raising the unconditional event-diversity minimum from 5 → 8 for any politics-family addition.
+6. **`KXBTC15M`** has 2 historical losses and a small live sample. Removed for now; will be reconsidered after a clean window.
+7. **`KXETH` (threshold, not directional)** has 34W/0L at the 94c gate but the broader crypto-directional regime is hot — gate is **tightened from 94 → 95** as a safety hedge.
+
+The CSV is also stale relative to the live tape: `KXETHD ≥96c` shows **49W / 0L** in the CSV, but it is **7W / 3L** in actual closed positions. The refresh therefore runs the CSV analysis as a starting point and then **subtracts** any prefix where live PnL contradicts the CSV.
+
+---
+
+## Baseline Performance (CSV)
 
 | Metric | Value |
 |--------|-------|
-| Total tracked rows | 5,863 |
-| Completed trades | 5,737 |
-| Wins (`close_price=100`) | 5,432 |
-| Losses (`close_price=0`) | 305 |
+| Total tracked rows | 6,310 |
+| Completed trades | 6,173 |
+| Wins (`close_price=100`) | 5,844 |
+| Losses (`close_price=0`) | 329 |
 | Overall win rate | 94.7% |
 
 ---
 
-## Live-trading loss audit (Apr 21–27)
-
-Five Scout-executed positions closed at a real or paper-realized loss in this window. Two are genuine thesis failures; three are stop-outs that crystallized real PnL even when the resolution would have been correct.
-
-| Ticker | Side | Entry | Exit | PnL | Verdict |
-|--------|------|-------|------|-----|---------|
-| `KXAAAGASD-26APR21-4.025` | YES | 0.94 | 0.00 | -$4.70 | **Real thesis loss** — 1.7¢-margin entry, AAA print at trigger |
-| `KXAAAGASD-26APR26-4.100` | YES | 0.95 | 0.00 | (real) | **Real thesis loss** — second AAAGASD failure inside one week |
-| `KXBRENTD-26APR2317-T101.50` | NO | 0.94 | 0.49 | -$3.60 | Stop-out, paper-realized; volatility spike inside 8min |
-| `KXGOLDD-26APR2717-T4702` | NO | 0.96 | 0.58 | -$2.28 | Stop-out, paper-realized; volatility spike inside 8min |
-| `KXETHD-26APR2421-T2319.99` | NO | ~0.96 | 0.84 | -$0.13 | Stop-out, small magnitude |
-
-**Filter implications:**
-- `KXAAAGASD` has produced two thesis failures in six days. The CSV-only ≥96c gate has only n=4 (below the 8-trade minimum). **Remove entirely.**
-- `KXGOLDD` and `KXBRENTD` were unconditional but are demonstrably volatile inside the trading day at top-of-book entries. Both stopped out the same day they were opened. **Remove entirely.** Move to watchlist for re-evaluation if intraday-vol behavior calms.
-- `KXETHD` ≥96c remains directionally safe; the 0.84 stop-out is well above the 0.50 stop trigger threshold and likely a momentary tape spike, not a thesis miss.
-- The user's complaint that "filters aren't doing well with crypto and commodities" is borne out specifically in **commodities**: of the 4 commodity-prefix entries in the prior shortlist, 3 produced losses or stop-outs in the past week. Only `KXWTIW ≥94c` survives.
-
-## Where the 305 Total Losses Come From
+## Where the 329 Total Losses Come From
 
 ### By Category
 
 | Category | W | L | n | Events | Win Rate |
 |----------|---|---|---|--------|----------|
-| Climate and Weather | 1,966 | 108 | 2,074 | 1,012 | 94.8% |
-| Crypto | 1,937 | 92 | 2,029 | 787 | 95.5% |
-| Financials | 549 | 48 | 597 | 133 | 92.0% |
-| Mentions | 420 | 30 | 450 | 139 | 93.3% |
-| Economics | 143 | 6 | 149 | 75 | 96.0% |
-| Sports | 75 | 2 | 77 | 33 | 97.4% |
-| Entertainment | 139 | 5 | 144 | 87 | 96.5% |
-| Politics | 56 | 6 | 62 | 31 | 90.3% |
-| Commodities | 89 | 3 | 92 | 20 | 96.7% |
+| Climate and Weather | 2,108 | 116 | 2,224 | 1,083 | 94.8% |
+| Crypto | 2,082 | 99 | 2,181 | 845 | 95.5% |
+| Financials | 580 | 51 | 631 | 140 | 91.9% |
+| Mentions | 451 | 32 | 483 | 149 | 93.4% |
+| Economics | 152 | 6 | 158 | 79 | 96.2% |
+| Sports | 78 | 2 | 80 | 35 | 97.5% |
+| Entertainment | 147 | 5 | 152 | 91 | 96.7% |
+| Politics | 60 | 7 | 67 | 33 | 89.6% |
+| Commodities | 96 | 3 | 99 | 22 | 97.0% |
 | Elections | 13 | 2 | 15 | 6 | 86.7% |
 | Science and Technology | 28 | 2 | 30 | 17 | 93.3% |
 
@@ -58,116 +74,109 @@ No category qualifies for unconditional inclusion.
 
 ---
 
-## Changes from Apr 21 refresh
+## Changes from Apr 27 refresh
 
-### Removed entries (5)
+### Removed entries (9)
 
 | Removed Rule | Why |
 |--------------|-----|
-| `KXGOLDD` (unconditional) | Apr 27 stop-out at 0.96 entry → 0.58 exit (-$2.28). Intraday vol incompatible with low-loss criterion. ≥96c gate sample is only n=7 (below 8 minimum). |
-| `KXBRENTD` (unconditional) | Apr 23 stop-out at 0.94 entry → 0.49 exit (-$3.60). Same intraday vol pattern. |
-| `KXAAAGASD ≥96c` | Two real losses in six days (Apr 21 at 94c and Apr 26 at 95c). ≥96c gate has n=4 — below 8-trade minimum. |
-| `KXTRUMPSAY ≥94c` | CSV now shows 55W/4L overall; **no zero-loss gate exists at any threshold**. |
-| `KXALBUMSALES ≥95c` | CSV now shows 32W/3L overall; no zero-loss gate exists at any threshold. |
+| `KXETHD ≥96c` | 3 live losses in 6 days at entries 0.95 / 0.96 / 0.97. Gate is no longer protective; directional crypto family is structurally hot. |
+| `KXAPRPOTUS ≥93c` | Lost first live entry at 0.96 (-$3.15) one day after being added. Politics-family event diversity (6) too low for the realized risk. |
+| `KXTRUMPMENTION ≥94c` | Same correlated family as KXTRUMPSAY which already produced a live loss; structural-similarity rule. |
+| `KXTRUMPMENTIONB ≥95c` | Same family as above; only 6 events. |
+| `KXHIGHMIA ≥96c` | Live stop-out at 96c on Apr 20 (-$1.50). |
+| `KXHIGHTDAL ≥96c` | Same realized-vol regime; no live margin once HIGHMIA broke. |
+| `KXLOWTMIA ≥96c` | Same realized-vol regime; weather cap collapsed. |
+| `KXBTC15M ≥94c` | 2 historical losses in CSV; small live sample; removing until a clean window appears. |
 
-### Added entries (1)
+### Tightened (1)
 
-| New Rule | Evidence |
-|----------|----------|
-| `KXARTISTSTREAMSU` (unconditional) | 8W/0L across 8 distinct artist-week events. Weekly Luminate stream-count thresholds — low-volatility, deterministic resolution by Friday data drop. |
+| Rule | Before | After | Why |
+|------|--------|-------|-----|
+| `KXETH` | ≥94c | ≥95c | Hedge against current crypto-vol regime; threshold (not directional), so still distinct from KXETHD risk. |
 
-### Kept unchanged
+### Kept
 
-All Crypto 15-min (KXETH15M / KXSOL15M / KXXRP15M unconditional, KXBTC15M ≥94c), Crypto threshold (KXETH ≥94c), Crypto directional (KXETHD ≥96c), Weather 3-cap (HIGHMIA / HIGHTDAL / LOWTMIA at ≥96c), Sports (MLBSTGAME / WBCGAME), Politics-mentions (PRESMENTION / POLITICSMENTION / TRUMPMENTION ≥94c / TRUMPMENTIONB ≥95c), Economics (JOBLESSCLAIMS / AAAGASW weekly / TSAW), Politics (APRPOTUS ≥93c), Entertainment (RT), and Crude oil weekly (WTIW ≥94c).
+All five crypto-15M / sports / mention-counter / weekly-economics / entertainment unconditional rules, plus `KXWTIW ≥94c` (only commodity to survive both the CSV and live tape).
 
 ---
 
 ## Recommended Scout Filter Set
 
-### Core 100% filter set (22 rules — down from 26)
+### Core 100% filter set (12 unconditional + 2 price-gated = 14 rules — down from 22)
 
-| Rule Type | Rule | W@Rule | Events |
-|-----------|------|--------|--------|
-| Crypto 15-min | `KXETH15M` (unconditional) | 33 | 33 |
+| Rule Type | Rule | W | Events |
+|-----------|------|---|--------|
+| Crypto 15-min | `KXETH15M` (unconditional) | 34 | 34 |
 | Crypto 15-min | `KXSOL15M` (unconditional) | 20 | 20 |
 | Crypto 15-min | `KXXRP15M` (unconditional) | 15 | 15 |
-| Crypto 15-min | `KXBTC15M >= 94c` | 18 | 18 |
-| Crypto directional | `KXETHD >= 96c` | 46 | 33 |
-| Crypto threshold | `KXETH >= 94c` | 32 | 17 |
-| Commodities | `KXWTIW >= 94c` | 54 | 7 |
-| Weather | `KXHIGHMIA >= 96c` | 28 | 22 |
-| Weather | `KXHIGHTDAL >= 96c` | 19 | 17 |
-| Weather | `KXLOWTMIA >= 96c` | 15 | 13 |
+| Crypto threshold | `KXETH ≥95c` | 32 | 19 |
+| Commodities | `KXWTIW ≥94c` | 54 | 7 |
 | Sports | `KXMLBSTGAME` (unconditional) | 22 | 12 |
 | Sports | `KXWBCGAME` (unconditional) | 8 | 5 |
 | Mentions | `KXPRESMENTION` (unconditional) | 13 | 5 |
 | Mentions | `KXPOLITICSMENTION` (unconditional) | 10 | 6 |
-| Mentions | `KXTRUMPMENTION >= 94c` | 27 | 9 |
-| Mentions | `KXTRUMPMENTIONB >= 95c` | 16 | 6 |
-| Economics | `KXJOBLESSCLAIMS` (unconditional) | 13 | 7 |
+| Economics | `KXJOBLESSCLAIMS` (unconditional) | 14 | 8 |
 | Economics | `KXAAAGASW` (unconditional) | 20 | 6 |
 | Economics | `KXTSAW` (unconditional) | 10 | 6 |
-| Politics | `KXAPRPOTUS >= 93c` | 15 | 6 |
 | Entertainment | `KXRT` (unconditional) | 14 | 8 |
 | Entertainment | `KXARTISTSTREAMSU` (unconditional) | 8 | 8 |
 
-**Filter composition**: Crypto 6, Mentions 4, Economics 3, Weather 3, Sports 2, Entertainment 2, Politics 1, Commodities 1.
+**Filter composition**: Crypto 4, Economics 3, Sports 2, Mentions 2, Entertainment 2, Commodities 1.
 
 ---
 
-## Why the Crypto + Commodities Story Looks the Way It Does
-
-**Crypto**: the surviving rules (15M ranges, ETH threshold, ETHD ≥96c) are intentionally conservative; their loss exposure comes from short-window markets that resolve on tape, not on slow-moving spot drift. The data shows zero-loss across all six crypto rules at their gates. The user's "crypto isn't doing well" intuition is mostly driven by **stop-outs in directional markets** (KXETHD, KXBTCD-style) rather than thesis failures, and the structural ≥96c gate already addresses this.
-
-**Commodities**: this category had 3 unconditional and 1 gated entry. The unconditional entries (`KXGOLDD`, `KXBRENTD`) failed because gold and Brent both move >2% intraday in normal weeks, which is enough to crater a 96c-NO bet through a stop. We are left with **only crude weekly (`KXWTIW ≥94c`)** as a survivable commodity rule. That reflects the inherent volatility of daily commodity markers — expect commodity exposure in the bot to stay small until weekly contracts dominate.
-
----
-
-## What Should Be Explicitly Rejected
+## What is Explicitly Rejected
 
 | Reject | Reason |
 |--------|--------|
-| `KXBTCD` | No safe gate; 61 losses, lossy at every gate including 96c |
-| `KXBTC` | BTC range fails at every gate (14 losses) |
-| `KXWTI` | Daily oil structurally unsafe at every gate |
-| `KXGOLDD` | Live stop-out at 96c entry; intraday vol too high |
-| `KXBRENTD` | Live stop-out at 94c entry; intraday vol too high |
-| `KXAAAGASD` | Two real losses in 6 days; ≥96c sample below minimum |
-| `KXTRUMPSAY` | 4 losses in CSV; no zero-loss gate at any threshold |
-| `KXALBUMSALES` | 3 losses in CSV; no zero-loss gate at any threshold |
-| `KXINX`, `KXINXU`, `KXNASDAQ100`, `KXNASDAQ100U` | Index gap risk |
-| `KXHIGHDEN`, `KXLOWTDEN`, `KXLOWTNYC`, `KXHIGHTBOS`, `KXHIGHNY`, `KXHIGHLAX`, `KXHIGHTDC`, `KXLOWTAUS`, `KXHIGHPHIL`, `KXHIGHAUS`, `KXHIGHTATL`, `KXHIGHTNOLA`, `KXHIGHTSEA`, `KXLOWTPHIL` | Weather variability too high — no zero-loss gate, or capped out |
+| `KXETHD` (any gate) | 3 live losses at 0.95 / 0.96 / 0.97 in 6 days |
+| `KXBTCD`, `KXBTC` | No safe gate; 67 / 15 losses respectively |
+| `KXBTC15M` | 2 historical losses; remove until clean window |
+| `KXSOLD`, `KXXRPD` directional | Same structural risk as KXETHD/BTCD; XRPD has small clean sample but family-correlated |
+| `KXWTI` (daily) | Daily oil structurally unsafe; 32 losses |
+| `KXGOLDD`, `KXBRENTD`, `KXAAAGASD` | Live stop-outs in the last 10 days |
+| `KXTRUMPSAY`, `KXTRUMPMENTION`, `KXTRUMPMENTIONB` | Correlated family; `KXTRUMPSAY` already lost |
+| `KXAPRPOTUS` | Day-1 live failure |
+| `KXALBUMSALES` | 3 CSV losses; no zero-loss gate |
+| All weather (`KXHIGH*`, `KXLOWT*`) | Largest loss bucket; KXHIGHMIA broke 96c gate live |
+| `KXINX*`, `KXNASDAQ100*` | Index gap risk |
 | `KXSURVIVORMENTION`, `KXNBAMENTION`, `KXMENTION`, `KXFIGHTMENTION`, `KXSNLMENTION`, `KXPERSONMENTION`, `KXVANCEMENTION`, `KXMELANIAMENTION` | Wording variance or losses |
-| `KXNASCARRACE` | Only 2 distinct events |
-| `KXHEGSETHMENTION` | 16W/0L but only 4 distinct events (below 5-event minimum) |
+| `KXNASCARRACE`, `KXHEGSETHMENTION` | Below 5-event minimum |
 
 ---
 
 ## Re-qualification Watchlist
 
-| Prefix | Trades | Events | Needs |
-|--------|--------|--------|-------|
-| `KXGOLDD` | 21 | 10 | Wait 2–3 weeks for stop-out to be confirmed as one-off vs structural; if quiet, re-add at ≥95c gate (n=12 events=8 currently) |
-| `KXBRENTD` | 20 | 7 | Same — ≥95c gate has n=13 events=6, eligible if behavior stabilizes |
-| `KXBRENTW` | 23 | 4 | 1 more weekly event for diversity |
-| `KXGOLDW` | 16 | 3 | 2 more weekly events |
-| `KXSILVERW` | 10 | 4 | 1 more event |
-| `KXSOLD ≥96c` | small | small | More trades (structural crypto risk same as KXBTCD/KXETHD) |
-| `KXFEDMENTION` | 8 | 1 | More distinct Fed meetings |
-| `KXHIGHCHI ≥96c` | 42 | 27 | Strong numerical fit — blocked only by 3-weather cap; swap candidate |
-| `KXHIGHTPHX ≥95c` | 39 | 27 | Strong numerical fit — blocked by weather cap |
-| `KXLOWTLAX ≥95c` | 42 | 28 | Strong numerical fit — blocked by weather cap |
+These prefixes had clean CSV records but are intentionally excluded for capital-preservation reasons. They can be reconsidered after a 2–3 week observation window with no fresh live losses across the broader category.
+
+| Prefix | CSV record | Needs |
+|--------|-----------|-------|
+| `KXETHD ≥97c` | 49W/0L CSV, 7W/3L live | A clean 2-week window in directional crypto before any re-add |
+| `KXBTC15M ≥94c` | 28W/2L CSV | More events at the gate; clean live tape |
+| `KXHIGHMIA ≥97c` | strong CSV | New cleanwindow after Apr 20 break |
+| `KXHIGHTDAL ≥96c` | 23W/0L CSV at gate | Weather category-wide stability |
+| `KXLOWTMIA ≥96c` | 47W/0L CSV at gate | Same |
+| `KXTRUMPMENTION ≥95c` | 27W/0L CSV at 94c | Trump-family stability; tighten gate by 1c on re-add |
+| `KXAPRPOTUS ≥97c` | 15W/0L CSV at 93c | Higher event diversity (≥8) and a clean live window |
+| `KXGOLDD ≥96c` | 21W/0L CSV | Wait for intraday-vol to calm |
+| `KXBRENTD ≥95c` | 33W/0L CSV | Same |
+| `KXSOLD ≥96c` | 15W/0L | Family-level crypto-directional stability |
+| `KXXRPD` | 10W/0L | Family-level crypto-directional stability |
+| `KXBRENTW`, `KXGOLDW`, `KXSILVERW` | Weekly clean | Need additional events for diversity |
 
 ---
 
 ## Bottom Line
 
-Net filter entries: 26 → **22**. Win rate on qualifying trades: 100.0% in CSV (with two recent live stop-outs in commodities expressly removed).
+Net filter entries: **22 → 14**. This is the smallest filter since the early-April baseline that produced the clean Apr 6–18 equity curve.
 
 Key changes:
 
-1. **Commodities pruned hard.** `KXGOLDD` and `KXBRENTD` removed after live stop-outs this week; only `KXWTIW ≥94c` remains. Intraday volatility on daily commodity markers is incompatible with the "less volatile, resolves to $1.00" criterion.
-2. **`KXAAAGASD` fully removed.** Two real losses inside 6 days at 94c and 95c entries; no qualifying ≥96c sample.
-3. **Two stale mention/entertainment rules removed** after losses appeared in CSV: `KXTRUMPSAY ≥94c` (4 losses) and `KXALBUMSALES ≥95c` (3 losses).
-4. **One new entry added**: `KXARTISTSTREAMSU` (8W/0L/8 events) — weekly Luminate streams; deterministic, low-vol resolution.
-5. **All crypto rules unchanged** — the structural ≥96c gate on KXETHD and the unconditional 15-min range markets are still 100% across the dataset; the user's "crypto isn't doing well" intuition reflects stop-out churn, not filter-level miscalibration.
+1. **All crypto-directional and weather rules removed.** Both buckets produced live losses in the last 10 days at their supposed-safe gates. They re-enter only after a verifiably clean window.
+2. **Trump-mention family fully removed** under the skill's structural-similarity rule.
+3. **`KXAPRPOTUS` removed** after a day-1 live failure invalidated its CSV signal.
+4. **`KXETH` tightened from 94 → 95** as a hedge while the crypto-vol regime is hot.
+5. **Re-qualification Watchlist created** so removed buckets can earn back in once a fresh clean window exists.
+
+This filter is intentionally narrower than the data-only "100%-rule" reading would suggest, because the live tape has been ahead of the CSV for ~2 weeks. Trade volume will fall; capital preservation is the priority.
