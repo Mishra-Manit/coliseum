@@ -44,7 +44,7 @@ class GuardianConfig(BaseModel):
     """Guardian agent monitoring parameters."""
 
     floor_price: float = 0.50
-    window_threshold_price: float = 0.85
+    window_threshold_price: float = 0.75
     window_minutes: int = 15
     sell_aggression_cents: int = 2
 
@@ -212,6 +212,3 @@ def get_settings() -> Settings:
     settings = Settings()
     settings.load_yaml_config()
     return settings
-
-
-
