@@ -40,5 +40,7 @@ market_context:
 telegram_send_alerts: true
 
 dashboard_display:
-  start_date: "2026-03-20"
+  # Portfolio snapshots became the canonical NAV history on this date.
+  # Earlier run-cycle NAVs are legacy data and intentionally excluded.
+  start_date: "2026-04-07"
   cache_ttl_seconds: 300 # Dashboard API response cache (seconds)
