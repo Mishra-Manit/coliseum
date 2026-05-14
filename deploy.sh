@@ -4,6 +4,7 @@ set -e
 # Derive paths from this scripts location so it works on any host/user
 REPO_DIR="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
 PROJECT_DIR="$REPO_DIR/backend"
+FRONTEND_DIR="$REPO_DIR/frontend"
 SERVICE="coliseum"
 
 echo "========================================"
@@ -36,9 +37,32 @@ echo "Pulling latest code..."
 cd "$REPO_DIR"
 git pull origin main
 
-echo "Checking for new dependencies..."
+echo "Checking for new Python dependencies..."
 source "$PROJECT_DIR/venv/bin/activate"
 pip install -q -r "$PROJECT_DIR/requirements.txt"
+
+if [ -f "$FRONTEND_DIR/package-lock.json" ]; then
+    echo "Checking for frontend/Remotion dependencies..."
+    sudo apt-get update -qq
+    sudo apt-get install -y -qq \
+        libnss3 \
+        libdbus-1-3 \
+        libatk1.0-0 \
+        libasound2t64 \
+        libxrandr2 \
+        libxkbcommon-dev \
+        libxfixes3 \
+        libxcomposite1 \
+        libxdamage1 \
+        libgbm-dev \
+        libcups2 \
+        libcairo2 \
+        libpango-1.0-0 \
+        libatk-bridge2.0-0
+    cd "$FRONTEND_DIR"
+    npm ci --omit=dev
+    npx remotion browser ensure
+fi
 
 echo "Syncing systemd service file..."
 UNIT_SRC="$REPO_DIR/infra/$SERVICE.service"
