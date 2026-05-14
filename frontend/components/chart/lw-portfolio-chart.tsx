@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { IChartApi, ISeriesApi, UTCTimestamp } from "lightweight-charts";
-import { Download, Loader2 } from "lucide-react";
+import { Download } from "lucide-react";
+import { VideoExportProgress } from "./video-export-progress";
 import type { ChartDataPoint } from "@/lib/types";
 import { getChartSeries, type Interval } from "@/lib/chart-utils";
 import { downloadChartExport } from "@/lib/api";
@@ -104,8 +105,8 @@ export function LWPortfolioChart({
           visible: false,
           borderVisible: false,
           fixLeftEdge: true,
-          fixRightEdge: false,
-          rightOffset: 5,
+          fixRightEdge: true,
+          rightOffset: 1,
         },
         localization: { priceFormatter: navFormatter },
       });
@@ -119,8 +120,8 @@ export function LWPortfolioChart({
         timeScale: {
           borderVisible: false,
           fixLeftEdge: true,
-          fixRightEdge: false,
-          rightOffset: 5,
+          fixRightEdge: true,
+          rightOffset: 1,
           timeVisible: false,
         },
         rightPriceScale: {
@@ -192,6 +193,37 @@ export function LWPortfolioChart({
       histSeriesRef.current = null;
     };
   }, []);
+
+  // Re-fit charts when the tab regains focus or the container resizes
+  useEffect(() => {
+    if (!chartsReady) return;
+
+    const fitBoth = () => {
+      mainChartRef.current?.timeScale().fitContent();
+      histChartRef.current?.timeScale().fitContent();
+    };
+
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        requestAnimationFrame(fitBoth);
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    let resizeTimer: ReturnType<typeof setTimeout> | null = null;
+    const observer = new ResizeObserver(() => {
+      if (resizeTimer) clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(fitBoth, 100);
+    });
+    if (mainRef.current) observer.observe(mainRef.current);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibility);
+      observer.disconnect();
+      if (resizeTimer) clearTimeout(resizeTimer);
+    };
+  }, [chartsReady]);
 
   useEffect(() => {
     if (!chartsReady || !areaSeriesRef.current || !histSeriesRef.current)
@@ -275,22 +307,22 @@ export function LWPortfolioChart({
               {exportError}
             </span>
           )}
-          <button
-            onClick={handleExport}
-            disabled={isExporting || isEmpty}
-            title={isEmpty ? "No chart data to export" : "Download MP4"}
-            className={`h-7 w-7 hidden sm:inline-flex items-center justify-center border border-border rounded transition-colors ${
-              isExporting || isEmpty
-                ? "text-muted-foreground/50 cursor-not-allowed"
-                : `${Muted.mutedText} ${Muted.mutedTextHover}`
-            }`}
-          >
-            {isExporting ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
+          {isExporting ? (
+            <VideoExportProgress />
+          ) : (
+            <button
+              onClick={handleExport}
+              disabled={isEmpty}
+              title={isEmpty ? "No chart data to export" : "Download MP4"}
+              className={`h-7 w-7 hidden sm:inline-flex items-center justify-center border border-border rounded transition-colors ${
+                isEmpty
+                  ? "text-muted-foreground/50 cursor-not-allowed"
+                  : `${Muted.mutedText} ${Muted.mutedTextHover}`
+              }`}
+            >
               <Download className="h-3.5 w-3.5" />
-            )}
-          </button>
+            </button>
+          )}
           <RangeSwitcher value={interval} onChange={onIntervalChange} />
         </div>
       </div>
