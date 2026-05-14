@@ -4,8 +4,8 @@ SAFE_CATEGORIES: set[str] = set()
 
 SAFE_EVENT_PREFIXES: set[str] = {
     # Crypto 15-min - unconditional (all zero-loss, event diversity >= 5)
-    "KXETH15M",   # 33W/0L, 33 events
-    "KXSOL15M",   # 20W/0L, 20 events
+    "KXETH15M",   # 39W/0L, 39 events
+    "KXSOL15M",   # 21W/0L, 21 events
     "KXXRP15M",   # 15W/0L, 15 events
     # Sports - unconditional
     "KXMLBSTGAME",  # 22W/0L, 12 events
@@ -14,32 +14,19 @@ SAFE_EVENT_PREFIXES: set[str] = {
     "KXPRESMENTION",      # 13W/0L, 5 events
     "KXPOLITICSMENTION",  # 10W/0L, 6 events
     # Economics - unconditional
-    "KXJOBLESSCLAIMS",  # 13W/0L, 7 events
-    "KXAAAGASW",        # 20W/0L, 6 events (weekly gas, distinct from daily)
-    "KXTSAW",           # 10W/0L, 6 events (TSA weekly passengers)
+    "KXJOBLESSCLAIMS",  # 14W/0L, 8 events
+    "KXAAAGASW",        # 24W/0L, 7 events (weekly gas, distinct from daily)
+    "KXTSAW",           # 11W/0L, 7 events (TSA weekly passengers)
     # Entertainment - unconditional
-    "KXRT",                # 14W/0L, 8 events (Rotten Tomatoes)
+    "KXRT",                # 16W/0L, 9 events (Rotten Tomatoes)
     "KXARTISTSTREAMSU",    # 8W/0L, 8 events (weekly Luminate stream targets)
 }
 
 PRICE_GATED_EVENT_PREFIXES: dict[str, int] = {
-    # Crypto directional (structural family requires >= 96c)
-    "KXETHD": 96,    # 46W/0L/33 events at gate
-    # Crypto 15-min BTC (gate added after losses below 94c)
-    "KXBTC15M": 94,  # 18W/0L/18 events at gate
-    # Crypto ETH threshold
-    "KXETH": 94,     # 32W/0L/17 events at gate
+    # Crypto ETH threshold - tightened after a 94c loss in refreshed data
+    "KXETH": 95,     # 24W/0L/17 events at gate
     # Crude oil weekly - only surviving commodity
-    "KXWTIW": 94,    # 54W/0L/7 events at gate
-    # Weather (capped at 3 per policy, all price-gated)
-    "KXHIGHMIA": 96,   # 28W/0L/22 events at gate
-    "KXHIGHTDAL": 96,  # 19W/0L/17 events at gate
-    "KXLOWTMIA": 96,   # 15W/0L/13 events at gate (clean at all gates)
-    # Mentions (Trump-adjacent structural family requires >= 94c)
-    "KXTRUMPMENTION": 94,   # 27W/0L/9 events at gate
-    "KXTRUMPMENTIONB": 95,  # 16W/0L/6 events at gate
-    # Politics long-form approval rating
-    "KXAPRPOTUS": 93,    # 15W/0L/6 events at gate
+    "KXWTIW": 94,    # 57W/0L/8 events at gate
 }
 
 
