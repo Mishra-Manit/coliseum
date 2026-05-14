@@ -2,23 +2,44 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 import os
 import subprocess
 import tempfile
 import threading
 import time
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from shutil import which
 from typing import Any, Literal
 
-from matplotlib.backends.backend_agg import FigureCanvasAgg
-from matplotlib.figure import Figure
-from pydantic import BaseModel
+ExportInterval = Literal["1D", "1W", "1M", "ALL"]
 
-ExportFormat = Literal["mp4"]
-ExportQuality = Literal["fast", "balanced", "hq"]
+_RENDER_FPS = 30
+_RENDER_TIMEOUT_SECONDS = 240.0
+
+_INTERVALS: dict[ExportInterval, tuple[timedelta | None, timedelta | None]] = {
+    "1D": (timedelta(days=1), timedelta(minutes=5)),
+    "1W": (timedelta(days=7), timedelta(hours=1)),
+    "1M": (timedelta(days=30), timedelta(hours=6)),
+    "ALL": (None, None),
+}
+
+_DURATION_PARAMS: dict[ExportInterval, tuple[float, float, float, float]] = {
+    "1D": (5.5, 0.012, 6.5, 8.5),
+    "1W": (7.2, 0.020, 8.5, 12.0),
+    "1M": (9.5, 0.034, 11.5, 16.5),
+    "ALL": (13.0, 0.070, 17.0, 31.0),
+}
+
+_ALL_TIME_BUCKETS: tuple[tuple[timedelta, timedelta], ...] = (
+    (timedelta(days=14), timedelta(hours=1)),
+    (timedelta(days=60), timedelta(hours=6)),
+    (timedelta(days=180), timedelta(days=1)),
+    (timedelta(days=365), timedelta(days=2)),
+)
 
 
 class ChartExportError(Exception):
@@ -42,67 +63,13 @@ class ChartExportNoDataError(ChartExportError):
 
 
 @dataclass(frozen=True)
-class RenderProfile:
-    """Rendering settings for a named quality profile."""
-
-    width: int
-    height: int
-    fps: int
-    draw_seconds: float
-    hold_seconds: float
-    timeout_seconds: float
-
-
-_PROFILES: dict[ExportQuality, RenderProfile] = {
-    "fast": RenderProfile(
-        width=960,
-        height=540,
-        fps=12,
-        draw_seconds=3.5,
-        hold_seconds=0.5,
-        timeout_seconds=12.0,
-    ),
-    "balanced": RenderProfile(
-        width=1280,
-        height=720,
-        fps=18,
-        draw_seconds=4.0,
-        hold_seconds=0.6,
-        timeout_seconds=16.0,
-    ),
-    "hq": RenderProfile(
-        width=1920,
-        height=1080,
-        fps=24,
-        draw_seconds=4.5,
-        hold_seconds=0.8,
-        timeout_seconds=24.0,
-    ),
-}
-
-_BG = "#07060a"
-_GRID = "#1a1728"
-_TEXT = "#8e8b98"
-_AMBER = "#d97706"
-_FILL = (217 / 255, 119 / 255, 6 / 255, 0.18)
-
-
-class ExportResult(BaseModel):
+class ExportResult:
     """Binary export payload and metadata."""
 
     content: bytes
     media_type: str
     filename: str
-    quality_used: ExportQuality
     cache_hit: bool
-
-
-class _CacheEntry(BaseModel):
-    """In-memory cache entry for rendered exports."""
-
-    content: bytes
-    quality_used: ExportQuality
-    expires_at: float
 
 
 class ChartExportService:
@@ -110,34 +77,27 @@ class ChartExportService:
 
     def __init__(self) -> None:
         self._cache_ttl_seconds = 300.0
-        self._cache: dict[str, _CacheEntry] = {}
+        self._cache: dict[str, tuple[bytes, float]] = {}
         self._cache_lock = threading.Lock()
         self._inflight_lock = threading.Lock()
 
     def export(
         self,
         cycles: list[dict[str, Any]],
-        export_format: ExportFormat,
-        quality: ExportQuality,
+        interval: ExportInterval,
     ) -> ExportResult:
         """Render an export for chart series data."""
-        if export_format != "mp4":
-            raise ChartExportError("Unsupported export format")
-
-        navs = [round(float(c["total_value"]), 2) for c in cycles if "total_value" in c]
-        timestamps = [str(c["cycle_at"]) for c in cycles if "cycle_at" in c]
-
-        if not navs or not timestamps:
+        points = self._normalize_points(cycles, interval)
+        if not points:
             raise ChartExportNoDataError("No chart data available for export")
 
-        cache_key = self._make_cache_key(export_format, quality, navs, timestamps)
+        cache_key = self._make_cache_key(interval, points)
         cached = self._get_cache_entry(cache_key)
         if cached is not None:
             return ExportResult(
-                content=cached.content,
+                content=cached,
                 media_type="video/mp4",
                 filename=self._build_filename(),
-                quality_used=cached.quality_used,
                 cache_hit=True,
             )
 
@@ -145,235 +105,157 @@ class ChartExportService:
             raise ChartExportBusyError("Chart export already in progress")
 
         try:
-            result_bytes, quality_used = self._render_with_fallback(navs, quality)
+            result_bytes = self._render_mp4(points, interval)
             self._set_cache_entry(
                 cache_key,
-                _CacheEntry(
-                    content=result_bytes,
-                    quality_used=quality_used,
-                    expires_at=time.time() + self._cache_ttl_seconds,
-                ),
+                result_bytes,
+                time.time() + self._cache_ttl_seconds,
             )
             return ExportResult(
                 content=result_bytes,
                 media_type="video/mp4",
                 filename=self._build_filename(),
-                quality_used=quality_used,
                 cache_hit=False,
             )
         finally:
             self._inflight_lock.release()
 
-    def _render_with_fallback(
-        self, navs: list[float], requested_quality: ExportQuality
-    ) -> tuple[bytes, ExportQuality]:
-        """Render with one-step quality downgrade on timeout."""
-        try:
-            return self._render_mp4(navs, requested_quality), requested_quality
-        except ChartExportTimeoutError:
-            downgraded = self._downgrade_quality(requested_quality)
-            if downgraded is None:
-                raise
-            return self._render_mp4(navs, downgraded), downgraded
+    def _normalize_points(
+        self, cycles: list[dict[str, Any]], interval: ExportInterval
+    ) -> list[dict[str, Any]]:
+        """Sort, filter, and bucket NAV data for rendering."""
+        parsed: list[tuple[datetime, float]] = []
+        for cycle in cycles:
+            if "total_value" not in cycle or "cycle_at" not in cycle:
+                continue
+            try:
+                parsed.append(
+                    (
+                        _parse_utc(str(cycle["cycle_at"])),
+                        round(float(cycle["total_value"]), 2),
+                    )
+                )
+            except (TypeError, ValueError):
+                continue
 
-    def _render_mp4(self, navs: list[float], quality: ExportQuality) -> bytes:
-        """Render NAV animation and encode as MP4 using ffmpeg."""
-        ffmpeg_path = which("ffmpeg")
-        if ffmpeg_path is None:
-            raise ChartExportDependencyError("ffmpeg is required for mp4 exports")
+        if not parsed:
+            return []
 
-        profile = _PROFILES[quality]
-        fd, temp_path = tempfile.mkstemp(prefix="coliseum-chart-", suffix=".mp4")
-        os.close(fd)
-        output_path = Path(temp_path)
+        sorted_points = sorted(parsed, key=lambda item: item[0])
+        latest_at = sorted_points[-1][0]
+        lookback, configured_bucket = _INTERVALS[interval]
+        if lookback is None:
+            filtered = sorted_points
+        else:
+            cutoff = latest_at - lookback
+            filtered = [(ts, nav) for ts, nav in sorted_points if ts >= cutoff]
+            if not filtered:
+                filtered = sorted_points[-1:]
 
-        fig = Figure(
-            figsize=(profile.width / 100, profile.height / 100),
-            dpi=100,
-            facecolor=_BG,
-        )
-        canvas = FigureCanvasAgg(fig)
-        ax = fig.add_axes([0.06, 0.12, 0.9, 0.8], facecolor=_BG)
+        bucket = configured_bucket or _all_time_bucket(sorted_points[0][0], latest_at)
+        bucket_seconds = int(bucket.total_seconds())
+        buckets: dict[int, float] = {}
+        for timestamp, nav in filtered:
+            epoch_seconds = int(timestamp.timestamp())
+            bucket_key = (epoch_seconds // bucket_seconds) * bucket_seconds
+            buckets[bucket_key] = nav
 
-        for spine in ax.spines.values():
-            spine.set_visible(False)
-
-        ax.grid(axis="y", color=_GRID, linewidth=0.8, alpha=0.8)
-        ax.tick_params(axis="x", bottom=False, labelbottom=False)
-        ax.tick_params(axis="y", colors=_TEXT, labelsize=10)
-
-        x_values = list(range(len(navs)))
-        min_nav = min(navs)
-        max_nav = max(navs)
-        spread = max_nav - min_nav
-        y_pad = max(spread * 0.2, 1.0)
-        y_min = min_nav - y_pad
-        y_max = max_nav + y_pad
-
-        x_max = max(1, len(navs) - 1)
-        ax.set_xlim(0, x_max)
-        ax.set_ylim(y_min, y_max)
-
-        line = ax.plot([], [], color=_AMBER, linewidth=2.6)[0]
-        fill = None
-
-        nav_text = ax.text(
-            0.02,
-            0.95,
-            "Portfolio NAV\n$0.00",
-            transform=ax.transAxes,
-            va="top",
-            ha="left",
-            color=_TEXT,
-            fontsize=14,
-            family="monospace",
-        )
-
-        ax.text(
-            0.985,
-            0.04,
-            "COLISEUM",
-            transform=ax.transAxes,
-            va="bottom",
-            ha="right",
-            color=_TEXT,
-            fontsize=12,
-            family="monospace",
-            alpha=0.65,
-        )
-
-        ffmpeg_cmd = [
-            ffmpeg_path,
-            "-y",
-            "-f",
-            "rawvideo",
-            "-pix_fmt",
-            "rgba",
-            "-s",
-            f"{profile.width}x{profile.height}",
-            "-r",
-            str(profile.fps),
-            "-i",
-            "-",
-            "-an",
-            "-c:v",
-            "libx264",
-            "-pix_fmt",
-            "yuv420p",
-            "-movflags",
-            "+faststart",
-            "-preset",
-            "veryfast",
-            "-crf",
-            "24",
-            str(output_path),
+        return [
+            {
+                "timestamp": datetime.fromtimestamp(key, tz=timezone.utc).isoformat(),
+                "nav": nav,
+            }
+            for key, nav in sorted(buckets.items())
         ]
 
-        process = subprocess.Popen(
-            ffmpeg_cmd,
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
+    def _render_mp4(self, points: list[dict[str, Any]], interval: ExportInterval) -> bytes:
+        """Render the chart animation through Remotion."""
+        frontend_dir = _frontend_dir()
+        renderer_script = frontend_dir / "remotion" / "render-chart.ts"
 
-        start_time = time.time()
-        draw_frames = max(2, int(profile.fps * profile.draw_seconds))
-        hold_frames = max(1, int(profile.fps * profile.hold_seconds))
-        last_frame: bytes | None = None
+        if which("npm") is None:
+            raise ChartExportDependencyError("npm is required for Remotion chart exports")
+        if not renderer_script.exists():
+            raise ChartExportDependencyError("Remotion chart renderer script is missing")
+        if not (frontend_dir / "node_modules" / ".bin" / "tsx").exists():
+            raise ChartExportDependencyError(
+                "Frontend Remotion dependencies are not installed"
+            )
 
-        try:
-            for frame_index in range(draw_frames):
-                elapsed = time.time() - start_time
-                if elapsed > profile.timeout_seconds:
-                    raise ChartExportTimeoutError("Chart export timed out")
+        with tempfile.TemporaryDirectory(prefix="coliseum-chart-") as temp_dir:
+            temp_path = Path(temp_dir)
+            props_path = temp_path / "props.json"
+            output_path = temp_path / "chart.mp4"
+            duration_in_frames = _duration_in_frames(interval, len(points), _RENDER_FPS)
+            props_path.write_text(
+                json.dumps(
+                    {
+                        "points": points,
+                        "interval": interval,
+                        "durationInFrames": duration_in_frames,
+                    }
+                ),
+                encoding="utf-8",
+            )
 
-                if len(navs) == 1:
-                    point_count = 1
-                else:
-                    progress = frame_index / (draw_frames - 1)
-                    point_count = int(round(progress * (len(navs) - 1))) + 1
+            command = [
+                "npm",
+                "run",
+                "render:chart-video",
+                "--",
+                f"--props={props_path}",
+                f"--output={output_path}",
+            ]
 
-                x_chunk = x_values[:point_count]
-                y_chunk = navs[:point_count]
+            try:
+                subprocess.run(
+                    command,
+                    cwd=frontend_dir,
+                    check=True,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    timeout=_RENDER_TIMEOUT_SECONDS,
+                )
+            except subprocess.TimeoutExpired as exc:
+                raise ChartExportTimeoutError("Remotion render timed out") from exc
+            except subprocess.CalledProcessError as exc:
+                stderr = exc.stderr.decode("utf-8", errors="ignore")
+                raise ChartExportError(f"Remotion render failed: {stderr[-500:]}") from exc
 
-                line.set_data(x_chunk, y_chunk)
-                if fill is not None:
-                    fill.remove()
-                fill = ax.fill_between(x_chunk, y_chunk, y2=y_min, color=_FILL)
-
-                nav_text.set_text(f"Portfolio NAV\n${y_chunk[-1]:.2f}")
-
-                canvas.draw()
-                frame_bytes = canvas.buffer_rgba().tobytes()
-                last_frame = frame_bytes
-                if process.stdin is None:
-                    raise ChartExportError("ffmpeg stdin is not available")
-                process.stdin.write(frame_bytes)
-
-            if last_frame is not None and process.stdin is not None:
-                for _ in range(hold_frames):
-                    process.stdin.write(last_frame)
-
-            if process.stdin is not None:
-                process.stdin.close()
-
-            process.wait(timeout=max(5.0, profile.timeout_seconds / 2))
-            if process.returncode != 0:
-                stderr_bytes = process.stderr.read() if process.stderr else b""
-                stderr = stderr_bytes.decode("utf-8", errors="ignore")
-                raise ChartExportError(f"ffmpeg encode failed: {stderr[-300:]}")
-
+            if not output_path.exists():
+                raise ChartExportError("Remotion did not produce an output file")
             return output_path.read_bytes()
-        except subprocess.TimeoutExpired as exc:
-            raise ChartExportTimeoutError("Encoding timed out") from exc
-        except BrokenPipeError as exc:
-            stderr_bytes = process.stderr.read() if process.stderr else b""
-            stderr = stderr_bytes.decode("utf-8", errors="ignore")
-            raise ChartExportError(f"ffmpeg pipe failed: {stderr[-300:]}") from exc
-        finally:
-            if process.poll() is None:
-                process.kill()
-                try:
-                    process.wait(timeout=2)
-                except subprocess.TimeoutExpired:
-                    pass
-            fig.clear()
-            if output_path.exists():
-                output_path.unlink()
 
     def _make_cache_key(
         self,
-        export_format: ExportFormat,
-        quality: ExportQuality,
-        navs: list[float],
-        timestamps: list[str],
+        interval: ExportInterval,
+        points: list[dict[str, Any]],
     ) -> str:
-        """Build cache key from format, quality, and latest data signature."""
-        first_ts = timestamps[0]
-        last_ts = timestamps[-1]
-        latest_nav = navs[-1]
-        return (
-            f"{export_format}:{quality}:{len(navs)}:{first_ts}:{last_ts}:{latest_nav:.2f}"
-        )
+        """Build cache key from interval and full point content."""
+        digest = hashlib.sha256(
+            json.dumps(points, separators=(",", ":")).encode("utf-8")
+        ).hexdigest()[:16]
+        return f"mp4:{interval}:{digest}"
 
-    def _get_cache_entry(self, key: str) -> _CacheEntry | None:
+    def _get_cache_entry(self, key: str) -> bytes | None:
         """Read non-expired cache entry if present."""
         now = time.time()
         with self._cache_lock:
             entry = self._cache.get(key)
             if entry is None:
                 return None
-            if entry.expires_at < now:
+            content, expires_at = entry
+            if expires_at < now:
                 self._cache.pop(key, None)
                 return None
-            return entry
+            return content
 
-    def _set_cache_entry(self, key: str, entry: _CacheEntry) -> None:
+    def _set_cache_entry(self, key: str, content: bytes, expires_at: float) -> None:
         """Store a cache entry and prune stale values."""
         now = time.time()
         with self._cache_lock:
-            self._cache[key] = entry
-            stale_keys = [k for k, v in self._cache.items() if v.expires_at < now]
+            self._cache[key] = (content, expires_at)
+            stale_keys = [k for k, (_, expiry) in self._cache.items() if expiry < now]
             for stale_key in stale_keys:
                 self._cache.pop(stale_key, None)
 
@@ -382,10 +264,39 @@ class ChartExportService:
         stamp = datetime.now().astimezone().strftime("%b-%d-%Y-%I-%M%p").lower()
         return f"coliseum-portfolio-{stamp}.mp4"
 
-    def _downgrade_quality(self, quality: ExportQuality) -> ExportQuality | None:
-        """Return the next lower quality profile."""
-        if quality == "hq":
-            return "balanced"
-        if quality == "balanced":
-            return "fast"
-        return None
+
+def _duration_in_frames(interval: ExportInterval, point_count: int, fps: int) -> int:
+    """Pick render duration from interval breadth and visible point count."""
+    base_seconds, seconds_per_point, min_seconds, max_seconds = _DURATION_PARAMS[
+        interval
+    ]
+    seconds = min(
+        max_seconds,
+        max(min_seconds, base_seconds + point_count * seconds_per_point),
+    )
+    return int(round(seconds * fps))
+
+
+def _all_time_bucket(earliest_at: datetime, latest_at: datetime) -> timedelta:
+    """Choose an all-time bucket that keeps long videos readable."""
+    span = latest_at - earliest_at
+    for max_span, bucket in _ALL_TIME_BUCKETS:
+        if span <= max_span:
+            return bucket
+    return timedelta(days=7)
+
+
+def _frontend_dir() -> Path:
+    """Resolve the frontend directory from the backend package path."""
+    override = os.getenv("COLISEUM_FRONTEND_DIR")
+    if override:
+        return Path(override).expanduser().resolve()
+    return Path(__file__).resolve().parents[3] / "frontend"
+
+
+def _parse_utc(value: str) -> datetime:
+    """Parse an ISO timestamp as timezone-aware UTC."""
+    parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)

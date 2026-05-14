@@ -64,6 +64,9 @@ frontend/next-env.d.ts
 # Environment Variables
 .env*
 
+# Generated media
+chart-export-preview*.mp4
+
 # Logs
 *.log
 logs/

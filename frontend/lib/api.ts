@@ -1,7 +1,6 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://coliseumapi.manitmishra.com";
+import type { Interval } from "./chart-utils";
 
-export type ChartExportFormat = "mp4";
-export type ChartExportQuality = "fast" | "balanced" | "hq";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://coliseumapi.manitmishra.com";
 
 function parseDownloadFilename(contentDisposition: string | null): string | null {
   if (!contentDisposition) return null;
@@ -10,10 +9,9 @@ function parseDownloadFilename(contentDisposition: string | null): string | null
 }
 
 export async function downloadChartExport(
-  format: ChartExportFormat = "mp4",
-  quality: ChartExportQuality = "balanced",
+  interval: Interval = "1M",
 ): Promise<{ blob: Blob; filename: string }> {
-  const params = new URLSearchParams({ format, quality });
+  const params = new URLSearchParams({ interval });
   const res = await fetch(`${API_BASE}/api/chart/export?${params.toString()}`);
 
   if (!res.ok) {
@@ -29,7 +27,7 @@ export async function downloadChartExport(
 
   const filename =
     parseDownloadFilename(res.headers.get("Content-Disposition")) ??
-    `coliseum-portfolio.${format}`;
+    `coliseum-portfolio.${interval.toLowerCase()}.mp4`;
 
   return { blob: await res.blob(), filename };
 }

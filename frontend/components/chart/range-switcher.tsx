@@ -4,7 +4,7 @@ import type { Interval } from "@/lib/chart-utils";
 import { FontSize } from "@/lib/typography";
 import { Faint, Muted } from "@/lib/styles";
 
-const INTERVALS: Interval[] = ["1D", "1W", "1M"];
+const INTERVALS: Interval[] = ["1D", "1W", "1M", "ALL"];
 
 interface RangeSwitcherProps {
   value: Interval;

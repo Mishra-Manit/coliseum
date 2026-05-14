@@ -16,11 +16,11 @@ from pydantic import BaseModel
 from coliseum.api.chart_export import (
     ChartExportBusyError,
     ChartExportDependencyError,
+    ChartExportError,
     ChartExportNoDataError,
     ChartExportService,
     ChartExportTimeoutError,
-    ExportFormat,
-    ExportQuality,
+    ExportInterval,
 )
 
 from coliseum.api.cache import get_or_compute, invalidate_all
@@ -249,12 +249,9 @@ async def _build_chart() -> dict[str, Any]:
         for c in cycles
     ]
 
-    if snapshots:
-        first_snapshot_at = snapshots[0]["snapshot_at"]
-        snapshots = [
-            s for s in legacy_series if s["snapshot_at"] < first_snapshot_at
-        ] + snapshots
-    else:
+    # Portfolio snapshots are the source of truth from dashboard_display.start_date onward.
+    # Legacy run-cycle NAVs are only a fallback for databases without snapshot history.
+    if not snapshots:
         snapshots = legacy_series
 
     if not snapshots:
@@ -407,10 +404,7 @@ async def get_chart_data():
 
 
 @router.get("/api/chart/export")
-async def export_chart(
-    format: ExportFormat = Query("mp4"),
-    quality: ExportQuality = Query("balanced"),
-):
+async def export_chart(interval: ExportInterval = Query("1M")):
     """Render and return a portfolio NAV animation as a downloadable MP4."""
     chart_data = await get_or_compute("chart", _cache_ttl(), _build_chart)
     cycles = [
@@ -420,7 +414,7 @@ async def export_chart(
 
     try:
         result = await asyncio.to_thread(
-            _chart_export_service.export, cycles, format, quality
+            _chart_export_service.export, cycles, interval
         )
     except ChartExportNoDataError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
@@ -430,13 +424,14 @@ async def export_chart(
         raise HTTPException(status_code=501, detail=str(exc))
     except ChartExportTimeoutError as exc:
         raise HTTPException(status_code=504, detail=str(exc))
+    except ChartExportError as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
 
     return Response(
         content=result.content,
         media_type=result.media_type,
         headers={
             "Content-Disposition": f'attachment; filename="{result.filename}"',
-            "X-Quality-Used": result.quality_used,
             "X-Cache-Hit": str(result.cache_hit).lower(),
         },
     )

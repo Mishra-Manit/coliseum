@@ -231,7 +231,7 @@ export function LWPortfolioChart({
     setIsExporting(true);
 
     try {
-      const { blob, filename } = await downloadChartExport("mp4", "balanced");
+      const { blob, filename } = await downloadChartExport(interval);
       const objectUrl = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = objectUrl;
