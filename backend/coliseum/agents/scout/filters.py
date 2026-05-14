@@ -3,30 +3,43 @@
 SAFE_CATEGORIES: set[str] = set()
 
 SAFE_EVENT_PREFIXES: set[str] = {
-    # Crypto 15-min ranges - unconditional (range-resolved, 0 losses ever)
-    "KXETH15M",   # 34W/0L, 34 events
+    # Crypto 15-min - unconditional (all zero-loss, event diversity >= 5)
+    "KXETH15M",   # 33W/0L, 33 events
     "KXSOL15M",   # 20W/0L, 20 events
     "KXXRP15M",   # 15W/0L, 15 events
-    # Sports - unconditional (game-resolved, no price-stop exposure)
+    # Sports - unconditional
     "KXMLBSTGAME",  # 22W/0L, 12 events
     "KXWBCGAME",    # 8W/0L, 5 events
-    # Mentions counters - unconditional (low intraday volatility)
+    # Mentions - unconditional
     "KXPRESMENTION",      # 13W/0L, 5 events
     "KXPOLITICSMENTION",  # 10W/0L, 6 events
-    # Economics weekly/release prints - unconditional (point-in-time data)
-    "KXJOBLESSCLAIMS",  # 14W/0L, 8 events
-    "KXAAAGASW",        # 20W/0L, 6 events (weekly gas - daily KXAAAGASD removed)
-    "KXTSAW",           # 10W/0L, 6 events
-    # Entertainment - unconditional (deterministic releases)
+    # Economics - unconditional
+    "KXJOBLESSCLAIMS",  # 13W/0L, 7 events
+    "KXAAAGASW",        # 20W/0L, 6 events (weekly gas, distinct from daily)
+    "KXTSAW",           # 10W/0L, 6 events (TSA weekly passengers)
+    # Entertainment - unconditional
     "KXRT",                # 14W/0L, 8 events (Rotten Tomatoes)
-    "KXARTISTSTREAMSU",    # 8W/0L, 8 events (Luminate weekly streams)
+    "KXARTISTSTREAMSU",    # 8W/0L, 8 events (weekly Luminate stream targets)
 }
 
 PRICE_GATED_EVENT_PREFIXES: dict[str, int] = {
-    # Crude oil weekly - only commodity that has survived live trading
-    "KXWTIW": 94,    # 54W/0L/7 events at gate (4W/0L live in April)
-    # ETH threshold (NOT directional) - tightened from 94c → 95c
-    "KXETH": 95,     # 32W/0L/19 events at >=95c gate
+    # Crypto directional (structural family requires >= 96c)
+    "KXETHD": 96,    # 46W/0L/33 events at gate
+    # Crypto 15-min BTC (gate added after losses below 94c)
+    "KXBTC15M": 94,  # 18W/0L/18 events at gate
+    # Crypto ETH threshold
+    "KXETH": 94,     # 32W/0L/17 events at gate
+    # Crude oil weekly - only surviving commodity
+    "KXWTIW": 94,    # 54W/0L/7 events at gate
+    # Weather (capped at 3 per policy, all price-gated)
+    "KXHIGHMIA": 96,   # 28W/0L/22 events at gate
+    "KXHIGHTDAL": 96,  # 19W/0L/17 events at gate
+    "KXLOWTMIA": 96,   # 15W/0L/13 events at gate (clean at all gates)
+    # Mentions (Trump-adjacent structural family requires >= 94c)
+    "KXTRUMPMENTION": 94,   # 27W/0L/9 events at gate
+    "KXTRUMPMENTIONB": 95,  # 16W/0L/6 events at gate
+    # Politics long-form approval rating
+    "KXAPRPOTUS": 93,    # 15W/0L/6 events at gate
 }
 
 
