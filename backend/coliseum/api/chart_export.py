@@ -76,7 +76,7 @@ class ChartExportService:
     """Generate and cache chart exports for API and automation usage."""
 
     def __init__(self) -> None:
-        self._cache_ttl_seconds = 300.0
+        self._cache_ttl_seconds = 21600.0
         self._cache: dict[str, tuple[bytes, float]] = {}
         self._cache_lock = threading.Lock()
         self._inflight_lock = threading.Lock()
