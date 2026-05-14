@@ -32,22 +32,38 @@ function formatMinutes(minutes: number): string {
   return m > 0 ? `${h}h ${m}m` : `${h}h`;
 }
 
-function formatSeconds(seconds: number): string {
-  if (seconds < 60) return `${seconds}s`;
-  const m = Math.floor(seconds / 60);
-  const s = seconds % 60;
-  return s > 0 ? `${m}m ${s}s` : `${m}m`;
-}
-
 function buildSections(config: ColiseumConfig): AgentSection[] {
+  const llm = config.llm ?? {};
+  const scout = config.scout ?? {};
   const daemon = config.daemon ?? {};
-  const execution = config.execution ?? {};
   const guardian = config.guardian ?? {};
+
+  const minPrice = typeof scout.min_price === "number" ? scout.min_price : null;
+  const maxPrice = typeof scout.max_price === "number" ? scout.max_price : null;
+  const priceRange =
+    minPrice !== null && maxPrice !== null
+      ? `${minPrice}¢ – ${maxPrice}¢`
+      : "—";
 
   return [
     {
-      agent: "DAEMON",
+      agent: "CONFIG",
       rows: [
+        {
+          label: "LLM provider",
+          value: typeof llm.provider === "string" ? llm.provider : "—",
+        },
+        {
+          label: "Price range",
+          value: priceRange,
+        },
+        {
+          label: "Min volume",
+          value:
+            typeof scout.min_volume === "number"
+              ? scout.min_volume.toLocaleString()
+              : "—",
+        },
         {
           label: "Pipeline cycle",
           value:
@@ -56,55 +72,10 @@ function buildSections(config: ColiseumConfig): AgentSection[] {
               : "—",
         },
         {
-          label: "Guardian check interval",
+          label: "Floor price",
           value:
-            typeof daemon.guardian_interval_minutes === "number"
-              ? formatMinutes(daemon.guardian_interval_minutes)
-              : "—",
-        },
-        {
-          label: "Max consecutive failures",
-          value:
-            typeof daemon.max_consecutive_failures === "number"
-              ? String(daemon.max_consecutive_failures)
-              : "—",
-        },
-      ],
-    },
-    {
-      agent: "EXECUTION",
-      rows: [
-        {
-          label: "Order check interval",
-          value:
-            typeof execution.order_check_interval_seconds === "number"
-              ? formatSeconds(execution.order_check_interval_seconds)
-              : "—",
-        },
-        {
-          label: "Max order age",
-          value:
-            typeof execution.max_order_age_minutes === "number"
-              ? formatMinutes(execution.max_order_age_minutes)
-              : "—",
-        },
-        {
-          label: "Max reprice attempts",
-          value:
-            typeof execution.max_reprice_attempts === "number"
-              ? String(execution.max_reprice_attempts)
-              : "—",
-        },
-      ],
-    },
-    {
-      agent: "GUARDIAN",
-      rows: [
-        {
-          label: "Stop-loss threshold",
-          value:
-            typeof guardian.stop_loss_price === "number"
-              ? `${Math.round(guardian.stop_loss_price * 100)}¢`
+            typeof guardian.floor_price === "number"
+              ? `${Math.round(guardian.floor_price * 100)}¢`
               : "—",
         },
       ],

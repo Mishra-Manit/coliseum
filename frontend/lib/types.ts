@@ -93,6 +93,7 @@ export interface OpportunityDetail {
 }
 
 export interface ColiseumConfig {
+  llm: Record<string, unknown>;
   trading: Record<string, unknown>;
   risk: Record<string, unknown>;
   scout: Record<string, unknown>;
