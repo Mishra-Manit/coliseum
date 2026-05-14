@@ -34,6 +34,7 @@ P = ParamSpec("P")
 T = TypeVar("T")
 
 _TRANSIENT_MARKERS = ("status_code: 500", "status_code: 502", "status_code: 503", "status_code: 429", "temporarily unavailable", "rate limit")
+_PIPELINE_RUNWAY_SECONDS = 300  # skip markets closing within 5 minutes
 
 
 async def _retry_transient(
@@ -149,6 +150,17 @@ async def run_pipeline(settings: Settings, shutdown_event: asyncio.Event | None 
                 break
 
             with logfire.span("opportunity {ticker}", ticker=opp.market_ticker, opportunity_id=opp.id, index=i, total=total):
+                seconds_to_close = (opp.close_time - datetime.now(timezone.utc)).total_seconds()
+                if seconds_to_close < _PIPELINE_RUNWAY_SECONDS:
+                    logfire.warn(
+                        "Skipping {ticker}: closes in {seconds:.0f}s (< {runway}s runway)",
+                        ticker=opp.market_ticker,
+                        seconds=seconds_to_close,
+                        runway=_PIPELINE_RUNWAY_SECONDS,
+                    )
+                    analyst_summaries.append(f"{opp.market_ticker}: skipped (closes in {seconds_to_close:.0f}s)")
+                    continue
+
                 with logfire.span("analyst", opportunity_id=opp.id):
                     try:
                         logger.info("Analyst starting for %s (%d/%d)", opp.market_ticker, i, total)

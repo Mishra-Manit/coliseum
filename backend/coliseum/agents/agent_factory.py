@@ -11,6 +11,7 @@ from pydantic_ai.models.openai import (
     OpenAIChatModelSettings,
     OpenAIResponsesModelSettings,
 )
+from pydantic_ai.models.fallback import FallbackModel
 from pydantic_ai.models.xai import XaiModel as PydanticAIXaiModel, XaiModelSettings
 from pydantic_ai.providers.openai import OpenAIProvider
 from pydantic_ai.providers.xai import XaiProvider
@@ -100,9 +101,11 @@ def _create_xai_agent(
     max_tokens: int | None = None,
     xai_model: GrokModel = GrokModel.GROK_4_20_NON_REASONING,
 ) -> Agent[DepsT, OutputT]:
-    """Create an agent using the xAI Grok provider."""
+    """Create an agent using the xAI Grok provider with OpenAI fallback."""
     system_prompt = _build_system_prompt(prompt, prepend_mechanics)
-    model = PydanticAIXaiModel(xai_model, provider=_get_xai_provider())
+    xai = PydanticAIXaiModel(xai_model, provider=_get_xai_provider())
+    openai_fallback = PydanticAIChatModel(OpenAIModel.GPT_5_4, provider=_get_openai_provider())
+    model = FallbackModel(xai, openai_fallback)
     settings_kwargs: dict[str, Any] = {"timeout": 300}
     if max_tokens is not None:
         settings_kwargs["max_tokens"] = max_tokens
