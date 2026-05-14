@@ -10,7 +10,7 @@ import {
 import { useLedger, usePortfolioState } from "@/hooks/use-api";
 import type { EnrichedPosition, LedgerEntry } from "@/lib/types";
 import { FontSize } from "@/lib/typography";
-import { Muted, Base, BgTint, BorderTint } from "@/lib/styles";
+import { Muted, Base, BgTint } from "@/lib/styles";
 
 interface PositionsLedgerPanelProps {
   onSelectOpportunity?: (id: string) => void;

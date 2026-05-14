@@ -30,7 +30,9 @@ export function TimezoneProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const stored = localStorage.getItem("coliseum-tz") as Timezone | null;
-    if (stored === "EST" || stored === "PST") setTzState(stored);
+    if (stored === "EST" || stored === "PST") {
+      window.setTimeout(() => setTzState(stored), 0);
+    }
   }, []);
 
   const setTz = (next: Timezone) => {

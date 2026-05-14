@@ -140,14 +140,7 @@ function DetailContent({
   const closeRelative = closeDate
     ? formatDistanceToNow(closeDate, { addSuffix: true })
     : "";
-  const isFuture = closeDate ? closeDate.getTime() > Date.now() : false;
-  const closeRelativeLabel = closeRelative
-    ? isFuture
-      ? closeRelative.startsWith("in ")
-        ? closeRelative
-        : `in ${closeRelative}`
-      : closeRelative
-    : "";
+  const closeRelativeLabel = closeRelative;
 
   return (
     <div className="flex flex-col gap-4">

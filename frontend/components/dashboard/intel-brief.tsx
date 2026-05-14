@@ -3,7 +3,7 @@
 import React from "react";
 import { ExternalLink } from "lucide-react";
 import { FontSize } from "@/lib/typography";
-import { Muted, Strong } from "@/lib/styles";
+import { Muted } from "@/lib/styles";
 import { stripCitations } from "@/lib/citations";
 import type { ParsedSections } from "@/lib/types";
 
