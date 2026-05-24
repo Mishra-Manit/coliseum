@@ -43,10 +43,9 @@ class ScoutConfig(BaseModel):
 class GuardianConfig(BaseModel):
     """Guardian agent monitoring parameters."""
 
-    floor_price: float = 0.50
     window_threshold_price: float = 0.75
     window_minutes: int = 15
-    sell_aggression_cents: int = 2
+    max_stop_spread_cents: int = 10
 
 
 class ExecutionConfig(BaseModel):
