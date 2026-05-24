@@ -72,10 +72,24 @@ function buildSections(config: ColiseumConfig): AgentSection[] {
               : "—",
         },
         {
-          label: "Floor price",
+          label: "Stop window",
           value:
-            typeof guardian.floor_price === "number"
-              ? `${Math.round(guardian.floor_price * 100)}¢`
+            typeof guardian.window_minutes === "number"
+              ? formatMinutes(guardian.window_minutes)
+              : "—",
+        },
+        {
+          label: "Stop threshold",
+          value:
+            typeof guardian.window_threshold_price === "number"
+              ? `${Math.round(guardian.window_threshold_price * 100)}¢`
+              : "—",
+        },
+        {
+          label: "Max stop spread",
+          value:
+            typeof guardian.max_stop_spread_cents === "number"
+              ? `${guardian.max_stop_spread_cents}¢`
               : "—",
         },
       ],
