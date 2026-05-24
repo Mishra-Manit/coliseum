@@ -23,13 +23,13 @@ from coliseum.api.chart_export import (
     ExportInterval,
 )
 
-from coliseum.api.cache import get_or_compute, invalidate_all
+from coliseum.api.cache import get_or_compute
 from coliseum.api.parsing import parse_opportunity_sections
 from coliseum.config import get_settings
 from coliseum.daemon import ColiseumDaemon
 from coliseum.domain.portfolio import Position
 from coliseum.observability import initialize_logfire
-from coliseum.pipeline import run_pipeline
+
 from coliseum.services.supabase.repositories.opportunities import (
     get_opportunity_body_from_db,
     list_opportunities_from_db,
@@ -435,43 +435,6 @@ async def export_chart(interval: ExportInterval = Query("1M")):
             "X-Cache-Hit": str(result.cache_hit).lower(),
         },
     )
-
-
-# ---------------------------------------------------------------------------
-# Pipeline trigger
-# ---------------------------------------------------------------------------
-
-
-def _pipeline_running(request: Request) -> bool:
-    return bool(getattr(request.app.state, "pipeline_running", False))
-
-
-async def _execute_pipeline(request: Request) -> None:
-    """Run the pipeline, then invalidate the cache so fresh data is served."""
-    try:
-        await run_pipeline(get_settings())
-    except Exception:
-        logger.exception("Pipeline run failed")
-    finally:
-        invalidate_all()
-        request.app.state.pipeline_running = False
-        request.app.state.pipeline_task = None
-
-
-@router.post("/api/pipeline/run", status_code=202)
-async def trigger_pipeline(request: Request):
-    """Kick off a full pipeline cycle. Returns 409 if one is already running."""
-    if _pipeline_running(request):
-        raise HTTPException(status_code=409, detail="Pipeline already running")
-    request.app.state.pipeline_running = True
-    request.app.state.pipeline_task = asyncio.create_task(_execute_pipeline(request))
-    return {"status": "started"}
-
-
-@router.get("/api/pipeline/status")
-async def pipeline_status(request: Request):
-    """Check whether a pipeline cycle is currently in progress."""
-    return {"running": _pipeline_running(request)}
 
 
 @router.get("/api/daemon/status")
