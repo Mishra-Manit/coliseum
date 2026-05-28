@@ -22,6 +22,7 @@ Prefetched market dataset:
 - All markets are pre-filtered by historical safety rules and baseline viability
 - Focus entirely on research quality and reversal risk
 - Use `entry_side`, `entry_price_cents`, and `entry_spread_cents` as the actionable trade context
+- CRITICAL: For the final opportunity, copy identity and market data fields EXACTLY from one PREFETCHED_MARKETS_JSON object. Do not infer, normalize, round, rename, abbreviate, or reconstruct tickers/titles from research.
 
 generate_opportunity_id_tool():
 - Call at most once, only after finalizing the selected opportunity
@@ -67,7 +68,12 @@ limitation and reduce scope; if non-critical, continue and note limitation; neve
 
 _OUTPUT_REQUIREMENTS_CORE = """\
 Critical field rules:
-- yes_price / no_price: decimal 0.0-1.0 (NOT cents -- write 0.42, not 42)
+- market_ticker: copy EXACTLY from the selected object's `ticker` field in PREFETCHED_MARKETS_JSON. Character-for-character. Never derive it from title, event_ticker, strike, bin, threshold, or research.
+- event_ticker: copy EXACTLY from the selected object's `event_ticker` field.
+- market_title: copy EXACTLY from the selected object's `market_title` field.
+- subtitle: copy EXACTLY from the selected object's `subtitle` field, or empty string if empty/null.
+- close_time: copy EXACTLY from the selected object's `close_time` field.
+- yes_price / no_price: convert only from the selected object's exact `yes_ask` / `no_ask` cents to decimal 0.0-1.0 (NOT cents -- write 0.42, not 42). Do not use researched prices.
 - markets_scanned: set exactly to len(PREFETCHED_MARKETS_JSON) provided in input context
 - markets_scanned is NOT self-reported; do not estimate from researched/evaluated/selected subsets
 - opportunities_found: must exactly match the length of the opportunities array
@@ -111,7 +117,10 @@ All prices as decimals 0.0-1.0. No commentary -- only the validated JSON object.
 Output Format: Valid JSON only; no trailing commas; no omitted required fields.
 
 Data Integrity: No fabricated sources or URLs; no invented price/volume data; always include
-at least one verifiable source URL; no extrapolation of missing data.
+at least one verifiable source URL; no extrapolation of missing data. The selected opportunity's
+market_ticker, event_ticker, market_title, subtitle, close_time, yes_price, and no_price must come
+only from the selected PREFETCHED_MARKETS_JSON object. Research may explain the trade, but it must
+never change identity fields, prices, strikes, bins, titles, dates, or tickers.
 
 Market Selection -- only reject a market for these specific reasons:
 - Active formal appeals, pending judicial/regulatory decisions that could void the contract
@@ -197,7 +206,8 @@ PHASE 3 — SELECT AND OUTPUT (after receiving all research results):
 9. Build the ScoutOutput JSON:
    - Call generate_opportunity_id_tool() once for the selected opportunity
    - Call get_current_time() once for discovered_at
-   - Calculate prices: yes_price = yes_ask / 100, no_price = no_ask / 100
+   - Copy market_ticker from `ticker`, event_ticker, market_title, subtitle, and close_time EXACTLY from that same prefetched object
+   - Calculate prices only from that same prefetched object: yes_price = yes_ask / 100, no_price = no_ask / 100
    - Populate all structured fields: outcome_status, risk_level, resolution_source,
      evidence_bullets (2-4 items with numbers), remaining_risks, scout_sources (min 1 URL)
    - Write rationale as a 1-2 sentence prose summary (no URLs)
@@ -249,7 +259,9 @@ scout_sources (required, min 1):
 <pre_output_validation>
 Field-Level:
 - [ ] id: non-empty string starting with "opp_"
-- [ ] yes_price and no_price: decimal between 0.0 and 1.0
+- [ ] market_ticker exactly equals one `ticker` from PREFETCHED_MARKETS_JSON, character-for-character
+- [ ] event_ticker, market_title, subtitle, and close_time exactly match that same prefetched object
+- [ ] yes_price and no_price are decimal conversions of that same object's yes_ask/no_ask, between 0.0 and 1.0
 - [ ] rationale: 1-2 sentences, no URLs
 - [ ] status: exactly "pending"
 
