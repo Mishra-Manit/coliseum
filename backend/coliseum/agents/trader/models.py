@@ -15,6 +15,7 @@ class TraderDependencies(BaseModel):
 
     kalshi_client: KalshiClient
     config: Settings
+    opportunity_market_ticker: str
 
 
 class TraderDecision(BaseModel):

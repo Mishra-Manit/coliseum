@@ -65,7 +65,20 @@ def _register_tools(agent: Agent[TraderDependencies, TraderOutput]) -> None:
     ) -> dict:
         """Fetch live Kalshi orderbook prices to confirm YES or NO is still 92-96%."""
         client = ctx.deps.kalshi_client
-        market = await client.get_market(ticker)
+        expected_ticker = ctx.deps.opportunity_market_ticker
+        requested_ticker = ticker.strip()
+        if requested_ticker != expected_ticker:
+            logger.warning(
+                "Trader requested live price for %s, using opportunity market ticker %s instead",
+                requested_ticker,
+                expected_ticker,
+            )
+            logfire.warn(
+                "Trader price-check ticker corrected",
+                requested_ticker=requested_ticker,
+                expected_ticker=expected_ticker,
+            )
+        market = await client.get_market(expected_ticker)
         if market.yes_ask:
             yes_price_decimal = market.yes_ask / 100
         else:
@@ -77,7 +90,8 @@ def _register_tools(agent: Agent[TraderDependencies, TraderOutput]) -> None:
             no_price_decimal = None
 
         return {
-            "ticker": ticker,
+            "ticker": expected_ticker,
+            "requested_ticker": requested_ticker,
             "yes_ask": market.yes_ask,
             "yes_price_decimal": yes_price_decimal,
             "no_ask": market.no_ask,
@@ -342,6 +356,7 @@ async def run_trader(
             deps = TraderDependencies(
                 kalshi_client=client,
                 config=settings,
+                opportunity_market_ticker=opportunity.market_ticker,
             )
 
             markdown_body = await get_opportunity_body_from_db(opportunity_id)
