@@ -3,6 +3,7 @@
 import asyncio
 import json
 import logging
+from datetime import datetime, timedelta, timezone
 
 import logfire
 from pydantic_ai import Agent, RunContext
@@ -203,13 +204,16 @@ async def _prefetch_markets_for_scan(
     )
     logger.info("Prefetch: %d markets in %d-%dh window", len(markets), cfg.min_close_hours, cfg.max_close_hours)
 
-    if seen_tickers:
-        markets = [m for m in markets if m.ticker not in seen_tickers]
-
-    markets = [m for m in markets if m.volume >= cfg.min_volume]
-
+    close_cutoff = datetime.now(timezone.utc) + timedelta(minutes=5)
     candidate_markets: list[tuple[Market, dict]] = []
     for market in markets:
+        if seen_tickers and market.ticker in seen_tickers:
+            continue
+        if not market.close_time or market.close_time < close_cutoff:
+            continue
+        if market.volume < cfg.min_volume:
+            continue
+
         entry_view = _entry_view(
             market,
             min_price_cents=cfg.min_price,
@@ -219,7 +223,7 @@ async def _prefetch_markets_for_scan(
         if entry_view is not None:
             candidate_markets.append((market, entry_view))
 
-    logger.info("Prefetch: %d markets after baseline filters", len(candidate_markets))
+    logger.info("Prefetch: %d eligible markets", len(candidate_markets))
 
     unique_event_tickers = list({market.event_ticker for market, _ in candidate_markets if market.event_ticker})
     event_meta = await _fetch_event_metadata(client, unique_event_tickers)
