@@ -131,6 +131,14 @@ class KalshiClient:
                     await asyncio.sleep(wait_time)
                     retry_count += 1
                     continue
+                elif response.status_code >= 400:
+                    # Surface the Kalshi error body (e.g. deprecated_v1_order_endpoint)
+                    # instead of a bare HTTPStatusError that escapes our except clauses.
+                    raise KalshiAPIError(
+                        f"Kalshi API error {response.status_code} on "
+                        f"{method} {endpoint}: {response.text}",
+                        status_code=response.status_code,
+                    )
 
                 response.raise_for_status()
                 return response.json()
@@ -336,6 +344,63 @@ class KalshiClient:
         )
         return self._parse_order(data.get("order", data))
 
+    @staticmethod
+    def _to_book_order(
+        side: Literal["yes", "no"],
+        action: Literal["buy", "sell"],
+        price_cents: int,
+    ) -> tuple[Literal["bid", "ask"], int]:
+        """Map yes/no + buy/sell to the V2 single-book model.
+
+        V2 quotes everything from the YES side: bid = buy YES, ask = sell YES.
+        A NO order at price q is the mirrored YES order at 100 - q.
+        """
+        if side == "yes":
+            if action == "buy":
+                book_side: Literal["bid", "ask"] = "bid"
+            else:
+                book_side = "ask"
+            return book_side, price_cents
+
+        if action == "buy":
+            book_side = "ask"
+        else:
+            book_side = "bid"
+        return book_side, 100 - price_cents
+
+    def _order_from_v2_response(
+        self,
+        data: dict[str, Any],
+        ticker: str,
+        side: Literal["yes", "no"],
+        action: str,
+    ) -> Order:
+        """Build an Order from a V2 create/amend response (partial shape)."""
+        def _i(key: str) -> int:
+            v = data.get(key)
+            if v is not None:
+                return int(float(v))
+            else:
+                return 0
+
+        fill_count = _i("fill_count")
+        remaining_count = _i("remaining_count")
+        if remaining_count == 0 and fill_count > 0:
+            status = "executed"
+        else:
+            status = "resting"
+
+        return Order(
+            order_id=data.get("order_id", ""),
+            ticker=ticker,
+            side=side,
+            status=status,
+            remaining_count=remaining_count,
+            fill_count=fill_count,
+            action=action,
+            client_order_id=data.get("client_order_id", "") or "",
+        )
+
     async def place_order(
         self,
         ticker: str,
@@ -354,60 +419,85 @@ class KalshiClient:
         if yes_price is None and no_price is None:
             raise ValueError("Must specify yes_price or no_price for limit orders")
 
+        if side == "yes":
+            if yes_price is not None:
+                price_cents = yes_price
+            else:
+                price_cents = 100 - no_price
+        else:
+            if no_price is not None:
+                price_cents = no_price
+            else:
+                price_cents = 100 - yes_price
+
+        if not 1 <= price_cents <= 99:
+            raise ValueError(f"Order price {price_cents}¢ outside valid 1-99¢ range")
+
+        book_side, book_price_cents = self._to_book_order(side, action, price_cents)
+
         order_data: dict[str, Any] = {
             "ticker": ticker,
-            "side": side,
-            "action": action,
-            "count_fp": f"{count:.2f}",
-            "type": type,
+            "side": book_side,
+            "count": f"{count:.2f}",
+            "price": f"{book_price_cents / 100:.4f}",
+            "time_in_force": "good_till_canceled",
+            "self_trade_prevention_type": "taker_at_cross",
         }
-
-        if yes_price is not None:
-            order_data["yes_price_dollars"] = f"{yes_price / 100:.4f}"
-        if no_price is not None:
-            order_data["no_price_dollars"] = f"{no_price / 100:.4f}"
         if client_order_id:
             order_data["client_order_id"] = client_order_id
         if expiration_time:
-            order_data["expiration_time"] = expiration_time.isoformat()
+            order_data["expiration_time"] = int(expiration_time.timestamp())
 
         logger.info(
-            f"Placing order: {action} {count} {side} contracts on {ticker} "
-            f"@ {yes_price or no_price}¢ (${(yes_price or no_price or 0) / 100:.4f})"
+            f"Placing V2 order: {action} {count} {side} contracts on {ticker} "
+            f"@ {price_cents}¢ (book: {book_side} @ {book_price_cents}¢)"
         )
 
         data = await self._request(
-            "POST", "portfolio/orders", json_data=order_data, auth_required=True
+            "POST", "portfolio/events/orders", json_data=order_data, auth_required=True
         )
-        return self._parse_order(data.get("order", data))
+        return self._order_from_v2_response(data, ticker, side, action)
 
     async def cancel_order(self, order_id: str) -> Order:
         logger.info(f"Cancelling order: {order_id}")
         data = await self._request(
-            "DELETE", f"portfolio/orders/{order_id}", auth_required=True
+            "DELETE", f"portfolio/events/orders/{order_id}", auth_required=True
         )
-        return self._parse_order(data.get("order", data))
+        return Order(
+            order_id=data.get("order_id", order_id),
+            status="canceled",
+            client_order_id=data.get("client_order_id", "") or "",
+        )
 
     async def amend_order(
         self,
         order_id: str,
-        count: int | None = None,
-        price: int | None = None,
+        ticker: str,
+        side: Literal["yes", "no"],
+        action: Literal["buy", "sell"],
+        count: int,
+        price: int,
     ) -> Order:
-        amend_data: dict[str, Any] = {}
-        if count is not None:
-            amend_data["count_fp"] = f"{count:.2f}"
-        if price is not None:
-            amend_data["yes_price_dollars"] = f"{price / 100:.4f}"
+        """Amend a resting order. Price is in cents of the order's own side."""
+        if not 1 <= price <= 99:
+            raise ValueError(f"Amend price {price}¢ outside valid 1-99¢ range")
+
+        book_side, book_price_cents = self._to_book_order(side, action, price)
+        amend_data: dict[str, Any] = {
+            "ticker": ticker,
+            "side": book_side,
+            "count": f"{count:.2f}",
+            "price": f"{book_price_cents / 100:.4f}",
+        }
 
         logger.info(f"Amending order {order_id}: {amend_data}")
         data = await self._request(
             "POST",
-            f"portfolio/orders/{order_id}/amend",
+            f"portfolio/events/orders/{order_id}/amend",
             json_data=amend_data,
             auth_required=True,
         )
-        return self._parse_order(data.get("order", data))
+        return self._order_from_v2_response(data, ticker, side, action)
 
     async def get_fills(
         self,

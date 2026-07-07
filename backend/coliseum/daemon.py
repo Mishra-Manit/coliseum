@@ -141,18 +141,61 @@ class ColiseumDaemon:
 
     async def _guardian_loop(self) -> None:
         """Continuous guardian loop: run -> cooldown -> run, independent of pipeline cycles."""
+        guardian_failures = 0
+        escalation_threshold = self.settings.daemon.max_consecutive_failures
+        # ~1h of consecutive 15s-cooldown failures between repeat alerts
+        realert_every = 240
+
         while not self._shutdown_event.is_set():
             try:
                 guardian_result = await run_guardian(settings=self.settings)
+                guardian_failures = 0
                 logger.info(
                     "Guardian complete: synced=%d closed=%d",
                     guardian_result.positions_synced,
                     guardian_result.reconciliation.newly_closed,
                 )
             except Exception as e:
-                logger.error("Guardian failed: %s", e)
+                guardian_failures += 1
+                logfire.error(
+                    "guardian run failed",
+                    consecutive_failures=guardian_failures,
+                    error=str(e),
+                )
+                logger.error("Guardian failed (%d consecutive): %s", guardian_failures, e)
+                if (
+                    guardian_failures == escalation_threshold
+                    or guardian_failures % realert_every == 0
+                ):
+                    await self._send_guardian_escalation(str(e), guardian_failures)
 
             await self._interruptible_sleep(GUARDIAN_COOLDOWN_SECONDS)
+
+    async def _send_guardian_escalation(self, error: str, failures: int) -> None:
+        """Alert via Telegram when Guardian keeps failing — it silently guards real positions."""
+        if not self.settings.telegram_send_alerts:
+            return
+        if not self.settings.telegram_bot_token or not self.settings.telegram_chat_id:
+            logger.warning("Guardian escalation skipped: Telegram not configured")
+            return
+
+        msg = (
+            "COLISEUM ALERT\n\n"
+            f"Guardian has failed {failures} consecutive runs.\n"
+            f"Last error: {error}\n\n"
+            "Position reconciliation, stop-losses, and price refreshes are NOT running. "
+            "Manual intervention recommended."
+        )
+        try:
+            async with TelegramClient(
+                bot_token=self.settings.telegram_bot_token,
+                default_chat_id=self.settings.telegram_chat_id,
+            ) as tg:
+                result = await tg.send_alert(msg)
+                if not result.success:
+                    logfire.warn("guardian escalation alert failed", error=result.error)
+        except Exception as exc:
+            logfire.error("failed to send guardian escalation alert", error=str(exc))
 
 
     async def _interruptible_sleep(self, seconds: float) -> None:

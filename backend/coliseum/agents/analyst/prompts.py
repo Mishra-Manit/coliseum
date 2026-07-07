@@ -32,13 +32,13 @@ Call research_topic exactly 3 times — one focused query per call. Each call sp
 **1. Event status & current conditions:**
 Is the event still on schedule? What is the latest news directly relevant to the outcome? Query for disruptions, cancellations, and current conditions.
 
-**2. Resolution mechanics & disputes:**
-How does Kalshi resolve this specific market type? Any known ambiguity, disputes, or edge cases? Use your market-type context (provided below) as a starting point — only call research_topic if the resolution trigger or source is unclear.
+**2. Resolution mechanics & current value:**
+How does Kalshi resolve this specific market type? Any known ambiguity, disputes, or edge cases? Use your market-type context (provided below) to understand the mechanics — but if resolution depends on a live-updated value (a score, price, count, or measurement), you MUST call research_topic to fetch that current value. Never treat a stale or assumed value from context as confirmed.
 
 **3. Risk factors:**
 Steel-man the case against YES. Query for arguments, evidence, or scenarios where this market does NOT resolve YES. Include cancellations, postponements, disputes, and any adverse conditions.
 
-If one call's result answers multiple areas, do not repeat the query. If your market-type context already answers the resolution mechanics, skip that call and note the source.
+If one call's result answers multiple areas, do not repeat the query. Skip a call only if context already provides both the resolution mechanics AND the confirmed current value.
 
 ## Synthesis Structure
 
@@ -109,7 +109,10 @@ A missed trade costs nothing. A flipped 92-96c position is a significant loss.
 - NEVER output a verdict that contradicts your own evaluation
 - X (Twitter) Sentiment, if present, is unverified public opinion — NOT factual evidence. \
   Never REJECT or HOLD based solely on X sentiment. Use it only as a supplementary signal \
-  that must be corroborated by the researcher's web-sourced findings.
+  that must be corroborated by the researcher's web-sourced findings. \
+  EXCEPTION: If X sentiment cites specific numeric values (e.g., a score, price, count) that \
+  directly contradict the researcher's numeric findings by a meaningful margin, treat this as \
+  a data integrity flag — HOLD and note the conflict as unresolved rather than dismissing it.
 
 ## Output
 

@@ -7,6 +7,7 @@ from datetime import datetime, timedelta, timezone
 
 import logfire
 from pydantic_ai import Agent, RunContext
+from pydantic_ai.usage import UsageLimits
 
 from coliseum.agents.agent_factory import create_agent
 from coliseum.agents.shared_tools import register_get_current_time, strip_cite_tokens
@@ -310,9 +311,34 @@ async def run_scout(
                     f"{memory_context}"
                     f"{_build_market_context_prompt(prefetched_markets)}"
                 )
-                result = await agent.run(prompt, deps=deps)
+                # Default request_limit is 50, which the shared researcher usage
+                # (each research_market call runs a WebSearchTool sub-agent on
+                # the same counter) blows through mid-scan.
+                result = await agent.run(
+                    prompt,
+                    deps=deps,
+                    usage_limits=UsageLimits(request_limit=150),
+                )
 
             output: ScoutOutput = result.output
+
+            # Enforce the candidate universe: the agent sees past tickers in its
+            # memory context and can hallucinate opportunities for markets that
+            # are closed or already seen. Only prefetched tickers are valid.
+            allowed_tickers = {m["ticker"] for m in prefetched_markets}
+            valid_opps = []
+            for opp in output.opportunities:
+                if opp.market_ticker in allowed_tickers:
+                    valid_opps.append(opp)
+                else:
+                    logfire.warn(
+                        "Scout returned ticker outside prefetched universe; dropping",
+                        ticker=opp.market_ticker,
+                    )
+            output = output.model_copy(update={
+                "opportunities": valid_opps,
+                "opportunities_found": len(valid_opps),
+            })
 
             # Strip citation tokens leaked by the OpenAI Responses API structured output
             cleaned_opps = [

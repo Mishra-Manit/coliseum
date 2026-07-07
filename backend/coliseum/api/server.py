@@ -209,7 +209,10 @@ async def _build_state() -> dict[str, Any]:
 
 
 async def _build_opportunities() -> list[dict[str, Any]]:
-    opps = await list_opportunities_from_db(start_date=_start_date())
+    opps = await list_opportunities_from_db(
+        start_date=_start_date(),
+        paper=get_settings().trading.paper_mode,
+    )
     return [
         {
             "id": opp.id,
@@ -231,7 +234,11 @@ async def _build_opportunities() -> list[dict[str, Any]]:
 
 
 async def _build_ledger(limit: int) -> list[dict[str, Any]]:
-    return await list_trades_from_db(start_date=_start_date(), limit=limit)
+    return await list_trades_from_db(
+        start_date=_start_date(),
+        limit=limit,
+        paper=get_settings().trading.paper_mode,
+    )
 
 
 async def _build_chart() -> dict[str, Any]:

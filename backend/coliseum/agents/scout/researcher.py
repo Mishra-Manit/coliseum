@@ -41,6 +41,18 @@ Return a structured plain-text synthesis covering:
 - If the event status is uncertain after searching, report UNCERTAIN and explain why.
 - Include specific numbers wherever possible — dates, prices, thresholds, percentages.
 - Do not editorialize about probability or trading strategy. Report facts only.
+
+## Rotten Tomatoes Score Markets
+
+When any query involves a Rotten Tomatoes score, you MUST report both scores as separate
+labeled lines:
+
+  Tomatometer (All Critics): X% (N reviews) — this is what Kalshi resolves on
+  Audience Score / Popcornmeter: Y% (N ratings) — not used for Kalshi resolution
+
+Never report a single "Rotten Tomatoes score" or "RT score" without specifying which type.
+The two scores frequently diverge by 10-30 points. If you can only find one score, state
+which type it is and note the other is missing.
 """
 
 _web_researcher: Agent[None, str] | None = None

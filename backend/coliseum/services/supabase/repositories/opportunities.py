@@ -333,8 +333,9 @@ async def get_entry_rationale_from_db(opportunity_id: str) -> str | None:
 
 async def list_opportunities_from_db(
     start_date: date | None = None,
+    paper: bool | None = None,
 ) -> list[OpportunitySignal]:
-    """List all opportunities with analysis, newest first, with optional date filter."""
+    """List all opportunities with analysis, newest first, with optional date/paper filter."""
     async with get_db_session() as session:
         stmt = (
             select(Opportunity, OpportunityAnalysis)
@@ -344,6 +345,8 @@ async def list_opportunities_from_db(
         if start_date is not None:
             start_dt = datetime.combine(start_date, time.min, tzinfo=timezone.utc)
             stmt = stmt.where(Opportunity.discovered_at >= start_dt)
+        if paper is not None:
+            stmt = stmt.where(Opportunity.paper == paper)
         rows = (await session.execute(stmt)).all()
 
     return [db_to_opportunity(opp, analysis) for opp, analysis in rows]

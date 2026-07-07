@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 
 import logfire
 
+from coliseum.api import cache as api_cache
 from coliseum.config import Settings, get_settings
 from coliseum.services.kalshi import KalshiClient
 from coliseum.services.telegram import TelegramClient
@@ -34,6 +35,10 @@ from .models import GuardianResult, ReconciliationStats
 from .scribe import run_scribe
 
 logger = logging.getLogger(__name__)
+
+SNAPSHOT_MIN_INTERVAL_SECONDS = 300
+
+_last_snapshot_at: datetime | None = None
 
 
 def _get_sell_fill_prices(
@@ -397,8 +402,22 @@ async def reconcile_closed_positions(
         )
         return updated_state, stats, newly_closed
 
+    if newly_closed:
+        api_cache.invalidate_all()
+
+    # Throttle snapshots: Guardian runs every ~15s, which produced hundreds of
+    # thousands of identical rows. Write only on position closes or every 5 min.
+    global _last_snapshot_at
+    now = datetime.now(timezone.utc)
+    interval_elapsed = (
+        _last_snapshot_at is None
+        or (now - _last_snapshot_at).total_seconds() >= SNAPSHOT_MIN_INTERVAL_SECONDS
+    )
+    if not newly_closed and not interval_elapsed:
+        return updated_state, stats, newly_closed
+
     realized_pnl = await get_realized_pnl_from_db()
-    snapshot_cycle_at = datetime.now(timezone.utc).isoformat()
+    snapshot_cycle_at = now.isoformat()
     try:
         await save_portfolio_snapshot_to_db(
             cash_balance=float(updated_state.portfolio.cash_balance),
@@ -407,6 +426,7 @@ async def reconcile_closed_positions(
             open_positions=sync_open_positions,
             realized_pnl=realized_pnl,
         )
+        _last_snapshot_at = now
     except Exception as e:
         stats.warnings += 1
         logfire.warn(

@@ -38,6 +38,7 @@ async def save_trade_close_to_db(close: TradeClose) -> None:
 async def list_trades_from_db(
     start_date: date | None = None,
     limit: int = 100,
+    paper: bool | None = None,
 ) -> list[dict]:
     """List buy trades and trade closes merged, sorted newest-first."""
     async with get_db_session() as session:
@@ -48,6 +49,9 @@ async def list_trades_from_db(
             start_dt = datetime.combine(start_date, time.min, tzinfo=timezone.utc)
             buy_stmt = buy_stmt.where(DBTrade.executed_at >= start_dt)
             close_stmt = close_stmt.where(DBTradeClose.closed_at >= start_dt)
+        if paper is not None:
+            # trade_closes has no paper column; closes only exist for real positions
+            buy_stmt = buy_stmt.where(DBTrade.paper == paper)
 
         buy_rows = (await session.execute(buy_stmt)).scalars().all()
         close_rows = (await session.execute(close_stmt)).scalars().all()

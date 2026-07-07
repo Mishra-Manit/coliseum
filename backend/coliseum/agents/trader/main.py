@@ -12,6 +12,7 @@ import logfire
 from pydantic_ai import Agent, RunContext
 
 from coliseum.agents.agent_factory import AgentFactory, create_agent
+from coliseum.api import cache as api_cache
 from coliseum.agents.trader.models import (
     OrderResult,
     TraderDependencies,
@@ -31,6 +32,7 @@ from coliseum.memory.decisions import DecisionEntry
 from coliseum.services.supabase.repositories.opportunities import (
     load_opportunity_from_db,
     get_opportunity_body_from_db,
+    mark_opportunity_failed_in_db,
     update_opportunity_trader_decision,
 )
 from coliseum.services.supabase.repositories.trades import save_trade_to_db
@@ -150,8 +152,15 @@ async def execute_working_order(
                 order_id = order.order_id
                 logger.info("Placed order %s: %d %s @ %d¢", order_id, contracts, side, current_price)
             else:
-                # Reprice existing order
-                order = await client.amend_order(order_id, price=current_price)
+                # Reprice existing order — V2 amend needs full order context
+                order = await client.amend_order(
+                    order_id,
+                    ticker=ticker,
+                    side=side,
+                    action="buy",
+                    count=contracts,
+                    price=current_price,
+                )
                 logger.info("Repriced order %s to %d¢ (attempt %d)", order_id, current_price, attempt)
 
             # Wait for fill — interruptible if daemon is shutting down
@@ -389,13 +398,30 @@ async def run_trader(
                 except Exception as exc:
                     logfire.error("Trade execution failed", opportunity_id=opportunity_id, error=str(exc))
 
+            # Opportunity status must reflect execution reality, not just intent:
+            # only actual fills (or paper simulations) count as traded.
+            if output.decision.action == "REJECT":
+                opp_status = "skipped"
+            elif output.execution_status in ("filled", "partial", "paper"):
+                opp_status = "traded"
+            elif output.execution_status == "error":
+                opp_status = "failed"
+            else:
+                opp_status = "skipped"
+
             try:
                 await update_opportunity_trader_decision(
                     opportunity_id=opportunity_id,
                     trader_decision=output.decision.action,
                     trader_tldr=output.tldr,
-                    status="skipped" if output.decision.action == "REJECT" else "traded",
+                    status=opp_status,
                 )
+                if opp_status == "failed":
+                    await mark_opportunity_failed_in_db(
+                        opportunity_id=opportunity_id,
+                        failed_stage="trader",
+                        error_message=f"order execution failed (execution_status={output.execution_status})",
+                    )
             except Exception as e:
                 logfire.error("DB write failed for trader decision", opportunity_id=opportunity_id, error=str(e))
 
@@ -420,6 +446,19 @@ async def _execute_trade(
 
     with logfire.span("slippage check", ticker=opportunity.market_ticker):
         market = await client.get_market(opportunity.market_ticker)
+
+        now = datetime.now(timezone.utc)
+        market_closed = market.status in ("closed", "settled", "finalized")
+        past_close = market.close_time is not None and market.close_time <= now
+        if market_closed or past_close:
+            logfire.warn(
+                "Market closed or past close time; rejecting trade",
+                ticker=opportunity.market_ticker,
+                market_status=market.status,
+                close_time=market.close_time.isoformat() if market.close_time else None,
+            )
+            return output.model_copy(update={"execution_status": "rejected"})
+
         if side == "yes":
             current_price_decimal = market.yes_ask / 100
         else:
@@ -538,6 +577,8 @@ async def _execute_trade(
             await save_trade_to_db(trade)
         except Exception as e:
             logfire.error("DB write failed for trade", trade_id=trade.id, error=str(e))
+
+        api_cache.invalidate_all()
 
         if order_result.fill_price:
             fill_price_rounded = round(order_result.fill_price, 4)
