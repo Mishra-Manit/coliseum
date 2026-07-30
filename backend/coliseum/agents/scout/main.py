@@ -25,7 +25,7 @@ from coliseum.services.supabase.repositories.seen_tickers import (
 )
 from coliseum.domain.opportunity import generate_opportunity_id
 
-from .filters import passes_filter
+from .filters import SAFE_EVENT_PREFIXES, passes_filter
 from .models import ScoutDependencies, ScoutOutput
 from .prompts import build_scout_prompt
 from .researcher import get_web_researcher
@@ -41,7 +41,7 @@ def _create_scout_agent(prompt: str) -> Agent[ScoutDependencies, ScoutOutput]:
         deps_type=ScoutDependencies,
         reasoning_effort="medium",
         prepend_mechanics=False,
-        xai_model=GrokModel.GROK_4_20_NON_REASONING,
+        xai_model=GrokModel.GROK_4_3,
     )
 
 
@@ -197,13 +197,23 @@ async def _prefetch_markets_for_scan(
     """Fetch and pre-filter market dataset before Scout agent run."""
     cfg = settings.scout
 
+    # Scope the scan to the shortlist. An unscoped /markets walk never reaches a
+    # tradable series — two parlay families alone exceed the fetch limit — so the
+    # allowlist doubles as the fetch plan rather than a post-hoc filter.
     markets = await client.get_markets_closing_in_range(
         min_hours=cfg.min_close_hours,
         max_hours=cfg.max_close_hours,
         limit=cfg.market_fetch_limit,
         status="open",
+        series_tickers=sorted(SAFE_EVENT_PREFIXES),
     )
-    logger.info("Prefetch: %d markets in %d-%dh window", len(markets), cfg.min_close_hours, cfg.max_close_hours)
+    logger.info(
+        "Prefetch: %d markets across %d shortlisted series in %d-%dh window",
+        len(markets),
+        len(SAFE_EVENT_PREFIXES),
+        cfg.min_close_hours,
+        cfg.max_close_hours,
+    )
 
     close_cutoff = datetime.now(timezone.utc) + timedelta(minutes=5)
     candidate_markets: list[tuple[Market, dict]] = []

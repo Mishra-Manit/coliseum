@@ -1,32 +1,53 @@
-"""Historical safety rules for Scout market prefiltering."""
+"""Historical safety rules for Scout market prefiltering.
+
+Flat allowlist plus a single global price floor. A family is included only if it
+clears all three thresholds on the combined record from every data source we have:
+
+  >= 15 resolved trades at >= 94c entry
+  >= 5 distinct events (an event, not a trade, is the independent unit)
+  >= 97.5% accuracy
+
+Sources combined per family:
+  CSV   - backend/monitoring/markets.csv shadow tracker, entries >= 94c
+  LIVE  - trade_closes in Supabase (real fills, Apr-Jun 2026)
+  OOS   - post-2026-07-08 paper decisions resolved against Kalshi outcomes.
+          This is the only forward-tested source; families carrying it are marked.
+
+Break-even at a 95c entry is 95% accuracy, so the 97.5% bar leaves roughly
+2.5 points of margin. Notation is (combined W/L, distinct events).
+"""
+
+MIN_ENTRY_PRICE_CENTS = 94
+"""Global floor. The allowlist was fit on 94-96c entries and does not generalize
+below that, so no family is tradable outside the band regardless of prefix."""
 
 SAFE_CATEGORIES: set[str] = set()
 
 SAFE_EVENT_PREFIXES: set[str] = {
-    # Crypto 15-min - unconditional (all zero-loss, event diversity >= 5)
-    "KXETH15M",   # 39W/0L, 39 events
-    "KXSOL15M",   # 21W/0L, 21 events
-    "KXXRP15M",   # 15W/0L, 15 events
-    # Sports - unconditional
-    "KXMLBSTGAME",  # 22W/0L, 12 events
-    "KXWBCGAME",    # 8W/0L, 5 events
-    # Mentions - unconditional
-    "KXPRESMENTION",      # 13W/0L, 5 events
-    "KXPOLITICSMENTION",  # 10W/0L, 6 events
-    # Economics - unconditional
-    "KXJOBLESSCLAIMS",  # 14W/0L, 8 events
-    "KXAAAGASW",        # 24W/0L, 7 events (weekly gas, distinct from daily)
-    "KXTSAW",           # 11W/0L, 7 events (TSA weekly passengers)
-    # Entertainment - unconditional
-    "KXRT",                # 16W/0L, 9 events (Rotten Tomatoes)
-    "KXARTISTSTREAMSU",    # 8W/0L, 8 events (weekly Luminate stream targets)
-}
-
-PRICE_GATED_EVENT_PREFIXES: dict[str, int] = {
-    # Crypto ETH threshold - tightened after a 94c loss in refreshed data
-    "KXETH": 95,     # 24W/0L/17 events at gate
-    # Crude oil weekly - only surviving commodity
-    "KXWTIW": 94,    # 57W/0L/8 events at gate
+    # Commodities - strongest category overall
+    "KXWTIW",      # 130W/2L, 9 events   [OOS: 50W/1L]
+    "KXBRENTW",    # 33W/0L, 6 events
+    "KXAAAGASW",   # 50W/1L, 7 events    [OOS: 21W/0L]
+    "KXGOLDW",     # 16W/0L, 5 events
+    # Crypto 15-minute up/down - every trade is its own event
+    "KXETH15M",    # 27W/0L, 26 events
+    "KXBTC15M",    # 22W/0L, 22 events
+    "KXSOL15M",    # 17W/0L, 17 events
+    # Crypto spot ladder
+    "KXETH",       # 51W/1L, 25 events   [OOS: 5W/0L]
+    # Economics
+    "KXJOBLESSCLAIMS",  # 32W/0L, 6 events   [OOS: 19W/0L]
+    "KXTSAW",           # 15W/0L, 7 events   [OOS: 4W/0L]
+    # Mentions
+    "KXTRUMPMENTION",   # 29W/0L, 9 events
+    # Entertainment
+    "KXRT",             # 41W/1L, 7 events   [OOS: 22W/1L]
+    # Weather - highest-diversity tickers only. These are correlated with each
+    # other on any given day, so the count is deliberately kept small.
+    "KXHIGHTPHX",  # 73W/0L, 39 events
+    "KXHIGHTSFO",  # 74W/1L, 41 events
+    "KXLOWTLAX",   # 64W/1L, 40 events
+    "KXHIGHCHI",   # 129W/3L, 53 events
 }
 
 
@@ -37,12 +58,10 @@ def _event_prefix(event_ticker: str) -> str:
 
 def passes_filter(category: str, event_ticker: str, entry_price_cents: int) -> bool:
     """Return True only for historically safe market buckets."""
+    if entry_price_cents < MIN_ENTRY_PRICE_CENTS:
+        return False
+
     if category in SAFE_CATEGORIES:
         return True
 
-    prefix = _event_prefix(event_ticker)
-    if prefix in SAFE_EVENT_PREFIXES:
-        return True
-
-    min_price = PRICE_GATED_EVENT_PREFIXES.get(prefix)
-    return min_price is not None and entry_price_cents >= min_price
+    return _event_prefix(event_ticker) in SAFE_EVENT_PREFIXES
