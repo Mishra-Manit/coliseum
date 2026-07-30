@@ -62,6 +62,6 @@ def get_web_researcher() -> Agent[None, str]:
             output_type=str,
             builtin_tools=[WebSearchTool()],
             prepend_mechanics=False,
-            xai_model=GrokModel.GROK_4_20_NON_REASONING,
+            xai_model=GrokModel.GROK_4_3,
         )
     return _web_researcher

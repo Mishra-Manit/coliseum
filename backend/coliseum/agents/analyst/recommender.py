@@ -33,7 +33,7 @@ def _create_agent() -> Agent[AnalystDependencies, RecommenderOutput]:
         deps_type=AnalystDependencies,
         use_responses_api=False,
         max_tokens=2048,
-        xai_model=GrokModel.GROK_4_20_NON_REASONING,
+        xai_model=GrokModel.GROK_4_3,
     )
 
 

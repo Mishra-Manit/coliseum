@@ -99,7 +99,7 @@ def _create_xai_agent(
     builtin_tools: list[Any] | None,
     prepend_mechanics: bool,
     max_tokens: int | None = None,
-    xai_model: GrokModel = GrokModel.GROK_4_20_NON_REASONING,
+    xai_model: GrokModel = GrokModel.GROK_4_3,
 ) -> Agent[DepsT, OutputT]:
     """Create an agent using the xAI Grok provider with OpenAI fallback."""
     system_prompt = _build_system_prompt(prompt, prepend_mechanics)
@@ -109,6 +109,11 @@ def _create_xai_agent(
     settings_kwargs: dict[str, Any] = {"timeout": 300}
     if max_tokens is not None:
         settings_kwargs["max_tokens"] = max_tokens
+    # grok-4.3 is a hybrid reasoning model; pin it to the lowest reasoning tier the
+    # pinned xai_sdk exposes for near-non-reasoning behavior. The legacy
+    # grok-4.20 *-non-reasoning models are inherently non-reasoning, so we leave them alone.
+    if xai_model == GrokModel.GROK_4_3:
+        settings_kwargs["xai_reasoning_effort"] = "low"
     model_settings = XaiModelSettings(**settings_kwargs)
 
     kwargs: dict[str, Any] = {
@@ -133,7 +138,7 @@ def create_agent(
     prepend_mechanics: bool = True,
     use_responses_api: bool = True,
     max_tokens: int | None = None,
-    xai_model: GrokModel = GrokModel.GROK_4_20_NON_REASONING,
+    xai_model: GrokModel = GrokModel.GROK_4_3,
 ) -> Agent[DepsT, OutputT]:
     """Create a PydanticAI agent with standard Coliseum configuration.
 

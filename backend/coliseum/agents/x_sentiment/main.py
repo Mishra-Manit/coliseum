@@ -44,7 +44,7 @@ async def run_x_sentiment(topic: str) -> XSentimentOutput:
         Structured sentiment output with classification, analysis, and key posts.
     """
     start_time = time.time()
-    model = GrokModel.GROK_4_20_NON_REASONING
+    model = GrokModel.GROK_4_3
 
     with logfire.span(
         "x_sentiment agent",

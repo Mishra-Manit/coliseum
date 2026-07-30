@@ -38,6 +38,10 @@ class FireworksModel(StrEnum):
 class GrokModel(StrEnum):
     """xAI Grok models available via API."""
 
+    # grok-4.3 is xAI's current flagship (hybrid reasoning model). "Non-reasoning"
+    # behavior is achieved by pinning reasoning effort to its lowest tier in the
+    # xAI model settings; true reasoning='none' requires xai_sdk with EFFORT_NONE.
+    GROK_4_3 = "grok-4.3"
     GROK_4_20_REASONING = "grok-4.20-0309-reasoning"
     GROK_4_20_NON_REASONING = "grok-4.20-0309-non-reasoning"
     GROK_4_20_MULTI_AGENT = "grok-4.20-multi-agent-0309"

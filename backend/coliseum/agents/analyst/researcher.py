@@ -32,7 +32,7 @@ def _create_agent() -> Agent[AnalystDependencies, ResearcherOutput]:
         output_type=ResearcherOutput,
         deps_type=AnalystDependencies,
         reasoning_effort="medium",
-        xai_model=GrokModel.GROK_4_20_NON_REASONING,
+        xai_model=GrokModel.GROK_4_3,
     )
 
 

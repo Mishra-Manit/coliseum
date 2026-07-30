@@ -27,7 +27,7 @@ def _create_agent() -> Agent[None, LearningReflectionOutput]:
         prompt=SCRIBE_PROMPT,
         output_type=LearningReflectionOutput,
         use_responses_api=False,
-        xai_model=GrokModel.GROK_4_20_NON_REASONING,
+        xai_model=GrokModel.GROK_4_3,
     )
 
 
