@@ -4,8 +4,8 @@ llm:
   provider: "xai"
 
 trading:
-  paper_mode: true
-  contracts: 8
+  paper_mode: false
+  contracts: 3
 
 scout:
   market_fetch_limit: 20000
