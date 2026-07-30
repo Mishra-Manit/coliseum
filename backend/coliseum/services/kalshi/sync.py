@@ -138,6 +138,26 @@ def extract_fill_price(fill: dict[str, Any], side: str | None) -> float | None:
     )
 
 
+def resolve_fill_action(fill: dict[str, Any]) -> str | None:
+    """Return the outcome-level buy/sell for a fill, ignoring the book leg.
+
+    V2 reports `action` against the single YES book, so acquiring NO comes back
+    as action=sell. Recover the user-facing action from book_side + outcome_side
+    when V2 supplies them, and fall back to `action` for legacy V1-era fills.
+    """
+    book_side = str(fill.get("book_side") or "").lower()
+    outcome_side = str(fill.get("outcome_side") or "").lower()
+    if book_side in {"bid", "ask"} and outcome_side in {"yes", "no"}:
+        if (outcome_side == "yes") == (book_side == "bid"):
+            return "buy"
+        return "sell"
+
+    action = fill.get("action")
+    if action is None:
+        return None
+    return str(action).lower()
+
+
 def _compute_average_entries(
     fills: list[dict[str, Any]],
 ) -> dict[tuple[str, str], float]:
@@ -147,11 +167,11 @@ def _compute_average_entries(
         ticker = fill.get("ticker") or fill.get("market_ticker")
         if not ticker:
             continue
-        side = normalize_kalshi_side(fill.get("side"))
+        side = normalize_kalshi_side(fill.get("side") or fill.get("outcome_side"))
         if not side:
             continue
-        action = fill.get("action")
-        if action and str(action).lower() not in {"buy", "b"}:
+        action = resolve_fill_action(fill)
+        if action and action not in {"buy", "b"}:
             continue
         count = extract_fill_count(fill)
         if not count:

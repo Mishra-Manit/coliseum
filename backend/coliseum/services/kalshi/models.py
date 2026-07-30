@@ -105,6 +105,7 @@ class Position(BaseModel):
     position: int = 0
     realized_pnl: int = 0
     resting_orders_count: int = 0
+    fees_paid: int = 0
     total_traded: int = 0
 
     @property

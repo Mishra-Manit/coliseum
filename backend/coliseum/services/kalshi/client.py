@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Any, Literal
 from uuid import uuid4
@@ -209,6 +210,7 @@ class KalshiClient:
         limit: int = 100,
         status: str = "open",
         event_ticker: str | None = None,
+        series_ticker: str | None = None,
     ) -> list[Market]:
         params: dict[str, Any] = {
             "limit": min(limit, self.config.default_page_size),
@@ -216,6 +218,8 @@ class KalshiClient:
         }
         if event_ticker:
             params["event_ticker"] = event_ticker
+        if series_ticker:
+            params["series_ticker"] = series_ticker
 
         raw_markets = await self._paginate("markets", params, limit, "markets")
         return [Market.from_api(m) for m in raw_markets]
@@ -240,45 +244,98 @@ class KalshiClient:
         max_hours: int = 24,
         limit: int = 10000,
         status: str = "open",
+        series_tickers: Sequence[str] | None = None,
     ) -> list[Market]:
-        """Fetch markets closing within a specified hour range from now."""
-        current_time = int(time.time())
-        min_close_ts = current_time + (min_hours * 3600)
-        max_close_ts = current_time + (max_hours * 3600)
+        """Fetch markets closing within a specified hour range from now.
 
-        params = {
-            "limit": min(limit, 1000),
+        When series_tickers is given, each series is queried separately. An
+        unscoped /markets scan is dominated by a handful of enormous parlay
+        series (KXMVESPORTSMULTIGAMEEXTENDED alone exceeds 16k open markets),
+        so a blind bulk page-walk exhausts its limit before reaching anything
+        tradable. Scoping by series is the only way to see the whole shortlist.
+        """
+        current_time = int(time.time())
+        base_params: dict[str, Any] = {
             "status": status,
-            "min_close_ts": min_close_ts,
-            "max_close_ts": max_close_ts,
+            "min_close_ts": current_time + (min_hours * 3600),
+            "max_close_ts": current_time + (max_hours * 3600),
         }
 
-        raw_markets = await self._paginate("markets", params, limit, "markets")
-        return [Market.from_api(m) for m in raw_markets]
+        if not series_tickers:
+            params = {**base_params, "limit": min(limit, self.config.default_page_size)}
+            raw_markets = await self._paginate("markets", params, limit, "markets")
+            return [Market.from_api(m) for m in raw_markets]
+
+        per_series = max(1, limit // len(series_tickers))
+        markets: list[Market] = []
+        seen: set[str] = set()
+        for series in series_tickers:
+            params = {
+                **base_params,
+                "series_ticker": series,
+                "limit": min(per_series, self.config.default_page_size),
+            }
+            try:
+                raw = await self._paginate("markets", params, per_series, "markets")
+            except KalshiAPIError as e:
+                # One dead series must not blank the whole scan.
+                logger.warning(f"Series fetch failed for {series}: {e}")
+                continue
+            for m in raw:
+                ticker = m.get("ticker", "")
+                if ticker and ticker not in seen:
+                    seen.add(ticker)
+                    markets.append(Market.from_api(m))
+
+        return markets
 
     async def get_orderbook(self, ticker: str, depth: int = 10) -> OrderBook:
+        """Fetch the book. V2 returns orderbook_fp with dollar-string levels.
+
+        Only resting bids are published, one array per outcome. The opposing
+        ask is the mirror of the other outcome's bid: a resting bid to buy NO
+        at 95c is the only thing a YES buyer can lift, and it costs them 5c.
+        """
         params = {"depth": depth}
         data = await self._request("GET", f"markets/{ticker}/orderbook", params=params)
 
-        orderbook = data.get("orderbook", {})
+        book = data.get("orderbook_fp") or {}
+        yes_raw = book.get("yes_dollars") or []
+        no_raw = book.get("no_dollars") or []
 
-        def parse_levels(levels: list[list[int]] | None) -> list[OrderBookLevel]:
-            if not levels:
-                return []
-            return [OrderBookLevel(price=lvl[0], count=lvl[1]) for lvl in levels]
+        def parse_levels(levels: Any, invert: bool = False) -> list[OrderBookLevel]:
+            parsed: list[OrderBookLevel] = []
+            for level in levels or []:
+                if not level or len(level) < 2:
+                    continue
+                price_cents = round(float(level[0]) * 100)
+                count = int(float(level[1]))
+                if invert:
+                    price_cents = 100 - price_cents
+                if 0 < price_cents < 100:
+                    parsed.append(OrderBookLevel(price=price_cents, count=count))
+            return parsed
 
         return OrderBook(
             ticker=ticker,
-            yes_bids=parse_levels(orderbook.get("yes", [])),
-            yes_asks=parse_levels(orderbook.get("no", [])),  # Kalshi inverts this
-            no_bids=parse_levels(orderbook.get("no", [])),
-            no_asks=parse_levels(orderbook.get("yes", [])),
+            yes_bids=parse_levels(yes_raw),
+            yes_asks=parse_levels(no_raw, invert=True),
+            no_bids=parse_levels(no_raw),
+            no_asks=parse_levels(yes_raw, invert=True),
         )
 
     async def get_balance(self) -> Balance:
         data = await self._request("GET", "portfolio/balance", auth_required=True)
+        # The integer `balance` field truncates sub-cent amounts (14.1880 -> 1418);
+        # prefer the dollar string so fee dust does not silently accumulate.
+        balance_dollars = data.get("balance_dollars")
+        if balance_dollars is not None:
+            balance_cents = round(float(balance_dollars) * 100)
+        else:
+            balance_cents = data.get("balance", 0)
+
         return Balance(
-            balance=data.get("balance", 0),
+            balance=balance_cents,
             portfolio_value=data.get("portfolio_value", 0),
         )
 
@@ -310,11 +367,15 @@ class KalshiClient:
             positions.append(
                 Position(
                     market_ticker=pos.get("ticker", ""),
-                    event_ticker=pos.get("event_ticker", ""),
+                    # V2 market_positions carries no event_ticker; derive it from
+                    # the market ticker (KXRT-SPI-92 -> KXRT-SPI) so downstream
+                    # reconciliation can still group by event.
+                    event_ticker=pos.get("ticker", "").rpartition("-")[0],
                     event_exposure=_c("market_exposure_dollars"),
                     position=int(float(pos.get("position_fp") or 0)),
                     realized_pnl=_c("realized_pnl_dollars"),
                     resting_orders_count=pos.get("resting_orders_count") or 0,
+                    fees_paid=_c("fees_paid_dollars"),
                     total_traded=_c("total_traded_dollars"),
                 )
             )
@@ -459,10 +520,22 @@ class KalshiClient:
         return self._order_from_v2_response(data, ticker, side, action)
 
     async def cancel_order(self, order_id: str) -> Order:
+        """Cancel a resting order. A missing order is treated as already terminal.
+
+        The reprice loop cancels orders that may have filled moments earlier; V2
+        returns 404 once an order leaves the book, and that is the state cancel
+        was asking for. Raising there would fail a trade that actually succeeded,
+        so the caller re-polls status to learn the real outcome.
+        """
         logger.info(f"Cancelling order: {order_id}")
-        data = await self._request(
-            "DELETE", f"portfolio/events/orders/{order_id}", auth_required=True
-        )
+        try:
+            data = await self._request(
+                "DELETE", f"portfolio/events/orders/{order_id}", auth_required=True
+            )
+        except KalshiNotFoundError:
+            logger.info(f"Order {order_id} no longer resting; treating as canceled")
+            return Order(order_id=order_id, status="canceled")
+
         return Order(
             order_id=data.get("order_id", order_id),
             status="canceled",
@@ -532,11 +605,25 @@ class KalshiClient:
             else:
                 return 0
 
+        # V2 reports the order from the single YES book: `side`/`action` describe
+        # the book leg, so a "buy NO" comes back as side=yes/action=sell. The
+        # outcome the order actually acquires lives in `outcome_side`, and the
+        # user-facing action is recovered by inverting _to_book_order.
+        outcome_side = data.get("outcome_side") or data.get("side") or "yes"
+        book_side = data.get("book_side", "")
+        if book_side:
+            if (outcome_side == "yes") == (book_side == "bid"):
+                action = "buy"
+            else:
+                action = "sell"
+        else:
+            action = data.get("action", "")
+
         return Order(
             order_id=data.get("order_id", ""),
             ticker=data.get("ticker", ""),
             event_ticker=data.get("event_ticker", ""),
-            side=data.get("side", "yes"),
+            side=outcome_side,
             type=data.get("type", "limit"),
             status=data.get("status", "resting"),
             yes_price=_c("yes_price_dollars"),
@@ -545,9 +632,9 @@ class KalshiClient:
             fill_count=_i("fill_count_fp"),
             queue_position=data.get("queue_position"),
             expiration_time=data.get("expiration_time"),
-            action=data.get("action", ""),
+            action=action,
             created_time=data.get("created_time"),
-            updated_time=data.get("updated_time"),
+            updated_time=data.get("last_update_time") or data.get("updated_time"),
             client_order_id=data.get("client_order_id", ""),
             order_group_id=data.get("order_group_id") or "",
             taker_fill_cost=_c("taker_fill_cost_dollars"),
