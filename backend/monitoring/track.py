@@ -21,6 +21,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from coliseum.config import get_settings
 from coliseum.services.kalshi.client import KalshiClient
 from coliseum.services.kalshi.config import KalshiConfig
+from coliseum.services.kalshi.exceptions import KalshiNotFoundError
 
 CSV_PATH = Path(__file__).parent / "markets.csv"
 
@@ -160,6 +161,7 @@ async def update() -> None:
 
     print(f"Checking {len(unresolved)} unresolved markets...")
     updated = 0
+    aged_out = 0
 
     async with KalshiClient(config=KalshiConfig()) as client:
         for row in unresolved:
@@ -178,6 +180,14 @@ async def update() -> None:
                     row["result"] = market.result
                     row["resolved_at"] = datetime.now(timezone.utc).isoformat()
                     updated += 1
+                # status closed but result still empty => settled-pending; leave for a later run
+            except KalshiNotFoundError:
+                # Under the V2 API, fully-settled markets are eventually purged from
+                # markets/{ticker}. Mark them terminal (excluded from analysis since
+                # close_price stays empty) so they are not retried on every run.
+                row["result"] = "unavailable"
+                row["resolved_at"] = datetime.now(timezone.utc).isoformat()
+                aged_out += 1
             except Exception as e:
                 print(f"  Error fetching {row['ticker']}: {e}")
             await asyncio.sleep(0.1)
@@ -190,7 +200,10 @@ async def update() -> None:
     shutil.move(tmp_path, CSV_PATH)
 
     total_resolved = sum(1 for r in rows if r["close_price"])
-    print(f"Updated {updated} markets. Total resolved: {total_resolved}/{len(rows)}.")
+    print(
+        f"Updated {updated} markets ({aged_out} aged-out/unavailable). "
+        f"Total resolved: {total_resolved}/{len(rows)}."
+    )
 
 
 async def run() -> None:
