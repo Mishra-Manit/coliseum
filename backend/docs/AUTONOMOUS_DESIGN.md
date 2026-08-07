@@ -407,28 +407,19 @@ This context string gets prepended to the agent's prompt, giving it awareness of
 
 #### Health Endpoint (`GET /health`)
 
-Lightweight HTTP endpoint the watchdog (or external monitoring) can poll:
+Implemented today as a lightweight HTTP endpoint that external monitoring can poll:
 
 ```json
 {
   "status": "healthy",
-  "uptime_seconds": 43200,
-  "last_cycle": "2026-03-05T14:30:00Z",
-  "last_cycle_duration_seconds": 47,
-  "cycles_completed": 12,
-  "consecutive_errors": 0,
-  "portfolio": {
-    "total_value": 100.00,
-    "open_positions": 3
-  },
-  "component_health": {
-    "scout": "healthy",
-    "analyst": "healthy", 
-    "trader": "healthy",
-    "guardian": "healthy"
-  }
+  "service": "coliseum-api",
+  "mode": "daemon",
+  "uptime_seconds": 43200.123,
+  "started_at": "2026-03-05T02:30:00+00:00"
 }
 ```
+
+`GET /health` is the canonical route and `GET /api/health` is supported as an alias. Richer daemon-cycle and component-health fields remain a future enhancement and continue to be surfaced separately via daemon diagnostics endpoints.
 
 #### Telegram Heartbeat
 
